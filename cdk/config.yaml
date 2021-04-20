@@ -1,0 +1,48 @@
+name: exampleconfig
+aws_account_id: "__FILL__"
+aws_region: "__FILL__"
+availability_zones: []
+#  - "us-west-2a"
+#  - "us-west-2b"
+#  - "us-west-2c"
+vpc:
+  id: null # ignored if create=true
+  create: true
+  cidr: "10.0.0.0/16"
+  max_azs: 3
+eks:
+  version: 1.19
+  private_api: true
+  nodegroups:
+    platform:
+      spot: false
+      disk_size: 20
+      min: 1
+      max: 1
+      desired: 1
+      instance_types:
+        - m5.2xlarge
+      labels:
+        dominodatalab.com/node-pool: platform
+      tags:
+        dominodatalab.com/node-pool: platform
+    compute:
+      spot: false
+      disk_size: 100
+      min: 1 # min 0 not supported w/managed node groups
+      max: 10
+      desired: 1
+      instance_types:
+        - m5.2xlarge
+      labels:
+        dominodatalab.com/node-pool: default
+        domino/build-node: "true"
+      tags:
+        dominodatalab.com/node-pool: default
+        domino/build-node: "true"
+s3:
+  buckets:
+    blobs: {}
+    logs: {}
+    backups: {}
+    registry: {}
