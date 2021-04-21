@@ -1,6 +1,10 @@
+from os.path import isfile
+from re import MULTILINE, split as re_split
+from requests import get as requests_get
+from yaml import safe_load as yaml_safe_load
+
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk import core as cdk
-
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
 # with examples from the CDK Developer's Guide, which are in the process of
@@ -11,6 +15,8 @@ import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 
+
+manifests = [["calico", "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml"]]
 
 class EksStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
@@ -178,6 +184,16 @@ class EksStack(cdk.Stack):
                 asg_group_statement.add_resources(ng.nodegroup_arn)
                 asg_policy.attach_to_role(ng.role)
                 c += 1
+
+        for manifest in manifests:
+            filename = f"{manifest[0]}.yaml"
+            if isfile(filename):
+                with open(filename) as f:
+                    manifest_text = f.read()
+            else:
+                manifest_text = requests_get(manifest[1]).text
+            loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
+            eks.KubernetesManifest(self, "calico", cluster=self.cluster, manifest=loaded_manifests)
 
         self.efs = efs.FileSystem(
             self,

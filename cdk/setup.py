@@ -20,6 +20,7 @@ setuptools.setup(
 
     install_requires=[
         "aws-cdk.core==1.97.0",
+        "requests==2.25.1"
     ],
 
     python_requires=">=3.6",
