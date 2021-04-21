@@ -37,8 +37,8 @@ class EksStack(cdk.Stack):
                 "s3:AbortMultipartUpload",
             ]
         )
-        for bucket in self.config["s3"]["buckets"].keys():
-            b = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}")
+        for bucket, cfg in self.config["s3"]["buckets"].items():
+            b = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}", auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"], removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN)
             s3_bucket_statement.add_resources(f"{b.bucket_arn}*")
 
         s3_policy = iam.Policy(

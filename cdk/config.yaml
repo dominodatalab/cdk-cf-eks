@@ -42,7 +42,15 @@ eks:
         domino/build-node: "true"
 s3:
   buckets:
-    blobs: {}
-    logs: {}
-    backups: {}
-    registry: {}
+    blobs:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    logs:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    backups:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    registry:
+      auto_delete_objects: false
+      removal_policy_destroy: false
