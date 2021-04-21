@@ -193,7 +193,9 @@ class EksStack(cdk.Stack):
             else:
                 manifest_text = requests_get(manifest[1]).text
             loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
-            eks.KubernetesManifest(self, "calico", cluster=self.cluster, manifest=loaded_manifests)
+            crds = eks.KubernetesManifest(self, "calico-crds", cluster=self.cluster, manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"])
+            non_crds = eks.KubernetesManifest(self, "calico", cluster=self.cluster, manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"])
+            non_crds.node.add_dependency(crds)
 
         self.efs = efs.FileSystem(
             self,
