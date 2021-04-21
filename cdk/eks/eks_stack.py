@@ -208,7 +208,7 @@ class EksStack(cdk.Stack):
             provisioned_throughput_per_second=core.Size.mebibytes(
                 100
             ),  # TODO: dev/nondev sizing
-            removal_policy=core.RemovalPolicy.DESTROY,  # TODO: dev/nondev defaults
+            removal_policy=core.RemovalPolicy.DESTROY if self.config["efs"]["removal_policy_destroy"] else core.RemovalPolicy.RETAIN,
             security_group=self.cluster.cluster_security_group,
             throughput_mode=efs.ThroughputMode.PROVISIONED,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),

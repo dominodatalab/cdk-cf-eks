@@ -10,6 +10,8 @@ vpc:
   create: true
   cidr: "10.0.0.0/16"
   max_azs: 3
+efs:
+  removal_policy_destroy: true
 eks:
   version: 1.19
   private_api: true
