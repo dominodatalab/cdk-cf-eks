@@ -27,6 +27,7 @@ class EksStack(cdk.Stack):
         self.vpc = self.config["vpc"]
         self.env = kwargs["env"]
         self.name = self.config["name"]
+        self.buckets = {}
 
         s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
             actions=[
@@ -38,8 +39,8 @@ class EksStack(cdk.Stack):
             ]
         )
         for bucket, cfg in self.config["s3"]["buckets"].items():
-            b = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}", auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"], removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN)
-            s3_bucket_statement.add_resources(f"{b.bucket_arn}*")
+            self.buckets[bucket] = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}", auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"], removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN)
+            s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
 
         s3_policy = iam.Policy(
             self,
@@ -185,6 +186,14 @@ class EksStack(cdk.Stack):
                 asg_policy.attach_to_role(ng.role)
                 c += 1
 
+        # This produces an obnoxious diff on every subsequent run
+        # Using a helm chart does not, so we should switch to that
+        # However, we need to figure out how to get the helm chart
+        # accessible by the CDK lambda first. Not clear how to give
+        # s3 perms to it programmatically, and while ECR might be
+        # an option it also doesn't seem like there's a way to push
+        # the chart with existing api calls.
+        # Probably need to do some custom lambda thing.
         for manifest in manifests:
             filename = f"{manifest[0]}.yaml"
             if isfile(filename):
