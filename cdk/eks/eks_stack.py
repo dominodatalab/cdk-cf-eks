@@ -1,6 +1,10 @@
+from os.path import isfile
+from re import MULTILINE, split as re_split
+from requests import get as requests_get
+from yaml import safe_load as yaml_safe_load
+
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk import core as cdk
-
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
 # with examples from the CDK Developer's Guide, which are in the process of
@@ -10,7 +14,12 @@ import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
+import aws_cdk.aws_lambda as aws_lambda
+from aws_cdk.lambda_layer_kubectl import KubectlLayer
+from aws_cdk.lambda_layer_awscli import AwsCliLayer
 
+
+manifests = [["calico", "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml"]]
 
 class EksStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
@@ -21,8 +30,9 @@ class EksStack(cdk.Stack):
         self.vpc = self.config["vpc"]
         self.env = kwargs["env"]
         self.name = self.config["name"]
+        self.buckets = {}
 
-        s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
+        self.s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
             actions=[
                 "s3:PutObject",
                 "s3:GetObject",
@@ -31,9 +41,9 @@ class EksStack(cdk.Stack):
                 "s3:AbortMultipartUpload",
             ]
         )
-        for bucket in self.config["s3"]["buckets"].keys():
-            b = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}")
-            s3_bucket_statement.add_resources(f"{b.bucket_arn}*")
+        for bucket, cfg in self.config["s3"]["buckets"].items():
+            self.buckets[bucket] = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}", auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"], removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN)
+            s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
 
         s3_policy = iam.Policy(
             self,
@@ -179,6 +189,8 @@ class EksStack(cdk.Stack):
                 asg_policy.attach_to_role(ng.role)
                 c += 1
 
+        self.install_calico()
+
         self.efs = efs.FileSystem(
             self,
             "Efs",
@@ -192,7 +204,7 @@ class EksStack(cdk.Stack):
             provisioned_throughput_per_second=core.Size.mebibytes(
                 100
             ),  # TODO: dev/nondev sizing
-            removal_policy=core.RemovalPolicy.DESTROY,  # TODO: dev/nondev defaults
+            removal_policy=core.RemovalPolicy.DESTROY if self.config["efs"]["removal_policy_destroy"] else core.RemovalPolicy.RETAIN,
             security_group=self.cluster.cluster_security_group,
             throughput_mode=efs.ThroughputMode.PROVISIONED,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
@@ -212,6 +224,75 @@ class EksStack(cdk.Stack):
                 # secondary_gids
             ),
         )
+
+    def install_calico(self):
+        self._install_calico_manifest()
+
+    def _install_calico_manifest(self):
+        # This produces an obnoxious diff on every subsequent run
+        # Using a helm chart does not, so we should switch to that
+        # However, we need to figure out how to get the helm chart
+        # accessible by the CDK lambda first. Not clear how to give
+        # s3 perms to it programmatically, and while ECR might be
+        # an option it also doesn't seem like there's a way to push
+        # the chart with existing api calls.
+        # Probably need to do some custom lambda thing.
+        for manifest in manifests:
+            filename = f"{manifest[0]}.yaml"
+            if isfile(filename):
+                with open(filename) as f:
+                    manifest_text = f.read()
+            else:
+                manifest_text = requests_get(manifest[1]).text
+            loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
+            crds = eks.KubernetesManifest(self, "calico-crds", cluster=self.cluster, manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"])
+            non_crds = eks.KubernetesManifest(self, "calico", cluster=self.cluster, manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"])
+            non_crds.node.add_dependency(crds)
+
+    def _install_calico_lambda(self):
+        # WIP
+        k8s_lambda = aws_lambda.Function(
+            self,
+            "k8s_lambda",
+            handler="main",
+            runtime=aws_lambda.Runtime.PROVIDED,
+            layers=[
+                KubectlLayer(self, "KubectlLayer"),
+                AwsCliLayer(self, "AwsCliLayer"),
+            ],
+            vpc=self.vpc,
+            code=aws_lambda.AssetCode("cni-bundle.zip"),
+            timeout=core.Duration.seconds(30),
+            environment={
+                "cluster_name": self.cluster.cluster_name
+            },
+            security_groups=self.cluster.connections.security_groups,
+        )
+        self.cluster.connections.allow_default_port_from(self.cluster.connections)
+        k8s_lambda.add_to_role_policy(self.s3_api_statement)
+        #k8s_lambda.add_to_role_policy(iam.PolicyStatement(
+        #    actions=["eks:*"],
+        #    resources=[self.cluster.cluster_arn],
+        #))
+        self.cluster.aws_auth.add_masters_role(k8s_lambda.role)
+        #run_calico_lambda.node.add_dependency(k8s_lambda)
+
+        # This got stuck, need to make a response object?
+        #run_calico_lambda = core.CustomResource(
+        #    self,
+        #    "run_calico_lambda",
+        #    service_token=k8s_lambda.function_arn,
+        #)
+
+        # This just doesn't trigger
+        from aws_cdk.aws_stepfunctions_tasks import LambdaInvoke
+        LambdaInvoke(
+            self,
+            "run_calico_lambda",
+            lambda_function=k8s_lambda,
+            timeout=core.Duration.seconds(120),
+        )
+
 
     # Override default max of 2 AZs, as well as allow configurability
     @property

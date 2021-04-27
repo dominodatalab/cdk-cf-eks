@@ -20,6 +20,18 @@ setuptools.setup(
 
     install_requires=[
         "aws-cdk.core==1.97.0",
+        "aws-cdk.aws_s3==1.97.0",
+        "aws-cdk.aws_ec2==1.97.0",
+        "aws-cdk.aws_eks==1.97.0",
+        "aws-cdk.aws_efs==1.97.0",
+        "aws-cdk.aws_iam==1.97.0",
+        "aws_cdk.aws_lambda==1.97.0",
+        "aws_cdk.lambda_layer_kubectl==1.97.0",
+        "aws_cdk.lambda_layer_awscli==1.97.0",
+        "aws_cdk.aws_stepfunctions_tasks==1.97.0",
+        "requests==2.25.1",
+        "black==20.8b1",
+        "PyYAML==5.4.1",
     ],
 
     python_requires=">=3.6",

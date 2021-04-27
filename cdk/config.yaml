@@ -10,6 +10,8 @@ vpc:
   create: true
   cidr: "10.0.0.0/16"
   max_azs: 3
+efs:
+  removal_policy_destroy: true
 eks:
   version: 1.19
   private_api: true
@@ -42,7 +44,15 @@ eks:
         domino/build-node: "true"
 s3:
   buckets:
-    blobs: {}
-    logs: {}
-    backups: {}
-    registry: {}
+    blobs:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    logs:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    backups:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    registry:
+      auto_delete_objects: false
+      removal_policy_destroy: false
