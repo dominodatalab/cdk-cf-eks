@@ -3,6 +3,8 @@
 
 This is a blank project for Python development with CDK.
 
+Read https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html about how to install AWS CDK and set up your region, etc.
+
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 
 This project is set up like a standard Python project.  The initialization
