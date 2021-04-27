@@ -283,6 +283,8 @@ class EksStack(cdk.Stack):
         #    "run_calico_lambda",
         #    service_token=k8s_lambda.function_arn,
         #)
+
+        # This just doesn't trigger
         from aws_cdk.aws_stepfunctions_tasks import LambdaInvoke
         LambdaInvoke(
             self,
