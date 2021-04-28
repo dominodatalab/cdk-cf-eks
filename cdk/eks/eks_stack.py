@@ -1,24 +1,23 @@
 from os.path import isfile
-from re import MULTILINE, split as re_split
-from requests import get as requests_get
-from yaml import safe_load as yaml_safe_load
+from re import MULTILINE
+from re import split as re_split
 
-from aws_cdk.aws_s3 import Bucket
-from aws_cdk import core as cdk
-
-# For consistency with other languages, `cdk` is the preferred import name for
-# the CDK's core module.  The following line also imports it as `core` for use
-# with examples from the CDK Developer's Guide, which are in the process of
-# being updated to use `cdk`.  You may delete this import if you don't need it.
-from aws_cdk import core
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as aws_lambda
-from aws_cdk.lambda_layer_kubectl import KubectlLayer
+# For consistency with other languages, `cdk` is the preferred import name for
+# the CDK's core module.  The following line also imports it as `core` for use
+# with examples from the CDK Developer's Guide, which are in the process of
+# being updated to use `cdk`.  You may delete this import if you don't need it.
+from aws_cdk import core
+from aws_cdk import core as cdk
+from aws_cdk.aws_s3 import Bucket
 from aws_cdk.lambda_layer_awscli import AwsCliLayer
-
+from aws_cdk.lambda_layer_kubectl import KubectlLayer
+from requests import get as requests_get
+from yaml import safe_load as yaml_safe_load
 
 manifests = [
     [
