@@ -32,6 +32,7 @@ setuptools.setup(
         "requests==2.25.1",
         "black==20.8b1",
         "PyYAML==5.4.1",
+        "isort==5.8.0",
     ],
 
     python_requires=">=3.6",
