@@ -5,6 +5,7 @@ from yaml import safe_load as yaml_safe_load
 
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk import core as cdk
+
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
 # with examples from the CDK Developer's Guide, which are in the process of
@@ -19,7 +20,13 @@ from aws_cdk.lambda_layer_kubectl import KubectlLayer
 from aws_cdk.lambda_layer_awscli import AwsCliLayer
 
 
-manifests = [["calico", "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml"]]
+manifests = [
+    [
+        "calico",
+        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
+    ]
+]
+
 
 class EksStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
@@ -27,11 +34,17 @@ class EksStack(cdk.Stack):
 
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
-        self.vpc = self.config["vpc"]
         self.env = kwargs["env"]
         self.name = self.config["name"]
         self.buckets = {}
 
+        self.provision_buckets()
+        self.provision_vpc(self.config["vpc"])
+        self.provision_eks_cluster()
+        self.install_calico()
+        self.provision_efs()
+
+    def provision_buckets(self):
         self.s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
             actions=[
                 "s3:PutObject",
@@ -41,11 +54,21 @@ class EksStack(cdk.Stack):
                 "s3:AbortMultipartUpload",
             ]
         )
+
         for bucket, cfg in self.config["s3"]["buckets"].items():
-            self.buckets[bucket] = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}", auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"], removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN)
+            self.buckets[bucket] = Bucket(
+                self,
+                bucket,
+                bucket_name=f"{self.name}-{bucket}",
+                auto_delete_objects=cfg["auto_delete_objects"]
+                and cfg["removal_policy_destroy"],
+                removal_policy=core.RemovalPolicy.DESTROY
+                if cfg["removal_policy_destroy"]
+                else core.RemovalPolicy.RETAIN,
+            )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
 
-        s3_policy = iam.Policy(
+        self.s3_policy = iam.Policy(
             self,
             "S3",
             policy_name="S3",
@@ -62,71 +85,74 @@ class EksStack(cdk.Stack):
             ],
         )
 
-        if self.vpc["create"]:
-            self.nat_provider = ec2.NatProvider.gateway()
-            self.vpc = ec2.Vpc(
+    def provision_vpc(self, vpc: dict):
+        if not vpc["create"]:
+            self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc["id"])
+            return
+
+        self.nat_provider = ec2.NatProvider.gateway()
+        self.vpc = ec2.Vpc(
+            self,
+            "VPC",
+            max_azs=vpc["max_azs"],
+            cidr=vpc["cidr"],
+            subnet_configuration=[
+                ec2.SubnetConfiguration(
+                    subnet_type=ec2.SubnetType.PUBLIC, name="Public", cidr_mask=24
+                ),
+                ec2.SubnetConfiguration(
+                    subnet_type=ec2.SubnetType.PRIVATE, name="Private", cidr_mask=24
+                ),
+            ],
+            gateway_endpoints={
+                "S3": ec2.GatewayVpcEndpointOptions(
+                    service=ec2.GatewayVpcEndpointAwsService.S3
+                ),
+            },
+            nat_gateway_provider=self.nat_provider,
+        )
+
+        # ripped off this: https://github.com/aws/aws-cdk/issues/9573
+        pod_cidr = ec2.CfnVPCCidrBlock(
+            self, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16"
+        )
+        c = 0
+        for az in self.vpc.availability_zones:
+            pod_subnet = ec2.PrivateSubnet(
                 self,
-                "VPC",
-                max_azs=self.vpc["max_azs"],
-                cidr=self.vpc["cidr"],
-                subnet_configuration=[
-                    ec2.SubnetConfiguration(
-                        subnet_type=ec2.SubnetType.PUBLIC, name="Public", cidr_mask=24
-                    ),
-                    ec2.SubnetConfiguration(
-                        subnet_type=ec2.SubnetType.PRIVATE, name="Private", cidr_mask=24
-                    ),
-                ],
-                gateway_endpoints={
-                    "S3": ec2.GatewayVpcEndpointOptions(
-                        service=ec2.GatewayVpcEndpointAwsService.S3
-                    ),
-                },
-                nat_gateway_provider=self.nat_provider,
+                f"{self.name}-pod-{c}",  # this can't be okay
+                vpc_id=self.vpc.vpc_id,
+                availability_zone=az,
+                cidr_block=f"100.64.{c}.0/18",
             )
 
-            # ripped off this: https://github.com/aws/aws-cdk/issues/9573
-            pod_cidr = ec2.CfnVPCCidrBlock(
-                self, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16"
+            pod_subnet.add_default_nat_route(
+                [gw for gw in self.nat_provider.configured_gateways if gw.az == az][
+                    0
+                ].gateway_id
             )
-            c = 0
-            for az in self.vpc.availability_zones:
-                pod_subnet = ec2.PrivateSubnet(
-                    self,
-                    f"{self.name}-pod-{c}",  # this can't be okay
-                    vpc_id=self.vpc.vpc_id,
-                    availability_zone=az,
-                    cidr_block=f"100.64.{c}.0/18",
-                )
+            pod_subnet.node.add_dependency(pod_cidr)
+            # TODO: need to tag
 
-                pod_subnet.add_default_nat_route(
-                    [gw for gw in self.nat_provider.configured_gateways if gw.az == az][
-                        0
-                    ].gateway_id
-                )
-                pod_subnet.node.add_dependency(pod_cidr)
-                # TODO: need to tag
+            c += 64
 
-                c += 64
+        for endpoint in [
+            "ec2",  # Only these first three have predefined consts
+            "sts",
+            "ecr.api",
+            "autoscaling",
+            "ecr.dkr",
+        ]:  # TODO: Do we need an s3 interface as well? or just the gateway?
+            self.vpc_endpoint = ec2.InterfaceVpcEndpoint(
+                self,
+                f"{endpoint}-ENDPOINT",
+                vpc=self.vpc,
+                service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
+                # private_dns_enabled=True,
+                subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
+            )
 
-            for endpoint in [
-                "ec2",  # Only these first three have predefined consts
-                "sts",
-                "ecr.api",
-                "autoscaling",
-                "ecr.dkr",
-            ]:  # TODO: Do we need an s3 interface as well? or just the gateway?
-                self.vpc_endpoint = ec2.InterfaceVpcEndpoint(
-                    self,
-                    f"{endpoint}-ENDPOINT",
-                    vpc=self.vpc,
-                    service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
-                    # private_dns_enabled=True,
-                    subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
-                )
-        else:
-            self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=self.vpc["id"])
-
+    def provision_eks_cluster(self):
         self.cluster = eks.Cluster(
             self,
             "Eks",
@@ -184,13 +210,12 @@ class EksStack(cdk.Stack):
                     labels=cfg["tags"],
                     tags=cfg["tags"],
                 )
-                s3_policy.attach_to_role(ng.role)
+                self.s3_policy.attach_to_role(ng.role)
                 asg_group_statement.add_resources(ng.nodegroup_arn)
                 asg_policy.attach_to_role(ng.role)
                 c += 1
 
-        self.install_calico()
-
+    def provision_efs(self):
         self.efs = efs.FileSystem(
             self,
             "Efs",
@@ -204,7 +229,9 @@ class EksStack(cdk.Stack):
             provisioned_throughput_per_second=core.Size.mebibytes(
                 100
             ),  # TODO: dev/nondev sizing
-            removal_policy=core.RemovalPolicy.DESTROY if self.config["efs"]["removal_policy_destroy"] else core.RemovalPolicy.RETAIN,
+            removal_policy=core.RemovalPolicy.DESTROY
+            if self.config["efs"]["removal_policy_destroy"]
+            else core.RemovalPolicy.RETAIN,
             security_group=self.cluster.cluster_security_group,
             throughput_mode=efs.ThroughputMode.PROVISIONED,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
@@ -244,9 +271,31 @@ class EksStack(cdk.Stack):
                     manifest_text = f.read()
             else:
                 manifest_text = requests_get(manifest[1]).text
-            loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
-            crds = eks.KubernetesManifest(self, "calico-crds", cluster=self.cluster, manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"])
-            non_crds = eks.KubernetesManifest(self, "calico", cluster=self.cluster, manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"])
+            loaded_manifests = [
+                yaml_safe_load(i)
+                for i in re_split("^---$", manifest_text, flags=MULTILINE)
+                if i
+            ]
+            crds = eks.KubernetesManifest(
+                self,
+                "calico-crds",
+                cluster=self.cluster,
+                manifest=[
+                    crd
+                    for crd in loaded_manifests
+                    if crd["kind"] == "CustomResourceDefinition"
+                ],
+            )
+            non_crds = eks.KubernetesManifest(
+                self,
+                "calico",
+                cluster=self.cluster,
+                manifest=[
+                    notcrd
+                    for notcrd in loaded_manifests
+                    if notcrd["kind"] != "CustomResourceDefinition"
+                ],
+            )
             non_crds.node.add_dependency(crds)
 
     def _install_calico_lambda(self):
@@ -263,36 +312,34 @@ class EksStack(cdk.Stack):
             vpc=self.vpc,
             code=aws_lambda.AssetCode("cni-bundle.zip"),
             timeout=core.Duration.seconds(30),
-            environment={
-                "cluster_name": self.cluster.cluster_name
-            },
+            environment={"cluster_name": self.cluster.cluster_name},
             security_groups=self.cluster.connections.security_groups,
         )
         self.cluster.connections.allow_default_port_from(self.cluster.connections)
         k8s_lambda.add_to_role_policy(self.s3_api_statement)
-        #k8s_lambda.add_to_role_policy(iam.PolicyStatement(
+        # k8s_lambda.add_to_role_policy(iam.PolicyStatement(
         #    actions=["eks:*"],
         #    resources=[self.cluster.cluster_arn],
-        #))
+        # ))
         self.cluster.aws_auth.add_masters_role(k8s_lambda.role)
-        #run_calico_lambda.node.add_dependency(k8s_lambda)
+        # run_calico_lambda.node.add_dependency(k8s_lambda)
 
         # This got stuck, need to make a response object?
-        #run_calico_lambda = core.CustomResource(
+        # run_calico_lambda = core.CustomResource(
         #    self,
         #    "run_calico_lambda",
         #    service_token=k8s_lambda.function_arn,
-        #)
+        # )
 
         # This just doesn't trigger
         from aws_cdk.aws_stepfunctions_tasks import LambdaInvoke
+
         LambdaInvoke(
             self,
             "run_calico_lambda",
             lambda_function=k8s_lambda,
             timeout=core.Duration.seconds(120),
         )
-
 
     # Override default max of 2 AZs, as well as allow configurability
     @property
