@@ -35,10 +35,16 @@ class EksStack(cdk.Stack):
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
-        self._name = core.CfnParameter(self, "name", type="String", description="Unique deployment id", default=self.config["name"]).value_as_string
+        self._name = core.CfnParameter(
+            self,
+            "name",
+            type="String",
+            description="Unique deployment id",
+            default=self.config["name"],
+        ).value_as_string
         core.CfnOutput(self, "deploy_name", value=self._name)
         core.Tags.of(self).add("domino-deploy-id", self.config["name"])
-        for k,v in self.config["tags"].items():
+        for k, v in self.config["tags"].items():
             core.Tags.of(self).add(str(k), str(v))
 
         self.provision_buckets()
@@ -71,7 +77,9 @@ class EksStack(cdk.Stack):
                 else core.RemovalPolicy.RETAIN,
             )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            core.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
+            core.CfnOutput(
+                self, f"{bucket}-output", value=self.buckets[bucket].bucket_name
+            )
 
         self.s3_policy = iam.Policy(
             self,
@@ -105,10 +113,14 @@ class EksStack(cdk.Stack):
             cidr=vpc["cidr"],
             subnet_configuration=[
                 ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PUBLIC, name=self.public_subnet_name, cidr_mask=24  # can't use token ids
+                    subnet_type=ec2.SubnetType.PUBLIC,
+                    name=self.public_subnet_name,
+                    cidr_mask=24,  # can't use token ids
                 ),
                 ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PRIVATE, name=self.private_subnet_name, cidr_mask=24  # can't use token ids
+                    subnet_type=ec2.SubnetType.PRIVATE,
+                    name=self.private_subnet_name,
+                    cidr_mask=24,  # can't use token ids
                 ),
             ],
             gateway_endpoints={
@@ -166,7 +178,7 @@ class EksStack(cdk.Stack):
         self.cluster = eks.Cluster(
             self,
             "eks",
-            #cluster_name=self._name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
+            # cluster_name=self._name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
             vpc_subnets=[ec2.SubnetType.PRIVATE]
             if self.config["eks"]["private_api"]
@@ -265,7 +277,11 @@ class EksStack(cdk.Stack):
             ),
         )
 
-        core.CfnOutput(self, f"efs-output", value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}")
+        core.CfnOutput(
+            self,
+            f"efs-output",
+            value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}",
+        )
 
     def install_calico(self):
         self._install_calico_manifest()
