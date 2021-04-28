@@ -166,7 +166,7 @@ class EksStack(cdk.Stack):
         self.cluster = eks.Cluster(
             self,
             "eks",
-            cluster_name=self._name,
+            #cluster_name=self._name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
             vpc_subnets=[ec2.SubnetType.PRIVATE]
             if self.config["eks"]["private_api"]
@@ -210,9 +210,9 @@ class EksStack(cdk.Stack):
                     if cfg["spot"]
                     else eks.CapacityType.ON_DEMAND,
                     disk_size=cfg.get("disk_size", None),
-                    min_size=cfg["min"],
-                    max_size=cfg["max"],
-                    desired_size=cfg["desired"],
+                    min_size=cfg["min_size"],
+                    max_size=cfg["max_size"],
+                    desired_size=cfg["desired_size"],
                     subnets=ec2.SubnetSelection(
                         subnet_group_name=self.private_subnet_name,
                         availability_zones=[az],
