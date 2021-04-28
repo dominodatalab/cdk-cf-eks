@@ -1,4 +1,4 @@
-name: exampleconfig
+name: domino
 aws_account_id: "__FILL__"
 aws_region: "__FILL__"
 availability_zones: []
