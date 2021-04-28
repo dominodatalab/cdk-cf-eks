@@ -35,7 +35,7 @@ class EksStack(cdk.Stack):
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
-        self.name = self.config["name"]
+        self._name = core.CfnParameter(self, "name", type="String", description="Unique deployment id", default=self.config["name"])
         self.buckets = {}
 
         self.provision_buckets()
@@ -59,7 +59,7 @@ class EksStack(cdk.Stack):
             self.buckets[bucket] = Bucket(
                 self,
                 bucket,
-                bucket_name=f"{self.name}-{bucket}",
+                bucket_name=f"{self._name.value_as_string}-{bucket}",
                 auto_delete_objects=cfg["auto_delete_objects"]
                 and cfg["removal_policy_destroy"],
                 removal_policy=core.RemovalPolicy.DESTROY
@@ -120,7 +120,8 @@ class EksStack(cdk.Stack):
         for az in self.vpc.availability_zones:
             pod_subnet = ec2.PrivateSubnet(
                 self,
-                f"{self.name}-pod-{c}",  # this can't be okay
+                # this can't be okay
+                f"{self.config['name']}-pod-{c}",  # Can't use parameter/token in this name
                 vpc_id=self.vpc.vpc_id,
                 availability_zone=az,
                 cidr_block=f"100.64.{c}.0/18",
@@ -222,7 +223,7 @@ class EksStack(cdk.Stack):
             vpc=self.vpc,
             # enable_automatic_backups=True,
             # encrypted=True,
-            file_system_name=self.name,
+            file_system_name=self._name.value_as_string,
             # kms_key,
             # lifecycle_policy,
             performance_mode=efs.PerformanceMode.MAX_IO,
