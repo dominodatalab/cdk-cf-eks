@@ -36,7 +36,10 @@ class EksStack(cdk.Stack):
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
         self._name = core.CfnParameter(self, "name", type="String", description="Unique deployment id", default=self.config["name"]).value_as_string
-        self.buckets = {}
+        core.CfnOutput(self, "deploy_name", value=self._name)
+        core.Tags.of(self).add("domino-deploy-id", self.config["name"])
+        for k,v in self.config["tags"].items():
+            core.Tags.of(self).add(str(k), str(v))
 
         self.provision_buckets()
         self.provision_vpc(self.config["vpc"])
@@ -55,6 +58,7 @@ class EksStack(cdk.Stack):
             ]
         )
 
+        self.buckets = {}
         for bucket, cfg in self.config["s3"]["buckets"].items():
             self.buckets[bucket] = Bucket(
                 self,
@@ -67,6 +71,7 @@ class EksStack(cdk.Stack):
                 else core.RemovalPolicy.RETAIN,
             )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
+            core.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
         self.s3_policy = iam.Policy(
             self,
@@ -113,6 +118,8 @@ class EksStack(cdk.Stack):
             },
             nat_gateway_provider=self.nat_provider,
         )
+        core.Tags.of(self.vpc).add("Name", self._name)
+        core.CfnOutput(self, f"vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(
@@ -158,7 +165,8 @@ class EksStack(cdk.Stack):
     def provision_eks_cluster(self):
         self.cluster = eks.Cluster(
             self,
-            "Eks",
+            "eks",
+            cluster_name=self._name,
             vpc=self.vpc,
             vpc_subnets=[ec2.SubnetType.PRIVATE]
             if self.config["eks"]["private_api"]
@@ -166,6 +174,8 @@ class EksStack(cdk.Stack):
             version=eks.KubernetesVersion.V1_19,
             default_capacity=0,
         )
+
+        core.CfnOutput(self, f"eks-output", value=self.cluster.cluster_name)
 
         asg_group_statement = iam.PolicyStatement(
             actions=[
@@ -240,7 +250,7 @@ class EksStack(cdk.Stack):
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
         )
 
-        self.efs.add_access_point(
+        self.efs_access_point = self.efs.add_access_point(
             "access_point",
             create_acl=efs.Acl(
                 owner_uid="0",
@@ -254,6 +264,8 @@ class EksStack(cdk.Stack):
                 # secondary_gids
             ),
         )
+
+        core.CfnOutput(self, f"efs-output", value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}")
 
     def install_calico(self):
         self._install_calico_manifest()
