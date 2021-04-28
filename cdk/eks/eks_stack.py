@@ -3,7 +3,8 @@ from re import MULTILINE, split as re_split
 from requests import get as requests_get
 from yaml import safe_load as yaml_safe_load
 
-from aws_cdk.aws_s3 import Bucket
+from aws_cdk.aws_s3 import Bucket, BucketEncryption
+from aws_cdk.aws_kms import Key
 from aws_cdk import core as cdk
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
@@ -42,13 +43,59 @@ class EksStack(cdk.Stack):
             ]
         )
         for bucket, cfg in self.config["s3"]["buckets"].items():
-            self.buckets[bucket] = Bucket(self, bucket, bucket_name=f"{self.name}-{bucket}", auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"], removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN)
+
+            use_sse_kms_key = False
+            if "sse_kms_key_id" in cfg:
+                use_sse_kms_key = True
+                sse_kms_key = Key.from_key_arn(self, f"{self.name}-{bucket}-kms-key", cfg["sse_kms_key_id"])
+
+            self.buckets[bucket] = Bucket(self, f"{self.name}-{bucket}",
+                                          bucket_name=f"{self.name}-{bucket}",
+                                          auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"],
+                                          removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN,
+                                          enforce_ssl=True,
+                                          bucket_key_enabled=use_sse_kms_key,
+                                          encryption_key=(sse_kms_key if use_sse_kms_key else None),
+                                          encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED)
+                                          )
+            self.buckets[bucket].add_to_resource_policy(
+                iam.PolicyStatement(
+                    sid="DenyIncorrectEncryptionHeader",
+                    effect=iam.Effect.DENY,
+                    principals=[iam.ArnPrincipal("*")],
+                    actions=[
+                        "s3:PutObject",
+                    ],
+                    resources=[f"{self.buckets[bucket].bucket_arn}/*"],
+                    conditions={
+                        "StringNotEquals": {
+                            "s3:x-amz-server-side-encryption": "aws:kms" if use_sse_kms_key else "AES256"
+                        }
+                    }
+                )
+            )
+            self.buckets[bucket].add_to_resource_policy(
+                iam.PolicyStatement(
+                    sid="DenyUnEncryptedObjectUploads",
+                    effect=iam.Effect.DENY,
+                    principals=[iam.ArnPrincipal("*")],
+                    actions=[
+                        "s3:PutObject",
+                    ],
+                    resources=[f"{self.buckets[bucket].bucket_arn}/*"],
+                    conditions={
+                        "Null": {
+                            "s3:x-amz-server-side-encryption": "true"
+                        }
+                    }
+                )
+            )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
 
         s3_policy = iam.Policy(
             self,
-            "S3",
-            policy_name="S3",
+            f"{self.name}-S3",
+            policy_name=f"{self.name}-S3",
             statements=[
                 iam.PolicyStatement(
                     actions=[

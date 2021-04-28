@@ -21,7 +21,7 @@ app = core.App(context={"config":cfg})
 
 env_vars = {}
 
-EksStack(app, "EksStack",
+EksStack(app, f"domino-eks-{cfg['name']}",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
