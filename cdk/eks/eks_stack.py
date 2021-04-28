@@ -13,8 +13,8 @@ import aws_cdk.aws_lambda as aws_lambda
 # being updated to use `cdk`.  You may delete this import if you don't need it.
 from aws_cdk import core
 from aws_cdk import core as cdk
-from aws_cdk.aws_s3 import Bucket, BucketEncryption
 from aws_cdk.aws_kms import Key
+from aws_cdk.aws_s3 import Bucket, BucketEncryption
 from aws_cdk.lambda_layer_awscli import AwsCliLayer
 from aws_cdk.lambda_layer_kubectl import KubectlLayer
 from requests import get as requests_get
@@ -69,17 +69,28 @@ class EksStack(cdk.Stack):
             use_sse_kms_key = False
             if "sse_kms_key_id" in cfg:
                 use_sse_kms_key = True
-                sse_kms_key = Key.from_key_arn(self, f"{self.name}-{bucket}-kms-key", cfg["sse_kms_key_id"])
+                sse_kms_key = Key.from_key_arn(
+                    self, f"{bucket}-kms-key", cfg["sse_kms_key_id"]
+                )
 
-            self.buckets[bucket] = Bucket(self, bucket,
-                                          bucket_name=f"{self._name}-{bucket}",
-                                          auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"],
-                                          removal_policy=core.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else core.RemovalPolicy.RETAIN,
-                                          enforce_ssl=True,
-                                          bucket_key_enabled=use_sse_kms_key,
-                                          encryption_key=(sse_kms_key if use_sse_kms_key else None),
-                                          encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED)
-                                          )
+            self.buckets[bucket] = Bucket(
+                self,
+                bucket,
+                bucket_name=f"{self._name}-{bucket}",
+                auto_delete_objects=cfg["auto_delete_objects"]
+                and cfg["removal_policy_destroy"],
+                removal_policy=core.RemovalPolicy.DESTROY
+                if cfg["removal_policy_destroy"]
+                else core.RemovalPolicy.RETAIN,
+                enforce_ssl=True,
+                bucket_key_enabled=use_sse_kms_key,
+                encryption_key=(sse_kms_key if use_sse_kms_key else None),
+                encryption=(
+                    BucketEncryption.KMS
+                    if use_sse_kms_key
+                    else BucketEncryption.S3_MANAGED
+                ),
+            )
             self.buckets[bucket].add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="DenyIncorrectEncryptionHeader",
@@ -91,9 +102,11 @@ class EksStack(cdk.Stack):
                     resources=[f"{self.buckets[bucket].bucket_arn}/*"],
                     conditions={
                         "StringNotEquals": {
-                            "s3:x-amz-server-side-encryption": "aws:kms" if use_sse_kms_key else "AES256"
+                            "s3:x-amz-server-side-encryption": "aws:kms"
+                            if use_sse_kms_key
+                            else "AES256"
                         }
-                    }
+                    },
                 )
             )
             self.buckets[bucket].add_to_resource_policy(
@@ -105,11 +118,7 @@ class EksStack(cdk.Stack):
                         "s3:PutObject",
                     ],
                     resources=[f"{self.buckets[bucket].bucket_arn}/*"],
-                    conditions={
-                        "Null": {
-                            "s3:x-amz-server-side-encryption": "true"
-                        }
-                    }
+                    conditions={"Null": {"s3:x-amz-server-side-encryption": "true"}},
                 )
             )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
