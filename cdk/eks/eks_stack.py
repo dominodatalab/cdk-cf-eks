@@ -35,7 +35,7 @@ class EksStack(cdk.Stack):
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
-        self._name = core.CfnParameter(self, "name", type="String", description="Unique deployment id", default=self.config["name"])
+        self._name = core.CfnParameter(self, "name", type="String", description="Unique deployment id", default=self.config["name"]).value_as_string
         self.buckets = {}
 
         self.provision_buckets()
@@ -59,7 +59,7 @@ class EksStack(cdk.Stack):
             self.buckets[bucket] = Bucket(
                 self,
                 bucket,
-                bucket_name=f"{self._name.value_as_string}-{bucket}",
+                bucket_name=f"{self._name}-{bucket}",
                 auto_delete_objects=cfg["auto_delete_objects"]
                 and cfg["removal_policy_destroy"],
                 removal_policy=core.RemovalPolicy.DESTROY
@@ -71,7 +71,7 @@ class EksStack(cdk.Stack):
         self.s3_policy = iam.Policy(
             self,
             "S3",
-            policy_name="S3",
+            policy_name=f"{self._name}-S3",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -86,6 +86,8 @@ class EksStack(cdk.Stack):
         )
 
     def provision_vpc(self, vpc: dict):
+        self.public_subnet_name = f"{self.config['name']}-public"
+        self.private_subnet_name = f"{self.config['name']}-private"
         if not vpc["create"]:
             self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc["id"])
             return
@@ -98,10 +100,10 @@ class EksStack(cdk.Stack):
             cidr=vpc["cidr"],
             subnet_configuration=[
                 ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PUBLIC, name="Public", cidr_mask=24
+                    subnet_type=ec2.SubnetType.PUBLIC, name=self.public_subnet_name, cidr_mask=24  # can't use token ids
                 ),
                 ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PRIVATE, name="Private", cidr_mask=24
+                    subnet_type=ec2.SubnetType.PRIVATE, name=self.private_subnet_name, cidr_mask=24  # can't use token ids
                 ),
             ],
             gateway_endpoints={
@@ -176,7 +178,7 @@ class EksStack(cdk.Stack):
         asg_policy = iam.Policy(
             self,
             "ASG",
-            policy_name="ASG",
+            policy_name=f"{self._name}-asg",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -202,7 +204,7 @@ class EksStack(cdk.Stack):
                     max_size=cfg["max"],
                     desired_size=cfg["desired"],
                     subnets=ec2.SubnetSelection(
-                        subnet_group_name="Private",
+                        subnet_group_name=self.private_subnet_name,
                         availability_zones=[az],
                     ),
                     instance_types=[
@@ -223,7 +225,7 @@ class EksStack(cdk.Stack):
             vpc=self.vpc,
             # enable_automatic_backups=True,
             # encrypted=True,
-            file_system_name=self._name.value_as_string,
+            file_system_name=self._name,
             # kms_key,
             # lifecycle_policy,
             performance_mode=efs.PerformanceMode.MAX_IO,
