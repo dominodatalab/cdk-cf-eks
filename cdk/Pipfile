@@ -11,6 +11,7 @@ name = "pypi"
 pyyaml = "*"
 "aws-cdk.aws-eks" = "*"
 requests = "*"
+"aws-cdk.aws-backup" = "*"
 
 [dev-packages]
 isort = "*"

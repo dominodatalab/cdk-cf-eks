@@ -7,12 +7,13 @@ import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as aws_lambda
+import aws_cdk.aws_backup as backup
+import aws_cdk.aws_events as events
 
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
 # with examples from the CDK Developer's Guide, which are in the process of
 # being updated to use `cdk`.  You may delete this import if you don't need it.
-from aws_cdk import core
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import Bucket, BucketEncryption
@@ -36,17 +37,17 @@ class EksStack(cdk.Stack):
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
-        self._name = core.CfnParameter(
+        self._name = cdk.CfnParameter(
             self,
             "name",
             type="String",
             description="Unique deployment id",
             default=self.config["name"],
         ).value_as_string
-        core.CfnOutput(self, "deploy_name", value=self._name)
-        core.Tags.of(self).add("domino-deploy-id", self.config["name"])
+        cdk.CfnOutput(self, "deploy_name", value=self._name)
+        cdk.Tags.of(self).add("domino-deploy-id", self.config["name"])
         for k, v in self.config["tags"].items():
-            core.Tags.of(self).add(str(k), str(v))
+            cdk.Tags.of(self).add(str(k), str(v))
 
         self.provision_buckets()
         self.provision_vpc(self.config["vpc"])
@@ -77,9 +78,7 @@ class EksStack(cdk.Stack):
                 bucket,
                 bucket_name=f"{self._name}-{bucket}",
                 auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"],
-                removal_policy=core.RemovalPolicy.DESTROY
-                if cfg["removal_policy_destroy"]
-                else core.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else cdk.RemovalPolicy.RETAIN,
                 enforce_ssl=True,
                 bucket_key_enabled=use_sse_kms_key,
                 encryption_key=(sse_kms_key if use_sse_kms_key else None),
@@ -114,7 +113,7 @@ class EksStack(cdk.Stack):
                 )
             )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            core.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
+            cdk.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
         self.s3_policy = iam.Policy(
             self,
@@ -163,8 +162,8 @@ class EksStack(cdk.Stack):
             },
             nat_gateway_provider=self.nat_provider,
         )
-        core.Tags.of(self.vpc).add("Name", self._name)
-        core.CfnOutput(self, "vpc-output", value=self.vpc.vpc_cidr_block)
+        cdk.Tags.of(self.vpc).add("Name", self._name)
+        cdk.CfnOutput(self, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(self, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
@@ -214,7 +213,7 @@ class EksStack(cdk.Stack):
             default_capacity=0,
         )
 
-        core.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
+        cdk.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
 
         asg_group_statement = iam.PolicyStatement(
             actions=[
@@ -273,10 +272,10 @@ class EksStack(cdk.Stack):
             # kms_key,
             # lifecycle_policy,
             performance_mode=efs.PerformanceMode.MAX_IO,
-            provisioned_throughput_per_second=core.Size.mebibytes(100),  # TODO: dev/nondev sizing
-            removal_policy=core.RemovalPolicy.DESTROY
+            provisioned_throughput_per_second=cdk.Size.mebibytes(100),  # TODO: dev/nondev sizing
+            removal_policy=cdk.RemovalPolicy.DESTROY
             if self.config["efs"]["removal_policy_destroy"]
-            else core.RemovalPolicy.RETAIN,
+            else cdk.RemovalPolicy.RETAIN,
             security_group=self.cluster.cluster_security_group,
             throughput_mode=efs.ThroughputMode.PROVISIONED,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
@@ -297,7 +296,49 @@ class EksStack(cdk.Stack):
             ),
         )
 
-        core.CfnOutput(
+        efs_backup = self.config["efs"]["backup"]
+        if efs_backup["enable"]:
+            vault = backup.BackupVault(
+                self,
+                "efs_backup",
+                # backup_vault_name=f"{self._name}-efs-backup",
+                removal_policy=cdk.RemovalPolicy[efs_backup.get("removal_policy", cdk.RemovalPolicy.RETAIN.value)],
+            )
+            plan = backup.BackupPlan(
+                self,
+                "efs_backup_plan",
+                backup_plan_name=f"{self._name}-efs",
+                backup_plan_rules=[
+                    backup.BackupPlanRule(
+                        backup_vault=vault,
+                        delete_after=cdk.Duration.days(d) if (d := efs_backup.get("delete_after")) else None,
+                        move_to_cold_storage_after=cdk.Duration.days(d)
+                        if (d := efs_backup.get("move_to_cold_storage_after"))
+                        else None,
+                        rule_name=f"efs-rule",
+                        schedule_expression=events.Schedule.expression(f"cron({efs_backup['schedule']})"),
+                        start_window=cdk.Duration.hours(1),
+                        completion_window=cdk.Duration.hours(3),
+                    )
+                ],
+            )
+            backupRole = iam.Role(
+                self,
+                "efs_backup_role",
+                assumed_by=iam.ServicePrincipal("backup.amazonaws.com"),
+                role_name=f"{self._name}-efs-backup",
+            )
+            backup.BackupSelection(
+                self,
+                "efs_backup_selection",
+                backup_plan=plan,
+                resources=[backup.BackupResource.from_efs_file_system(self.efs)],
+                allow_restores=False,
+                backup_selection_name=f"{self._name}-efs",
+                role=backupRole,
+            )
+
+        cdk.CfnOutput(
             self,
             "efs-output",
             value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}",
@@ -350,7 +391,7 @@ class EksStack(cdk.Stack):
             ],
             vpc=self.vpc,
             code=aws_lambda.AssetCode("cni-bundle.zip"),
-            timeout=core.Duration.seconds(30),
+            timeout=cdk.Duration.seconds(30),
             environment={"cluster_name": self.cluster.cluster_name},
             security_groups=self.cluster.connections.security_groups,
         )
@@ -377,14 +418,14 @@ class EksStack(cdk.Stack):
             self,
             "run_calico_lambda",
             lambda_function=k8s_lambda,
-            timeout=core.Duration.seconds(120),
+            timeout=cdk.Duration.seconds(120),
         )
 
     # Override default max of 2 AZs, as well as allow configurability
     @property
     def availability_zones(self):
         return self.config["availability_zones"] or [
-            core.Fn.select(0, core.Fn.get_azs(self.env.region)),
-            core.Fn.select(1, core.Fn.get_azs(self.env.region)),
-            core.Fn.select(2, core.Fn.get_azs(self.env.region)),
+            cdk.Fn.select(0, cdk.Fn.get_azs(self.env.region)),
+            cdk.Fn.select(1, cdk.Fn.get_azs(self.env.region)),
+            cdk.Fn.select(2, cdk.Fn.get_azs(self.env.region)),
         ]
