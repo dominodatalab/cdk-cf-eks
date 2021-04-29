@@ -1,0 +1,24 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+"aws-cdk.aws-s3" = "*"
+"aws-cdk.aws-lambda" = "*"
+"aws-cdk.core" = "*"
+"aws-cdk.aws-kms" = "*"
+pyyaml = "*"
+"aws-cdk.aws-eks" = "*"
+requests = "*"
+
+[dev-packages]
+isort = "*"
+black = "*"
+flake8 = "*"
+
+[requires]
+python_version = "3.9"
+
+[pipenv]
+allow_prereleases = true
