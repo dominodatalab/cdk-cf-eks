@@ -33,6 +33,7 @@ setuptools.setup(
         "black==20.8b1",
         "PyYAML==5.4.1",
         "isort==5.8.0",
+        "flake8==3.9.1",
     ],
 
     python_requires=">=3.6",

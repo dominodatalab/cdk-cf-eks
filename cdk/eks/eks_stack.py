@@ -176,7 +176,7 @@ class EksStack(cdk.Stack):
             nat_gateway_provider=self.nat_provider,
         )
         core.Tags.of(self.vpc).add("Name", self._name)
-        core.CfnOutput(self, f"vpc-output", value=self.vpc.vpc_cidr_block)
+        core.CfnOutput(self, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(
@@ -232,7 +232,7 @@ class EksStack(cdk.Stack):
             default_capacity=0,
         )
 
-        core.CfnOutput(self, f"eks-output", value=self.cluster.cluster_name)
+        core.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
 
         asg_group_statement = iam.PolicyStatement(
             actions=[
@@ -324,7 +324,7 @@ class EksStack(cdk.Stack):
 
         core.CfnOutput(
             self,
-            f"efs-output",
+            "efs-output",
             value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}",
         )
 
