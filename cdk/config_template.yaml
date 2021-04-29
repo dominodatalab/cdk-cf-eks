@@ -33,8 +33,10 @@ eks:
       instance_types:
         - m5.2xlarge
       labels:
+        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: platform
       tags:
+        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: platform
     compute:
       spot: false
@@ -45,9 +47,11 @@ eks:
       instance_types:
         - m5.2xlarge
       labels:
+        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
       tags:
+        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
   nodegroups:
