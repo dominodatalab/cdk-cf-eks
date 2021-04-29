@@ -7,6 +7,7 @@ import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as aws_lambda
+
 # For consistency with other languages, `cdk` is the preferred import name for
 # the CDK's core module.  The following line also imports it as `core` for use
 # with examples from the CDK Developer's Guide, which are in the process of
@@ -69,27 +70,20 @@ class EksStack(cdk.Stack):
             use_sse_kms_key = False
             if "sse_kms_key_id" in cfg:
                 use_sse_kms_key = True
-                sse_kms_key = Key.from_key_arn(
-                    self, f"{bucket}-kms-key", cfg["sse_kms_key_id"]
-                )
+                sse_kms_key = Key.from_key_arn(self, f"{bucket}-kms-key", cfg["sse_kms_key_id"])
 
             self.buckets[bucket] = Bucket(
                 self,
                 bucket,
                 bucket_name=f"{self._name}-{bucket}",
-                auto_delete_objects=cfg["auto_delete_objects"]
-                and cfg["removal_policy_destroy"],
+                auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"],
                 removal_policy=core.RemovalPolicy.DESTROY
                 if cfg["removal_policy_destroy"]
                 else core.RemovalPolicy.RETAIN,
                 enforce_ssl=True,
                 bucket_key_enabled=use_sse_kms_key,
                 encryption_key=(sse_kms_key if use_sse_kms_key else None),
-                encryption=(
-                    BucketEncryption.KMS
-                    if use_sse_kms_key
-                    else BucketEncryption.S3_MANAGED
-                ),
+                encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED),
             )
             self.buckets[bucket].add_to_resource_policy(
                 iam.PolicyStatement(
@@ -102,9 +96,7 @@ class EksStack(cdk.Stack):
                     resources=[f"{self.buckets[bucket].bucket_arn}/*"],
                     conditions={
                         "StringNotEquals": {
-                            "s3:x-amz-server-side-encryption": "aws:kms"
-                            if use_sse_kms_key
-                            else "AES256"
+                            "s3:x-amz-server-side-encryption": "aws:kms" if use_sse_kms_key else "AES256"
                         }
                     },
                 )
@@ -122,9 +114,7 @@ class EksStack(cdk.Stack):
                 )
             )
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            core.CfnOutput(
-                self, f"{bucket}-output", value=self.buckets[bucket].bucket_name
-            )
+            core.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
         self.s3_policy = iam.Policy(
             self,
@@ -169,9 +159,7 @@ class EksStack(cdk.Stack):
                 ),
             ],
             gateway_endpoints={
-                "S3": ec2.GatewayVpcEndpointOptions(
-                    service=ec2.GatewayVpcEndpointAwsService.S3
-                ),
+                "S3": ec2.GatewayVpcEndpointOptions(service=ec2.GatewayVpcEndpointAwsService.S3),
             },
             nat_gateway_provider=self.nat_provider,
         )
@@ -179,9 +167,7 @@ class EksStack(cdk.Stack):
         core.CfnOutput(self, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
-        pod_cidr = ec2.CfnVPCCidrBlock(
-            self, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16"
-        )
+        pod_cidr = ec2.CfnVPCCidrBlock(self, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
         c = 0
         for az in self.vpc.availability_zones:
             pod_subnet = ec2.PrivateSubnet(
@@ -194,9 +180,7 @@ class EksStack(cdk.Stack):
             )
 
             pod_subnet.add_default_nat_route(
-                [gw for gw in self.nat_provider.configured_gateways if gw.az == az][
-                    0
-                ].gateway_id
+                [gw for gw in self.nat_provider.configured_gateways if gw.az == az][0].gateway_id
             )
             pod_subnet.node.add_dependency(pod_cidr)
             # TODO: need to tag
@@ -225,9 +209,7 @@ class EksStack(cdk.Stack):
             "eks",
             # cluster_name=self._name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
-            vpc_subnets=[ec2.SubnetType.PRIVATE]
-            if self.config["eks"]["private_api"]
-            else None,
+            vpc_subnets=[ec2.SubnetType.PRIVATE] if self.config["eks"]["private_api"] else None,
             version=eks.KubernetesVersion.V1_19,
             default_capacity=0,
         )
@@ -263,9 +245,7 @@ class EksStack(cdk.Stack):
             for az in self.vpc.availability_zones:
                 ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{c}",  # this might be dangerous
-                    capacity_type=eks.CapacityType.SPOT
-                    if cfg["spot"]
-                    else eks.CapacityType.ON_DEMAND,
+                    capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                     disk_size=cfg.get("disk_size", None),
                     min_size=cfg["min_size"],
                     max_size=cfg["max_size"],
@@ -274,9 +254,7 @@ class EksStack(cdk.Stack):
                         subnet_group_name=self.private_subnet_name,
                         availability_zones=[az],
                     ),
-                    instance_types=[
-                        ec2.InstanceType(it) for it in cfg["instance_types"]
-                    ],
+                    instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
                     labels=cfg["tags"],
                     tags=cfg["tags"],
                 )
@@ -290,15 +268,12 @@ class EksStack(cdk.Stack):
             self,
             "Efs",
             vpc=self.vpc,
-            # enable_automatic_backups=True,
             # encrypted=True,
             file_system_name=self._name,
             # kms_key,
             # lifecycle_policy,
             performance_mode=efs.PerformanceMode.MAX_IO,
-            provisioned_throughput_per_second=core.Size.mebibytes(
-                100
-            ),  # TODO: dev/nondev sizing
+            provisioned_throughput_per_second=core.Size.mebibytes(100),  # TODO: dev/nondev sizing
             removal_policy=core.RemovalPolicy.DESTROY
             if self.config["efs"]["removal_policy_destroy"]
             else core.RemovalPolicy.RETAIN,
@@ -347,30 +322,18 @@ class EksStack(cdk.Stack):
                     manifest_text = f.read()
             else:
                 manifest_text = requests_get(manifest[1]).text
-            loaded_manifests = [
-                yaml_safe_load(i)
-                for i in re_split("^---$", manifest_text, flags=MULTILINE)
-                if i
-            ]
+            loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
             crds = eks.KubernetesManifest(
                 self,
                 "calico-crds",
                 cluster=self.cluster,
-                manifest=[
-                    crd
-                    for crd in loaded_manifests
-                    if crd["kind"] == "CustomResourceDefinition"
-                ],
+                manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"],
             )
             non_crds = eks.KubernetesManifest(
                 self,
                 "calico",
                 cluster=self.cluster,
-                manifest=[
-                    notcrd
-                    for notcrd in loaded_manifests
-                    if notcrd["kind"] != "CustomResourceDefinition"
-                ],
+                manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"],
             )
             non_crds.node.add_dependency(crds)
 
