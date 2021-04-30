@@ -23,7 +23,7 @@ efs:
 eks:
   version: 1.19
   private_api: true
-  nodegroups:
+  managed_nodegroups:
     platform:
       spot: false
       disk_size: 20
@@ -50,6 +50,23 @@ eks:
       tags:
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
+  nodegroups:
+    nvidia:
+      gpu: true
+      disk_size: 100
+      min_size: 0
+      max_size: 10
+      desired_size: 1
+      instance_types:
+        - m5.2xlarge
+      taints:
+        nvidia.com/gpu: "true:NoSchedule"
+      labels:
+        dominodatalab.com/node-pool": default-gpu
+        dominodatalab.com/domino-node": "true"
+        nvidia.com/gpu: "true"
+      tags:
+        dominodatalab.com/node-pool: default-gpu
 s3:
   buckets:
     blobs:
