@@ -232,6 +232,38 @@ class EksStack(cdk.Stack):
             ],
         )
 
+        if self.config["route53"]["zone_ids"]:
+            self.route53_policy = iam.ManagedPolicy(
+                self,
+                "route53",
+                managed_policy_name=f"{self._name}-route53",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=["route53:ListHostedZones"],
+                        resources=["*"],
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "route53:ChangeResourceRecordSets",
+                            "route53:ListResourceRecordSets",
+                        ],
+                        resources=[
+                            f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.config["route53"]["zone_ids"]
+                        ],
+                    ),
+                ],
+            )
+            cdk.CfnOutput(
+                self,
+                "route53-zone-id-output",
+                value=str(self.config["route53"]["zone_ids"]),
+            )
+            cdk.CfnOutput(
+                self,
+                "route53-txt-owner-id",
+                value=f"{self.config['name']}AWS",
+            )
+
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
             for i, az in enumerate(self.vpc.availability_zones):
@@ -252,6 +284,8 @@ class EksStack(cdk.Stack):
                 )
                 self.s3_policy.attach_to_role(ng.role)
                 self.autoscaler_policy.attach_to_role(ng.role)
+                if self.config["route53"]["zone_ids"]:
+                    self.route53_policy.attach_to_role(ng.role)
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
@@ -274,7 +308,7 @@ class EksStack(cdk.Stack):
                 f"{indexed_name}NodeGroup",
                 role_name=f"{az_name}NodeGroup",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=[self.s3_policy, self.autoscaler_policy],
+                managed_policies=[self.s3_policy, self.autoscaler_policy, self.route53_policy],
             )
 
             lt = ec2.LaunchTemplate(

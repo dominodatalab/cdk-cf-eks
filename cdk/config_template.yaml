@@ -20,6 +20,8 @@ efs:
     move_to_cold_storage_after: 35 # number of days (null to disable)
     delete_after: 125 # number of days, must be 90 days after cold_storage_after (null to disable)
     removal_policy: DESTROY # DESTROY, RETAIN, or SNAPSHOT
+route53:
+  zone_ids: []
 eks:
   version: 1.19
   private_api: true
