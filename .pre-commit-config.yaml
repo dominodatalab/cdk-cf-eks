@@ -1,0 +1,28 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
+    hooks:
+    -   id: check-case-conflict
+    -   id: check-merge-conflict
+    -   id: detect-private-key
+    -   id: end-of-file-fixer
+        exclude: 'config\.yml'
+    -   id: forbid-new-submodules
+    -   id: mixed-line-ending
+    -   id: no-commit-to-branch
+        args: [-b, master, -b, develop]
+    -   id: trailing-whitespace
+-   repo: https://gitlab.com/pycqa/flake8
+    rev: 3.9.1
+    hooks:
+    -   id: flake8
+        args: [--config, cdk/.flake8]
+-   repo: https://github.com/PyCQA/isort
+    rev: 5.8.0
+    hooks:
+    -   id: isort
+-   repo: https://github.com/psf/black
+    rev: 21.4b2 # Replace by any tag/version: https://github.com/psf/black/tags
+    hooks:
+    -   id: black
+        language_version: python3

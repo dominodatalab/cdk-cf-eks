@@ -2,18 +2,14 @@ from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
 
+import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
+import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as aws_lambda
-import aws_cdk.aws_backup as backup
-import aws_cdk.aws_events as events
-
-# For consistency with other languages, `cdk` is the preferred import name for
-# the CDK's core module.  The following line also imports it as `core` for use
-# with examples from the CDK Developer's Guide, which are in the process of
-# being updated to use `cdk`.  You may delete this import if you don't need it.
+from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import Bucket, BucketEncryption
@@ -115,10 +111,10 @@ class EksStack(cdk.Stack):
             s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
             cdk.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
-        self.s3_policy = iam.Policy(
+        self.s3_policy = iam.ManagedPolicy(
             self,
             "S3",
-            policy_name=f"{self._name}-S3",
+            managed_policy_name=f"{self._name}-S3",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -203,47 +199,44 @@ class EksStack(cdk.Stack):
             )
 
     def provision_eks_cluster(self):
+        eks_version = eks.KubernetesVersion.V1_19
         self.cluster = eks.Cluster(
             self,
             "eks",
             # cluster_name=self._name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
             vpc_subnets=[ec2.SubnetType.PRIVATE] if self.config["eks"]["private_api"] else None,
-            version=eks.KubernetesVersion.V1_19,
+            version=eks_version,
             default_capacity=0,
         )
 
         cdk.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
 
-        asg_group_statement = iam.PolicyStatement(
-            actions=[
-                "autoscaling:DescribeAutoScalingInstances",
-                "autoscaling:SetDesiredCapacity",
-                "autoscaling:TerminateInstanceInAutoScalingGroup",
-            ],
-        )
-
-        asg_policy = iam.Policy(
+        self.autoscaler_policy = iam.ManagedPolicy(
             self,
-            "ASG",
-            policy_name=f"{self._name}-asg",
+            "autoscaler",
+            managed_policy_name=f"{self._name}-autoscaler",
             statements=[
                 iam.PolicyStatement(
                     actions=[
                         "autoscaling:DescribeAutoScalingGroups",
+                        "autoscaling:DescribeAutoScalingInstances",
                         "autoscaling:DescribeLaunchConfigurations",
                         "autoscaling:DescribeTags",
+                        "autoscaling:SetDesiredCapacity",
+                        "autoscaling:TerminateInstanceInAutoScalingGroup",
+                        "ec2:DescribeLaunchTemplateVersions",
                     ],
                     resources=["*"],
                 ),
             ],
         )
 
-        for name, cfg in self.config["eks"]["nodegroups"].items():
-            c = 1
-            for az in self.vpc.availability_zones:
+        # managed nodegroups
+        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            for i, az in enumerate(self.vpc.availability_zones):
                 ng = self.cluster.add_nodegroup_capacity(
-                    f"{name}-{c}",  # this might be dangerous
+                    f"{name}-{i}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                     disk_size=cfg.get("disk_size", None),
                     min_size=cfg["min_size"],
@@ -254,13 +247,120 @@ class EksStack(cdk.Stack):
                         availability_zones=[az],
                     ),
                     instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
-                    labels=cfg["tags"],
+                    labels=cfg["labels"],
                     tags=cfg["tags"],
                 )
                 self.s3_policy.attach_to_role(ng.role)
-                asg_group_statement.add_resources(ng.nodegroup_arn)
-                asg_policy.attach_to_role(ng.role)
-                c += 1
+                self.autoscaler_policy.attach_to_role(ng.role)
+
+        for name, cfg in self.config["eks"]["nodegroups"].items():
+            self.provision_unmanaged_nodegroup(name, cfg, eks_version)
+
+    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
+        machine_image = eks.EksOptimizedImage(
+            cpu_arch=eks.CpuArch.X86_64,
+            kubernetes_version=eks_version.version,
+            node_type=eks.NodeType.GPU if cfg.get("gpu", False) else eks.NodeType.STANDARD,
+        )
+        unmanaged_sg = ec2.SecurityGroup(
+            self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
+        )
+
+        for i, az in enumerate(self.vpc.availability_zones):
+            indexed_name = f"{name}-{i}"
+            az_name = f"{self._name}-{name}-{az}"
+            role = iam.Role(
+                self,
+                f"{indexed_name}NodeGroup",
+                role_name=f"{az_name}NodeGroup",
+                assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
+                managed_policies=[self.s3_policy, self.autoscaler_policy],
+            )
+
+            lt = ec2.LaunchTemplate(
+                self,
+                f"{indexed_name}LaunchTemplate",
+                launch_template_name=az_name,
+                block_devices=[
+                    ec2.BlockDevice(
+                        device_name="/dev/xvda",
+                        volume=ec2.BlockDeviceVolume.ebs(
+                            cfg["disk_size"],
+                            volume_type=ec2.EbsDeviceVolumeType.GP2,
+                        ),
+                    )
+                ],
+                role=role,
+                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                machine_image=machine_image,
+                user_data=machine_image.get_image(self).user_data,
+                security_group=unmanaged_sg,
+            )
+            # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
+            lt.connections.add_security_group(self.cluster.cluster_security_group)
+
+            asg = aws_autoscaling.AutoScalingGroup(
+                self,
+                f"{indexed_name}ASG",
+                auto_scaling_group_name=az_name,
+                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                machine_image=machine_image,
+                vpc=self.cluster.vpc,
+                min_capacity=cfg["min_size"],
+                max_capacity=cfg["max_size"],
+                desired_capacity=cfg["desired_size"],
+                vpc_subnets=ec2.SubnetSelection(
+                    subnet_group_name=self.private_subnet_name,
+                    availability_zones=[az],
+                ),
+                role=role,
+                user_data=lt.user_data,
+                security_group=unmanaged_sg,
+            )
+            for k, v in (
+                cfg["tags"]
+                | {
+                    f"kubernetes.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
+                    "kubernetes.io/cluster-autoscaler/enabled": "true",
+                }
+            ).items():
+                cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
+
+            # https://github.com/aws/aws-cdk/issues/6734
+            cfn_asg: aws_autoscaling.CfnAutoScalingGroup = asg.node.default_child
+            # Remove the launch config from our stack
+            asg.node.try_remove_child("LaunchConfig")
+            cfn_asg.launch_configuration_name = None
+            # Attach the launch template to the auto scaling group
+            cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
+            cfn_asg.mixed_instances_policy = cfn_asg.MixedInstancesPolicyProperty(
+                launch_template=cfn_asg.LaunchTemplateProperty(
+                    launch_template_specification=cfn_asg.LaunchTemplateSpecificationProperty(
+                        launch_template_id=cfn_lt.ref,
+                        version=lt.version_number,
+                    ),
+                    overrides=[
+                        cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in cfg["instance_types"]
+                    ],
+                ),
+            )
+
+            extra_args: list[str] = []
+            if labels := cfg.get("labels"):
+                extra_args.append(
+                    "--node-labels '{}'".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
+                )
+
+            if taints := cfg.get("taints"):
+                extra_args.append(
+                    "--register-with-taints '{}'".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
+                )
+
+            self.cluster.connect_auto_scaling_group_capacity(
+                asg,
+                bootstrap_enabled=True,
+                bootstrap_options=eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args)),
+            )
 
     def provision_efs(self):
         self.efs = efs.FileSystem(
@@ -315,7 +415,7 @@ class EksStack(cdk.Stack):
                         move_to_cold_storage_after=cdk.Duration.days(d)
                         if (d := efs_backup.get("move_to_cold_storage_after"))
                         else None,
-                        rule_name=f"efs-rule",
+                        rule_name="efs-rule",
                         schedule_expression=events.Schedule.expression(f"cron({efs_backup['schedule']})"),
                         start_window=cdk.Duration.hours(1),
                         completion_window=cdk.Duration.hours(3),
