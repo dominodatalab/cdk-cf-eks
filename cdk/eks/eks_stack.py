@@ -318,10 +318,12 @@ class EksStack(cdk.Stack):
                 security_group=unmanaged_sg,
             )
             for k, v in (
-                cfg["tags"]
-                | {
-                    f"kubernetes.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
-                    "kubernetes.io/cluster-autoscaler/enabled": "true",
+                {
+                    **cfg["tags"],
+                    **{
+                        f"kubernetes.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
+                        "kubernetes.io/cluster-autoscaler/enabled": "true",
+                    },
                 }
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
