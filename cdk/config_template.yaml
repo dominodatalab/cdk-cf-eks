@@ -63,6 +63,8 @@ eks:
       min_size: 0
       max_size: 10
       # desired_size: 0 # Recommend leaving unset: Setting reverts autoscaled value on every update
+      ami_id: null
+      user_data: null
       instance_types:
         - m5.2xlarge
       taints:
