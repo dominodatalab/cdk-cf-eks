@@ -26,7 +26,7 @@ setuptools.setup(
         "aws_cdk.aws_stepfunctions_tasks==1.97.0",
         "aws_cdk.aws_backup==1.97.0",
         "requests==2.25.1",
-        "black==20.8b1",
+        "black==21.4b2",
         "PyYAML==5.4.1",
         "isort==5.8.0",
         "flake8==3.9.1",
