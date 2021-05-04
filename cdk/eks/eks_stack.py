@@ -212,6 +212,20 @@ class EksStack(cdk.Stack):
 
         cdk.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
 
+        self.asg_group_statement = iam.PolicyStatement(
+            actions=[
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:SetDesiredCapacity",
+                "autoscaling:TerminateInstanceInAutoScalingGroup",
+            ],
+            resources=["*"],
+            conditions={
+                "StringEquals": {
+                    "autoscaling:ResourceTag/eks:cluster-name": self.cluster.cluster_name
+                }
+            },
+        )
+
         self.autoscaler_policy = iam.ManagedPolicy(
             self,
             "autoscaler",
@@ -220,15 +234,13 @@ class EksStack(cdk.Stack):
                 iam.PolicyStatement(
                     actions=[
                         "autoscaling:DescribeAutoScalingGroups",
-                        "autoscaling:DescribeAutoScalingInstances",
                         "autoscaling:DescribeLaunchConfigurations",
                         "autoscaling:DescribeTags",
-                        "autoscaling:SetDesiredCapacity",
-                        "autoscaling:TerminateInstanceInAutoScalingGroup",
                         "ec2:DescribeLaunchTemplateVersions",
                     ],
                     resources=["*"],
                 ),
+                self.asg_group_statement,
             ],
         )
 
@@ -269,6 +281,7 @@ class EksStack(cdk.Stack):
             for i, az in enumerate(self.vpc.availability_zones):
                 ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
+                    nodegroup_name=f"{self._name}-{name}-{az}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                     disk_size=cfg.get("disk_size", None),
                     min_size=cfg["min_size"],
@@ -342,7 +355,7 @@ class EksStack(cdk.Stack):
                 vpc=self.cluster.vpc,
                 min_capacity=cfg["min_size"],
                 max_capacity=cfg["max_size"],
-                desired_capacity=cfg["desired_size"],
+                desired_capacity=cfg.get("desired_size", None),
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -355,8 +368,9 @@ class EksStack(cdk.Stack):
                 {
                     **cfg["tags"],
                     **{
-                        f"kubernetes.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
-                        "kubernetes.io/cluster-autoscaler/enabled": "true",
+                        f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
+                        "k8s.io/cluster-autoscaler/enabled": "true",
+                        "eks:cluster-name": self.cluster.cluster_name,
                     },
                 }
             ).items():
