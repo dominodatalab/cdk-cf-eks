@@ -1,7 +1,7 @@
 from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from typing import Any
+from typing import Any, Optional
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -275,12 +275,45 @@ class EksStack(cdk.Stack):
 
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            ami_id = cfg.get("ami_id")
+            user_data = cfg.get("user_data")
+
+            machine_image: Optional[ec2.MachineImage] = None
+            if ami_id and user_data:
+                machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
+            elif ami_id or user_data:
+                raise ValueError(f"{name}: ami_id and user_data must both be specified")
+
             for i, az in enumerate(self.vpc.availability_zones):
+                disk_size = cfg.get("disk_size", None)
+                lts: Optional[eks.LaunchTemplateSpec] = None
+                if machine_image:
+                    lt = ec2.LaunchTemplate(
+                        self.cluster,
+                        f"LaunchTemplate{name}{i}",
+                        launch_template_name=f"{self._name}-{name}-{i}",
+                        block_devices=[
+                            ec2.BlockDevice(
+                                device_name="/dev/xvda",
+                                volume=ec2.BlockDeviceVolume.ebs(
+                                    cfg["disk_size"],
+                                    volume_type=ec2.EbsDeviceVolumeType.GP2,
+                                ),
+                            )
+                        ],
+                        machine_image=machine_image,
+                        user_data=ec2.UserData.custom(
+                            cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
+                        ),
+                    )
+                    lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
+                    disk_size = None
+
                 ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
                     nodegroup_name=f"{self._name}-{name}-{az}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                    disk_size=cfg.get("disk_size", None),
+                    disk_size=disk_size,
                     min_size=cfg["min_size"],
                     max_size=cfg["max_size"],
                     desired_size=cfg["desired_size"],
@@ -289,6 +322,7 @@ class EksStack(cdk.Stack):
                         availability_zones=[az],
                     ),
                     instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                    launch_template_spec=lts,
                     labels=cfg["labels"],
                     tags=cfg["tags"],
                 )
