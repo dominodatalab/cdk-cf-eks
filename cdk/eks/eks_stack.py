@@ -1,6 +1,7 @@
 from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
+from typing import Any, Optional
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -274,12 +275,41 @@ class EksStack(cdk.Stack):
 
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            ami_id, user_data = self._get_machine_image(name, cfg)
+            machine_image: Optional[ec2.IMachineImage] = None
+            if ami_id:
+                machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
+
             for i, az in enumerate(self.vpc.availability_zones):
+                disk_size = cfg.get("disk_size", None)
+                lts: Optional[eks.LaunchTemplateSpec] = None
+                if machine_image:
+                    lt = ec2.LaunchTemplate(
+                        self.cluster,
+                        f"LaunchTemplate{name}{i}",
+                        launch_template_name=f"{self._name}-{name}-{i}",
+                        block_devices=[
+                            ec2.BlockDevice(
+                                device_name="/dev/xvda",
+                                volume=ec2.BlockDeviceVolume.ebs(
+                                    cfg["disk_size"],
+                                    volume_type=ec2.EbsDeviceVolumeType.GP2,
+                                ),
+                            )
+                        ],
+                        machine_image=machine_image,
+                        user_data=ec2.UserData.custom(
+                            cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
+                        ),
+                    )
+                    lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
+                    disk_size = None
+
                 ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
                     nodegroup_name=f"{self._name}-{name}-{az}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                    disk_size=cfg.get("disk_size", None),
+                    disk_size=disk_size,
                     min_size=cfg["min_size"],
                     max_size=cfg["max_size"],
                     desired_size=cfg["desired_size"],
@@ -288,6 +318,7 @@ class EksStack(cdk.Stack):
                         availability_zones=[az],
                     ),
                     instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                    launch_template_spec=lts,
                     labels=cfg["labels"],
                     tags=cfg["tags"],
                 )
@@ -299,70 +330,68 @@ class EksStack(cdk.Stack):
         for name, cfg in self.config["eks"]["nodegroups"].items():
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
 
+    def _get_machine_image(self, cfg_name: str, cfg: dict[str, Any]) -> tuple[Optional[str], Optional[str]]:
+        image = cfg.get("machine_image", {})
+
+        if not image:
+            return None, None
+
+        ami_id = image.get("ami_id")
+        user_data = image.get("user_data")
+
+        if ami_id and user_data:
+            return ami_id, user_data
+
+        raise ValueError(f"{cfg_name}: ami_id and user_data must both be specified")
+
     def provision_unmanaged_nodegroup(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
-        machine_image = eks.EksOptimizedImage(
-            cpu_arch=eks.CpuArch.X86_64,
-            kubernetes_version=eks_version.version,
-            node_type=eks.NodeType.GPU if cfg.get("gpu", False) else eks.NodeType.STANDARD,
+        ami_id, user_data = self._get_machine_image(name, cfg)
+
+        machine_image = (
+            ec2.MachineImage.generic_linux({self.region: ami_id}, user_data=ec2.UserData.custom(user_data))
+            if ami_id and user_data
+            else eks.EksOptimizedImage(
+                cpu_arch=eks.CpuArch.X86_64,
+                kubernetes_version=eks_version.version,
+                node_type=eks.NodeType.GPU if cfg.get("gpu", False) else eks.NodeType.STANDARD,
+            )
         )
-        unmanaged_sg = ec2.SecurityGroup(
-            self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
-        )
+
+        if not hasattr(self, "unmanaged_sg"):
+            self.unmanaged_sg = ec2.SecurityGroup(
+                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
+            )
 
         managed_policies = [self.s3_policy, self.autoscaler_policy]
         if self.config["route53"]["zone_ids"]:
             managed_policies.append(self.route53_policy)
 
+        scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones):
-            indexed_name = f"{name}-{i}"
-            az_name = f"{self._name}-{name}-{az}"
+            indexed_name = f"{self._name}-{name}-{i}"
             role = iam.Role(
-                self,
-                f"{indexed_name}NodeGroup",
-                role_name=f"{az_name}NodeGroup",
+                scope,
+                f"NodeGroup{i}",
+                role_name=f"{indexed_name}NodeGroup",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
                 managed_policies=managed_policies,
             )
 
-            lt = ec2.LaunchTemplate(
-                self,
-                f"{indexed_name}LaunchTemplate",
-                launch_template_name=az_name,
-                block_devices=[
-                    ec2.BlockDevice(
-                        device_name="/dev/xvda",
-                        volume=ec2.BlockDeviceVolume.ebs(
-                            cfg["disk_size"],
-                            volume_type=ec2.EbsDeviceVolumeType.GP2,
-                        ),
-                    )
-                ],
-                role=role,
-                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
-                machine_image=machine_image,
-                user_data=machine_image.get_image(self).user_data,
-                security_group=unmanaged_sg,
-            )
-            # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
-            lt.connections.add_security_group(self.cluster.cluster_security_group)
-
             asg = aws_autoscaling.AutoScalingGroup(
-                self,
-                f"{indexed_name}ASG",
-                auto_scaling_group_name=az_name,
+                scope,
+                f"ASG{i}",
+                auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 machine_image=machine_image,
                 vpc=self.cluster.vpc,
                 min_capacity=cfg["min_size"],
                 max_capacity=cfg["max_size"],
-                desired_capacity=cfg.get("desired_size", None),
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
                 ),
                 role=role,
-                user_data=lt.user_data,
-                security_group=unmanaged_sg,
+                security_group=self.unmanaged_sg,
             )
             for k, v in (
                 {
@@ -375,6 +404,28 @@ class EksStack(cdk.Stack):
                 }
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
+
+            lt = ec2.LaunchTemplate(
+                scope,
+                f"LaunchTemplate{i}",
+                launch_template_name=indexed_name,
+                block_devices=[
+                    ec2.BlockDevice(
+                        device_name="/dev/xvda",
+                        volume=ec2.BlockDeviceVolume.ebs(
+                            cfg["disk_size"],
+                            volume_type=ec2.EbsDeviceVolumeType.GP2,
+                        ),
+                    )
+                ],
+                role=role,
+                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                machine_image=machine_image,
+                user_data=asg.user_data,
+                security_group=self.unmanaged_sg,
+            )
+            # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
+            lt.connections.add_security_group(self.cluster.cluster_security_group)
 
             # https://github.com/aws/aws-cdk/issues/6734
             cfn_asg: aws_autoscaling.CfnAutoScalingGroup = asg.node.default_child
@@ -395,22 +446,23 @@ class EksStack(cdk.Stack):
                 ),
             )
 
-            extra_args: list[str] = []
-            if labels := cfg.get("labels"):
-                extra_args.append(
-                    "--node-labels '{}'".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
-                )
+            options: dict[str, Any] = {
+                "bootstrap_enabled": user_data is None,
+            }
+            if not user_data:
+                extra_args: list[str] = []
+                if labels := cfg.get("labels"):
+                    extra_args.append(
+                        "--node-labels={}".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
+                    )
 
-            if taints := cfg.get("taints"):
-                extra_args.append(
-                    "--register-with-taints '{}'".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
-                )
+                if taints := cfg.get("taints"):
+                    extra_args.append(
+                        "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
+                    )
+                options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
 
-            self.cluster.connect_auto_scaling_group_capacity(
-                asg,
-                bootstrap_enabled=True,
-                bootstrap_options=eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args)),
-            )
+            self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
     def provision_efs(self):
         self.efs = efs.FileSystem(
