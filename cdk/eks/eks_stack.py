@@ -219,11 +219,7 @@ class EksStack(cdk.Stack):
                 "autoscaling:TerminateInstanceInAutoScalingGroup",
             ],
             resources=["*"],
-            conditions={
-                "StringEquals": {
-                    "autoscaling:ResourceTag/eks:cluster-name": self.cluster.cluster_name
-                }
-            },
+            conditions={"StringEquals": {"autoscaling:ResourceTag/eks:cluster-name": self.cluster.cluster_name}},
         )
 
         self.autoscaler_policy = iam.ManagedPolicy(
