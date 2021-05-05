@@ -219,11 +219,7 @@ class EksStack(cdk.Stack):
                 "autoscaling:TerminateInstanceInAutoScalingGroup",
             ],
             resources=["*"],
-            conditions={
-                "StringEquals": {
-                    "autoscaling:ResourceTag/eks:cluster-name": self.cluster.cluster_name
-                }
-            },
+            conditions={"StringEquals": {"autoscaling:ResourceTag/eks:cluster-name": self.cluster.cluster_name}},
         )
 
         self.autoscaler_policy = iam.ManagedPolicy(
@@ -313,6 +309,10 @@ class EksStack(cdk.Stack):
             self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
         )
 
+        managed_policies = [self.s3_policy, self.autoscaler_policy]
+        if self.config["route53"]["zone_ids"]:
+            managed_policies.append(self.route53_policy)
+
         for i, az in enumerate(self.vpc.availability_zones):
             indexed_name = f"{name}-{i}"
             az_name = f"{self._name}-{name}-{az}"
@@ -321,7 +321,7 @@ class EksStack(cdk.Stack):
                 f"{indexed_name}NodeGroup",
                 role_name=f"{az_name}NodeGroup",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=[self.s3_policy, self.autoscaler_policy, self.route53_policy],
+                managed_policies=managed_policies,
             )
 
             lt = ec2.LaunchTemplate(
