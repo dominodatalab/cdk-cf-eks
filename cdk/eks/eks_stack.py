@@ -17,7 +17,7 @@ from aws_cdk.aws_s3 import Bucket, BucketEncryption
 from aws_cdk.lambda_layer_awscli import AwsCliLayer
 from aws_cdk.lambda_layer_kubectl import KubectlLayer
 from requests import get as requests_get
-from yaml import safe_load as yaml_safe_load
+from yaml import dump as yaml_dump, safe_load as yaml_safe_load
 
 manifests = [
     [
@@ -31,6 +31,7 @@ class EksStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        self.outputs = {}
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
@@ -51,6 +52,9 @@ class EksStack(cdk.Stack):
         self.provision_eks_cluster()
         self.install_calico()
         self.provision_efs()
+        cdk.CfnOutput(
+            self, "agent_config", value=yaml_dump(self.generate_install_config())
+        )
 
     def provision_buckets(self):
         self.s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
@@ -267,7 +271,7 @@ class EksStack(cdk.Stack):
                 "route53-zone-id-output",
                 value=str(self.config["route53"]["zone_ids"]),
             )
-            cdk.CfnOutput(
+            self.outputs["route53-txt-owner-id"] = cdk.CfnOutput(
                 self,
                 "route53-txt-owner-id",
                 value=f"{self.config['name']}AWS",
@@ -540,7 +544,7 @@ class EksStack(cdk.Stack):
                 role=backupRole,
             )
 
-        cdk.CfnOutput(
+        self.outputs["efs"] = cdk.CfnOutput(
             self,
             "efs-output",
             value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}",
@@ -631,3 +635,119 @@ class EksStack(cdk.Stack):
             cdk.Fn.select(1, cdk.Fn.get_azs(self.env.region)),
             cdk.Fn.select(2, cdk.Fn.get_azs(self.env.region)),
         ]
+
+    def generate_install_config(self):
+        cfg = {
+            "name": self.config["name"],
+            "hostname": self.config["install"]["hostname"],
+            "pod_cidr": self.vpc.vpc_cidr_block,
+            "storage_classes": {
+                "shared": {
+                    "efs": {
+                        "region": self.config["aws_region"],
+                        "filesystem_id": self.outputs["efs"].value,
+                    }
+                },
+            },
+            "blob_storage": {
+                "projects": {
+                    "s3": {
+                        "region": self.config["aws_region"],
+                        "bucket": self.buckets["blobs"].bucket_name,
+                    },
+                },
+                "logs": {
+                    "s3": {
+                        "region": self.config["aws_region"],
+                        "bucket": self.buckets["logs"].bucket_name,
+                    },
+                },
+                "backups": {
+                    "s3": {
+                        "region": self.config["aws_region"],
+                        "bucket": self.buckets["backups"].bucket_name,
+                    },
+                },
+                "default": {
+                    "s3": {
+                        "region": self.config["aws_region"],
+                        "bucket": self.buckets["blobs"].bucket_name,
+                    },
+                },
+            },
+            "autoscaler": {
+                "enabled": True,
+                "auto_discovery": {
+                    "cluster_name": self.cluster.cluster_name,
+                },
+                "groups": [],
+                "aws": {
+                    "region": self.config["aws_region"],
+                },
+            },
+            "internal_docker_registry": {
+                "s3_override": {
+                    "region": self.config["aws_region"],
+                    "bucket": self.buckets["registry"].bucket_name,
+                }
+            },
+            "services": {
+                "nginx_ingress": {},
+                "nucleus": {
+                    "chart_values": {
+                        "keycloak": {
+                            "createIntegrationTestUser": True,
+                        }
+                    }
+                },
+                "forge": {
+                    "chart_values": {
+                        "config": {
+                            "fullPrivilege": True,
+                        },
+                    }
+                },
+            },
+        }
+
+        if self.config["route53"]["zone_ids"]:
+            cfg["external_dns"] = {
+                "enabled": True,
+                "domain_filters": [self.config["install"]["domain"]],
+                "zone_id_filters": self.config["route53"]["zone_ids"],
+                "txt_owner_id": self.outputs["route53-txt-owner-id"].value,
+            }
+
+        cfg["services"]["nginx_ingress"]["chart_values"] = {
+            "controller": {
+                "kind": "Deployment",
+                "hostNetwork": False,
+                "config": {"use-proxy-protocol": "true"},
+                "service": {
+                    "enabled": True,
+                    "type": "LoadBalancer",
+                    "annotations": {
+                        "service.beta.kubernetes.io/aws-load-balancer-internal": False,
+                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
+                        "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
+                        "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",  # noqa
+                        "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": self.config[
+                            "install"
+                        ][
+                            "acm_cert_arn"
+                        ],
+                        "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
+                        # "service.beta.kubernetes.io/aws-load-balancer-security-groups":
+                        #     "could-propagate-this-instead-of-create"
+                    },
+                    "targetPorts": {"http": "http", "https": "http"},
+                    "loadBalancerSourceRanges": ["0.0.0.0/0"],  # TODO AF
+                },
+            }
+        }
+
+        cfg["global_node_selectors"] = self.config["install"]["global_node_selectors"]
+        cfg["helm"] = self.config["install"]["helm"]
+        cfg["private_docker_registry"] = self.config["install"]["private_docker_registry"]
+
+        return cfg
