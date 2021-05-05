@@ -212,6 +212,20 @@ class EksStack(cdk.Stack):
 
         cdk.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
 
+        self.asg_group_statement = iam.PolicyStatement(
+            actions=[
+                "autoscaling:DescribeAutoScalingInstances",
+                "autoscaling:SetDesiredCapacity",
+                "autoscaling:TerminateInstanceInAutoScalingGroup",
+            ],
+            resources=["*"],
+            conditions={
+                "StringEquals": {
+                    "autoscaling:ResourceTag/eks:cluster-name": self.cluster.cluster_name
+                }
+            },
+        )
+
         self.autoscaler_policy = iam.ManagedPolicy(
             self,
             "autoscaler",
@@ -220,23 +234,54 @@ class EksStack(cdk.Stack):
                 iam.PolicyStatement(
                     actions=[
                         "autoscaling:DescribeAutoScalingGroups",
-                        "autoscaling:DescribeAutoScalingInstances",
                         "autoscaling:DescribeLaunchConfigurations",
                         "autoscaling:DescribeTags",
-                        "autoscaling:SetDesiredCapacity",
-                        "autoscaling:TerminateInstanceInAutoScalingGroup",
                         "ec2:DescribeLaunchTemplateVersions",
                     ],
                     resources=["*"],
                 ),
+                self.asg_group_statement,
             ],
         )
+
+        if self.config["route53"]["zone_ids"]:
+            self.route53_policy = iam.ManagedPolicy(
+                self,
+                "route53",
+                managed_policy_name=f"{self._name}-route53",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=["route53:ListHostedZones"],
+                        resources=["*"],
+                    ),
+                    iam.PolicyStatement(
+                        actions=[
+                            "route53:ChangeResourceRecordSets",
+                            "route53:ListResourceRecordSets",
+                        ],
+                        resources=[
+                            f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.config["route53"]["zone_ids"]
+                        ],
+                    ),
+                ],
+            )
+            cdk.CfnOutput(
+                self,
+                "route53-zone-id-output",
+                value=str(self.config["route53"]["zone_ids"]),
+            )
+            cdk.CfnOutput(
+                self,
+                "route53-txt-owner-id",
+                value=f"{self.config['name']}AWS",
+            )
 
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
             for i, az in enumerate(self.vpc.availability_zones):
                 ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
+                    nodegroup_name=f"{self._name}-{name}-{az}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                     disk_size=cfg.get("disk_size", None),
                     min_size=cfg["min_size"],
@@ -252,6 +297,8 @@ class EksStack(cdk.Stack):
                 )
                 self.s3_policy.attach_to_role(ng.role)
                 self.autoscaler_policy.attach_to_role(ng.role)
+                if self.config["route53"]["zone_ids"]:
+                    self.route53_policy.attach_to_role(ng.role)
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
@@ -274,7 +321,7 @@ class EksStack(cdk.Stack):
                 f"{indexed_name}NodeGroup",
                 role_name=f"{az_name}NodeGroup",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=[self.s3_policy, self.autoscaler_policy],
+                managed_policies=[self.s3_policy, self.autoscaler_policy, self.route53_policy],
             )
 
             lt = ec2.LaunchTemplate(
@@ -308,7 +355,7 @@ class EksStack(cdk.Stack):
                 vpc=self.cluster.vpc,
                 min_capacity=cfg["min_size"],
                 max_capacity=cfg["max_size"],
-                desired_capacity=cfg["desired_size"],
+                desired_capacity=cfg.get("desired_size", None),
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -318,10 +365,13 @@ class EksStack(cdk.Stack):
                 security_group=unmanaged_sg,
             )
             for k, v in (
-                cfg["tags"]
-                | {
-                    f"kubernetes.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
-                    "kubernetes.io/cluster-autoscaler/enabled": "true",
+                {
+                    **cfg["tags"],
+                    **{
+                        f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
+                        "k8s.io/cluster-autoscaler/enabled": "true",
+                        "eks:cluster-name": self.cluster.cluster_name,
+                    },
                 }
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
