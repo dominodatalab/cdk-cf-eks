@@ -327,7 +327,6 @@ class EksStack(cdk.Stack):
             managed_policies.append(self.route53_policy)
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
-        machine_config = machine_image.get_image(scope)
         for i, az in enumerate(self.vpc.availability_zones):
             az_name = f"{self._name}-{name}-{i}"
             role = iam.Role(
@@ -337,6 +336,35 @@ class EksStack(cdk.Stack):
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
                 managed_policies=managed_policies,
             )
+
+            asg = aws_autoscaling.AutoScalingGroup(
+                scope,
+                f"ASG{i}",
+                auto_scaling_group_name=az_name,
+                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                machine_image=machine_image,
+                vpc=self.cluster.vpc,
+                min_capacity=cfg["min_size"],
+                max_capacity=cfg["max_size"],
+                desired_capacity=cfg.get("desired_size", None),
+                vpc_subnets=ec2.SubnetSelection(
+                    subnet_group_name=self.private_subnet_name,
+                    availability_zones=[az],
+                ),
+                role=role,
+                security_group=self.unmanaged_sg,
+            )
+            for k, v in (
+                {
+                    **cfg["tags"],
+                    **{
+                        f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
+                        "k8s.io/cluster-autoscaler/enabled": "true",
+                        "eks:cluster-name": self.cluster.cluster_name,
+                    },
+                }
+            ).items():
+                cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
             lt = ec2.LaunchTemplate(
                 scope,
@@ -354,41 +382,11 @@ class EksStack(cdk.Stack):
                 role=role,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 machine_image=machine_image,
-                user_data=machine_config.user_data,
+                user_data=asg.user_data,
                 security_group=self.unmanaged_sg,
             )
             # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
             lt.connections.add_security_group(self.cluster.cluster_security_group)
-
-            asg = aws_autoscaling.AutoScalingGroup(
-                scope,
-                f"ASG{i}",
-                auto_scaling_group_name=az_name,
-                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
-                machine_image=machine_image,
-                vpc=self.cluster.vpc,
-                min_capacity=cfg["min_size"],
-                max_capacity=cfg["max_size"],
-                desired_capacity=cfg.get("desired_size", None),
-                vpc_subnets=ec2.SubnetSelection(
-                    subnet_group_name=self.private_subnet_name,
-                    availability_zones=[az],
-                ),
-                role=role,
-                user_data=lt.user_data,
-                security_group=self.unmanaged_sg,
-            )
-            for k, v in (
-                {
-                    **cfg["tags"],
-                    **{
-                        f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
-                        "k8s.io/cluster-autoscaler/enabled": "true",
-                        "eks:cluster-name": self.cluster.cluster_name,
-                    },
-                }
-            ).items():
-                cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
             # https://github.com/aws/aws-cdk/issues/6734
             cfn_asg: aws_autoscaling.CfnAutoScalingGroup = asg.node.default_child
@@ -416,14 +414,12 @@ class EksStack(cdk.Stack):
                 extra_args: list[str] = []
                 if labels := cfg.get("labels"):
                     extra_args.append(
-                        "--node-labels '{}'".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
+                        "--node-labels={}".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
                     )
 
                 if taints := cfg.get("taints"):
                     extra_args.append(
-                        "--register-with-taints '{}'".format(
-                            ",".join(["{}={}".format(k, v) for k, v in taints.items()])
-                        )
+                        "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
 
