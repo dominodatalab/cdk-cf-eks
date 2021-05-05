@@ -275,14 +275,10 @@ class EksStack(cdk.Stack):
 
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
-            ami_id = cfg.get("ami_id")
-            user_data = cfg.get("user_data")
-
-            machine_image: Optional[ec2.MachineImage] = None
-            if ami_id and user_data:
+            ami_id, user_data = self._get_machine_image(name, cfg)
+            machine_image: Optional[ec2.IMachineImage] = None
+            if ami_id:
                 machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
-            elif ami_id or user_data:
-                raise ValueError(f"{name}: ami_id and user_data must both be specified")
 
             for i, az in enumerate(self.vpc.availability_zones):
                 disk_size = cfg.get("disk_size", None)
@@ -334,22 +330,32 @@ class EksStack(cdk.Stack):
         for name, cfg in self.config["eks"]["nodegroups"].items():
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
 
-    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
-        ami_id = cfg.get("ami_id")
-        user_data = cfg.get("user_data")
+    def _get_machine_image(self, cfg_name: str, cfg: dict[str, Any]) -> tuple[Optional[str], Optional[str]]:
+        image = cfg.get("machine_image", {})
+
+        if not image:
+            return None, None
+
+        ami_id = image.get("ami_id")
+        user_data = image.get("user_data")
 
         if ami_id and user_data:
-            machine_image = ec2.MachineImage.generic_linux(
-                {self.region: ami_id}, user_data=ec2.UserData.custom(user_data)
-            )
-        elif ami_id or user_data:
-            raise ValueError(f"{name}: ami_id and user_data must both be specified")
-        else:
-            machine_image = eks.EksOptimizedImage(
+            return ami_id, user_data
+
+        raise ValueError(f"{cfg_name}: ami_id and user_data must both be specified")
+
+    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
+        ami_id, user_data = self._get_machine_image(name, cfg)
+
+        machine_image = (
+            ec2.MachineImage.generic_linux({self.region: ami_id}, user_data=ec2.UserData.custom(user_data))
+            if ami_id and user_data
+            else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
                 kubernetes_version=eks_version.version,
                 node_type=eks.NodeType.GPU if cfg.get("gpu", False) else eks.NodeType.STANDARD,
             )
+        )
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(
@@ -362,11 +368,11 @@ class EksStack(cdk.Stack):
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones):
-            az_name = f"{self._name}-{name}-{i}"
+            indexed_name = f"{self._name}-{name}-{i}"
             role = iam.Role(
                 scope,
                 f"NodeGroup{i}",
-                role_name=f"{az_name}NodeGroup",
+                role_name=f"{indexed_name}NodeGroup",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
                 managed_policies=managed_policies,
             )
@@ -374,13 +380,12 @@ class EksStack(cdk.Stack):
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
                 f"ASG{i}",
-                auto_scaling_group_name=az_name,
+                auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 machine_image=machine_image,
                 vpc=self.cluster.vpc,
                 min_capacity=cfg["min_size"],
                 max_capacity=cfg["max_size"],
-                desired_capacity=cfg.get("desired_size", None),
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -403,7 +408,7 @@ class EksStack(cdk.Stack):
             lt = ec2.LaunchTemplate(
                 scope,
                 f"LaunchTemplate{i}",
-                launch_template_name=az_name,
+                launch_template_name=indexed_name,
                 block_devices=[
                     ec2.BlockDevice(
                         device_name="/dev/xvda",

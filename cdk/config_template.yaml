@@ -32,6 +32,10 @@ eks:
       min_size: 1
       max_size: 1
       desired_size: 1
+      # machine_image:
+      #   ami_id: ami-xxxxx
+      #   user_data: |
+      #     data goes here
       instance_types:
         - m5.2xlarge
       labels:
@@ -46,6 +50,11 @@ eks:
       min_size: 1 # min 0 not supported w/managed node groups
       max_size: 10
       desired_size: 1
+      # machine_image:
+      #   ami_id: ami-xxxxx
+      #   user_data: |
+      #     #!/bin/bash
+      #     echo ${ClusterName}
       instance_types:
         - m5.2xlarge
       labels:
@@ -62,9 +71,11 @@ eks:
       disk_size: 100
       min_size: 0
       max_size: 10
-      # desired_size: 0 # Recommend leaving unset: Setting reverts autoscaled value on every update
-      ami_id: null
-      user_data: null
+      # machine_image:
+      #   ami_id: ami-xxxxx
+      #   user_data: |
+      #     #!/bin/bash
+      #     echo ${ClusterName}
       instance_types:
         - m5.2xlarge
       taints:
