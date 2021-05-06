@@ -28,4 +28,6 @@ EksStack(
     env=core.Environment(region=cfg.get("aws_region"), account=cfg.get("aws_account_id", None)),
 )
 
-app.synth()
+
+if __name__ == "__main__":
+    app.synth()
