@@ -2,7 +2,7 @@
 import yaml
 from aws_cdk import core
 
-from eks.eks_stack import EksStack
+from domino.domino_stack import DominoStack
 
 with open("config.yaml") as f:
     y = f.read()
@@ -12,9 +12,9 @@ app = core.App(context={"config": cfg})
 
 env_vars = {}
 
-EksStack(
+DominoStack(
     app,
-    f"{cfg['name']}-eks-stack",
+    f"{cfg['name']}-domino-eks-stack",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.

@@ -5,14 +5,14 @@ with open("README.md") as fp:
 
 
 setuptools.setup(
-    name="eks",
+    name="domino-eks",
     version="0.0.1",
     description="An empty CDK Python app",
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="author",
-    package_dir={"": "eks"},
-    packages=setuptools.find_packages(where="eks"),
+    package_dir={"": "domino"},
+    packages=setuptools.find_packages(where="domino"),
     install_requires=[
         "aws-cdk.core==1.97.0",
         "aws-cdk.aws_s3==1.97.0",

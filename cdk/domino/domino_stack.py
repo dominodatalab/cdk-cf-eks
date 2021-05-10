@@ -27,7 +27,7 @@ manifests = [
 ]
 
 
-class EksStack(cdk.Stack):
+class DominoStack(cdk.Stack):
     def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -214,8 +214,8 @@ class EksStack(cdk.Stack):
             version=eks_version,
             default_capacity=0,
         )
-
-        cdk.CfnOutput(self, "eks-output", value=self.cluster.cluster_name)
+        cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
+        cdk.CfnOutput(self, "eks_kubeconfig_cmd", value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}")
 
         self.asg_group_statement = iam.PolicyStatement(
             actions=[
