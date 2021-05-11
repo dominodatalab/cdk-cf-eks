@@ -815,4 +815,9 @@ class DominoStack(cdk.Stack):
                     "template_filename": basename(template_filename),
                 },
             },
+            "output": {
+                "cloudformation_outputs": {
+                    "value": "${module.cdk.cloudformation_outputs}",
+                }
+            }
         }
