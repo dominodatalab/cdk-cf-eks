@@ -45,6 +45,8 @@ resource "aws_s3_bucket_public_access_block" "deny_public_access" {
   block_public_policy = true
   ignore_public_acls = true
   restrict_public_buckets = true
+
+  depends_on = [aws_s3_bucket_policy.ssl_only]
 }
 
 resource "aws_s3_bucket_object" "assets" {
@@ -54,7 +56,6 @@ resource "aws_s3_bucket_object" "assets" {
   source = "${var.asset_dir}/${each.value}"
   etag = filemd5("${var.asset_dir}/${each.value}")
   depends_on = [
-    aws_s3_bucket_policy.ssl_only,
     aws_s3_bucket_public_access_block.deny_public_access
   ]
 }
