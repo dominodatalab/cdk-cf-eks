@@ -46,28 +46,28 @@ This command will prepare the asset directory (some files need to be zipped), de
 
 #### Example output
 
- /cdk-cf-eks/# python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 exampledomino eks-stack
- {
-     "module": {
-         "cdk": {
-             "source": "/cdk-cf-eks/terraform",
-             "asset_bucket": "my-bucket",
-             "asset_dir": "/assetdir",
-             "aws_region": "us-west-2",
-             "name": "exampledomino",
-             "parameters": {
-                 "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392ArtifactHashE56CD69A": "4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392",
-                 "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3BucketBF7A7F3F": "my-bucket",
-                 "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3VersionKeyFAF93626": "||asset.4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392.zip",
-                 # [...]
-                 "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1ArtifactHash122F010D": "57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1",
-                 "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3Bucket4D55F912": "my-bucket",
-                 "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3VersionKey6E4430B5": "||eksstackawscdkawseksKubectlProviderE4B47DF2.nested.template.json"
-             },
-             "template_filename": "eks-stack-1620763317.template.json"
-         }
-     }
- }
+    /cdk-cf-eks/# python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 exampledomino eks-stack
+    {
+        "module": {
+            "cdk": {
+                "source": "/cdk-cf-eks/terraform",
+                "asset_bucket": "my-bucket",
+                "asset_dir": "/assetdir",
+                "aws_region": "us-west-2",
+                "name": "exampledomino",
+                "parameters": {
+                    "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392ArtifactHashE56CD69A": "4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392",
+                    "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3BucketBF7A7F3F": "my-bucket",
+                    "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3VersionKeyFAF93626": "||asset.4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392.zip",
+                    # [...]
+                    "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1ArtifactHash122F010D": "57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1",
+                    "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3Bucket4D55F912": "my-bucket",
+                    "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3VersionKey6E4430B5": "||eksstackawscdkawseksKubectlProviderE4B47DF2.nested.template.json"
+                },
+                "template_filename": "eks-stack-1620763317.template.json"
+            }
+        }
+    }
 
 ### Note about upgrading
 
@@ -77,15 +77,15 @@ Terraform will not detect changes inside the CloudFormation template contents, b
 
 ### Example commands for a full session
 
- cd /cdk-cf-eks/
- cp /tmp/prepared-config.yaml ./config.yaml
- cdk synth -o /assetdir
- mkdir /terraform
- python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 mydomino eks-stack > /terraform/main.tf.json
- cd /terraform
- terraform init
- terraform plan -out terraform.plan
- terraform apply terraform.plan
+    cd /cdk-cf-eks/
+    cp /tmp/prepared-config.yaml ./config.yaml
+    cdk synth -o /assetdir
+    mkdir /terraform
+    python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 mydomino eks-stack > /terraform/main.tf.json
+    cd /terraform
+    terraform init
+    terraform plan -out terraform.plan
+    terraform apply terraform.plan
 
 ## Manual preparation
 
@@ -99,15 +99,15 @@ We have provided a helper command to prepare the asset directory and determine t
 
 This command will prepare the asset directory by zipping up certain directories into zip files, determine the correct asset parameters, and then print them to the screen:
 
- {
-     "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392ArtifactHashE56CD69A": "4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392",
-     "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3BucketBF7A7F3F": "my-bucket",
-     "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3VersionKeyFAF93626": "||asset.4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392.zip",
-     [...] # etc.
-     "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1ArtifactHash122F010D": "57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1",
-     "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3Bucket4D55F912": "my-bucket",
-     "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3VersionKey6E4430B5": "||eksstackawscdkawseksKubectlProviderE4B47DF2.nested.template.json"
- }
+    {
+        "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392ArtifactHashE56CD69A": "4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392",
+        "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3BucketBF7A7F3F": "my-bucket",
+        "AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3VersionKeyFAF93626": "||asset.4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392.zip",
+        [...] # etc.
+        "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1ArtifactHash122F010D": "57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1",
+        "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3Bucket4D55F912": "my-bucket",
+        "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3VersionKey6E4430B5": "||eksstackawscdkawseksKubectlProviderE4B47DF2.nested.template.json"
+    }
 
 ### Fully manual instructions
 
@@ -115,11 +115,11 @@ This command will prepare the asset directory by zipping up certain directories 
 
 Enter your asset directory
 
- cd /assetdir
+    cd /assetdir
 
 And zip up every asset that was created as a directory of files
 
- find . -maxdepth 1 \! -path . -type d | xargs -I % bash -c "cd % && zip -9r ../%.zip ./"
+    find . -maxdepth 1 \! -path . -type d | xargs -I % bash -c "cd % && zip -9r ../%.zip ./"
 
 #### Determine asset parameters
 
@@ -127,17 +127,17 @@ The CloudFormation will require several arbitrarily-named parameters for each on
 
 Here is a `jq` command that can be used to determine the parameters:
 
- jq -r '.artifacts."yourname-eks-stack".metadata."/yourname-eks-stack"[] | select(.type == "aws:cdk:asset") | .data | "\(.artifactHashParameter)=\(.sourceHash)\n\(.s3KeyParameter)=||\(.path)\n\(.s3BucketParameter)=yourbucketname"' manifest.json | sed '/\.zip$/! s/\(VersionKey.*\)/\1.zip/'
+    jq -r '.artifacts."yourname-eks-stack".metadata."/yourname-eks-stack"[] | select(.type == "aws:cdk:asset") | .data | "\(.artifactHashParameter)=\(.sourceHash)\n\(.s3KeyParameter)=||\(.path)\n\(.s3BucketParameter)=yourbucketname"' manifest.json | sed '/\.zip$/! s/\(VersionKey.*\)/\1.zip/'
 
 It'll produce output like this:
 
- AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392ArtifactHashE56CD69A=4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392
- AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3VersionKeyFAF93626=||asset.4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392
- AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3BucketBF7A7F3F=yourbucketname
- AssetParameters50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1ArtifactHash32F5D823=50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1
- AssetParameters50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1S3VersionKey85C003F9=||asset.50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1
- AssetParameters50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1S3Bucket36C546E0=yourbucketname
- [...]
+    AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392ArtifactHashE56CD69A=4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392
+    AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3VersionKeyFAF93626=||asset.4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392
+    AssetParameters4cd61014b71160e8c66fe167e43710d5ba068b80b134e9bd84508cf9238b2392S3BucketBF7A7F3F=yourbucketname
+    AssetParameters50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1ArtifactHash32F5D823=50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1
+    AssetParameters50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1S3VersionKey85C003F9=||asset.50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1
+    AssetParameters50e10880d134a01b440991fc77d217f39f01c2d56945215ee9a3b81187c6f3b1S3Bucket36C546E0=yourbucketname
+    [...]
 
 And all of these parameters it produces are required inputs into cloudformation.
 
