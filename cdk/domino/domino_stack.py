@@ -1,13 +1,13 @@
 from filecmp import cmp
 from glob import glob
-from os.path import basename, isfile, join as path_join
+from json import loads as json_loads
+from os.path import basename, isfile
+from os.path import join as path_join
 from re import MULTILINE
 from re import split as re_split
-from typing import Any, Optional
 from subprocess import run
-
-from json import loads as json_loads
 from time import time
+from typing import Any, Optional
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -23,7 +23,8 @@ from aws_cdk.aws_s3 import Bucket, BucketEncryption
 from aws_cdk.lambda_layer_awscli import AwsCliLayer
 from aws_cdk.lambda_layer_kubectl import KubectlLayer
 from requests import get as requests_get
-from yaml import dump as yaml_dump, safe_load as yaml_safe_load
+from yaml import dump as yaml_dump
+from yaml import safe_load as yaml_safe_load
 
 manifests = [
     [
@@ -31,6 +32,7 @@ manifests = [
         "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
     ]
 ]
+
 
 class ExternalCommandException(Exception):
     """Exception running spawned external commands"""
@@ -61,9 +63,7 @@ class DominoStack(cdk.Stack):
         self.provision_eks_cluster()
         self.install_calico()
         self.provision_efs()
-        cdk.CfnOutput(
-            self, "agent_config", value=yaml_dump(self.generate_install_config())
-        )
+        cdk.CfnOutput(self, "agent_config", value=yaml_dump(self.generate_install_config()))
 
     def provision_buckets(self):
         self.s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
@@ -224,7 +224,11 @@ class DominoStack(cdk.Stack):
             default_capacity=0,
         )
         cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
-        cdk.CfnOutput(self, "eks_kubeconfig_cmd", value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}")
+        cdk.CfnOutput(
+            self,
+            "eks_kubeconfig_cmd",
+            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}",
+        )
 
         self.asg_group_statement = iam.PolicyStatement(
             actions=[
@@ -740,11 +744,7 @@ class DominoStack(cdk.Stack):
                         "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                         "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
                         "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",  # noqa
-                        "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": self.config[
-                            "install"
-                        ][
-                            "acm_cert_arn"
-                        ],
+                        "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": self.config["install"]["acm_cert_arn"],
                         "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
                         # "service.beta.kubernetes.io/aws-load-balancer-security-groups":
                         #     "could-propagate-this-instead-of-create"
@@ -776,7 +776,9 @@ class DominoStack(cdk.Stack):
                     shell_command = f"cd {asset_dir}/{path}/ && zip -9r {path}.zip ./* && mv {path}.zip ../"
                     output = run(shell_command, shell=True, capture_output=True)
                     if output.returncode:
-                        raise ExternalCommandException(f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}")
+                        raise ExternalCommandException(
+                            f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}"
+                        )
                     path = f"{path}.zip"
                 parameters[d['artifactHashParameter']] = d['sourceHash']
                 parameters[d['s3BucketParameter']] = asset_bucket
@@ -786,7 +788,16 @@ class DominoStack(cdk.Stack):
 
     # disable_random_templates is a negative flag that's False by default to facilitate the naive cli access (ie any parameter given triggers it)
     @classmethod
-    def generate_terraform_bootstrap(cls, module_path: str, asset_bucket: str, asset_dir: str, aws_region: str, name: str, stack_name: str, disable_random_templates: bool = False):
+    def generate_terraform_bootstrap(
+        cls,
+        module_path: str,
+        asset_bucket: str,
+        asset_dir: str,
+        aws_region: str,
+        name: str,
+        stack_name: str,
+        disable_random_templates: bool = False,
+    ):
         template_filename = path_join(asset_dir, f"{stack_name}.template.json")
 
         if not disable_random_templates:
@@ -799,7 +810,9 @@ class DominoStack(cdk.Stack):
                 shell_command = f"cp {template_filename} {asset_dir}/{ts_template_filename}"
                 output = run(shell_command, shell=True, capture_output=True)
                 if output.returncode:
-                    raise ExternalCommandException(f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}")
+                    raise ExternalCommandException(
+                        f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}"
+                    )
                 template_filename = ts_template_filename
             else:
                 template_filename = last_template_file
@@ -819,5 +832,5 @@ class DominoStack(cdk.Stack):
                 "cloudformation_outputs": {
                     "value": "${module.cdk.cloudformation_outputs}",
                 }
-            }
+            },
         }

@@ -2,6 +2,7 @@
 import os
 from json import dumps as json_dumps
 from sys import argv
+
 import yaml
 from aws_cdk import core
 
@@ -39,6 +40,8 @@ if __name__ == "__main__":
         elif argv[1] == "generate_terraform_bootstrap":
             print(json_dumps(DominoStack.generate_terraform_bootstrap(*argv[2:]), indent=4))
         else:
-            print("Valid utility commands are 'generate_asset_parameters' and 'generate_terraform_bootstrap'. Otherwise, use cdk.")
+            print(
+                "Valid utility commands are 'generate_asset_parameters' and 'generate_terraform_bootstrap'. Otherwise, use cdk."
+            )
             exit(1)
     app.synth()
