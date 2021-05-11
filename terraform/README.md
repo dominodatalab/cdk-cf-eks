@@ -34,19 +34,19 @@ The terraform module has a handful of arguments. Most are basic, but the asset p
 * aws\_region: The region to be deployed into. This must match the region given in the Domino CDK config
 * name: The unique name of the deployment. This must match the name given in the Domino CDK config
 * parameters: Extra parameters to give to the CloudFormation stack. This *must* include all asset parameters that CDK generates. Using the helper command below, we will generate them for you. To understand how they're generated, see the subsection "Determine asset parameters" in the "Manual Preparation" section
-* template\_filename: The name of the CloudFormation template in the asset directory. It will usually be `eks-stack.template.json`
+* template\_filename: The name of the CloudFormation template in the asset directory. It will usually be `yourname-eks-stack.template.json`
 
 ### Generating a Terraform module configuration
 
 There is a helper command `generate_terraform_bootstrap` in `app.py` that you can use to generate a Terraform configuration utilizing this module:
 
- python3 app.py generate\_terraform\_bootstrap /path/to/this/module your-asset-bucket-name aws-region your-deployment-name eks-stack
+ python3 app.py generate\_terraform\_bootstrap /path/to/this/module your-asset-bucket-name aws-region your-deployment-name yourname-eks-stack
 
 This command will prepare the asset directory (some files need to be zipped), determine the proper asset prameters, and then finally generate the config for the terraform module and print it to standard out. This terraform config can be used as-is to deploy your CDK CloudFormation stack.
 
 #### Example output
 
-    /cdk-cf-eks/# python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 exampledomino eks-stack
+    /cdk-cf-eks/# python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 exampledomino yourname-eks-stack
     {
         "module": {
             "cdk": {
@@ -64,16 +64,16 @@ This command will prepare the asset directory (some files need to be zipped), de
                     "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3Bucket4D55F912": "my-bucket",
                     "AssetParameters57a2bc4f0e42d7dbe3f7903543c088ff5c0a155a1bf983682c348ffc278f02e1S3VersionKey6E4430B5": "||eksstackawscdkawseksKubectlProviderE4B47DF2.nested.template.json"
                 },
-                "template_filename": "eks-stack-1620763317.template.json"
+                "template_filename": "yourname-eks-stack-1620763317.template.json"
             }
         }
     }
 
 ### Note about upgrading
 
-Terraform will not detect changes inside the CloudFormation template contents, but it will trigger on filename changes. To facilitate upgrades, the helper function will copy the template file to one with a timestamp and input that into the terraform module (ie `eks-stack-<timestamp>.template.json`). If you want to disable this functionality, add an additional argument "True" to the `generate_terraform_bootstrap` command, like so:
+Terraform will not detect changes inside the CloudFormation template contents, but it will trigger on filename changes. To facilitate upgrades, the helper function will copy the template file to one with a timestamp and input that into the terraform module (ie `yourname-eks-stack-<timestamp>.template.json`). If you want to disable this functionality, add an additional argument "True" to the `generate_terraform_bootstrap` command, like so:
 
- python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 exampledomino eks-stack True
+ python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 exampledomino yourname-eks-stack True
 
 ### Example commands for a full session
 
@@ -81,7 +81,7 @@ Terraform will not detect changes inside the CloudFormation template contents, b
     cp /tmp/prepared-config.yaml ./config.yaml
     cdk synth -o /assetdir
     mkdir /terraform
-    python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 mydomino eks-stack > /terraform/main.tf.json
+    python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 mydomino yourname-eks-stack > /terraform/main.tf.json
     cd /terraform
     terraform init
     terraform plan -out terraform.plan
@@ -95,7 +95,7 @@ Like with the Terraform instructions, you'll need to configure your cdk stack an
 
 We have provided a helper command to prepare the asset directory and determine the parameters. There are also more barebones instructions following this to better illustrate what's being done, but we recommend using the helper command to reduce human error.
 
- python3 app.py generate\_asset\_parameters /assetdir my-bucket eks-stack
+ python3 app.py generate\_asset\_parameters /assetdir my-bucket yourname-eks-stack
 
 This command will prepare the asset directory by zipping up certain directories into zip files, determine the correct asset parameters, and then print them to the screen:
 
@@ -145,4 +145,4 @@ And all of these parameters it produces are required inputs into cloudformation.
 
 At this point, the assets need to be uploaded to an S3 bucket. Using our instructions, they must be in the root of your bucket. The "S3VersionKey" has the file path and can be modified to use a prefix path by putting the path before the double pipes (`||`).
 
-When you create your cloudformation stack, link to the `eks-stack.template.json` file in the s3 bucket, include all of the parameters generated in the previous step, as well as the parameter "name" (which should match the "name" parameter you used to create your cdk assets).
+When you create your cloudformation stack, link to the `yourname-eks-stack.template.json` file in the s3 bucket, include all of the parameters generated in the previous step, as well as the parameter "name" (which should match the "name" parameter you used to create your cdk assets).
