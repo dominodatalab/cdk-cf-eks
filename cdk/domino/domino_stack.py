@@ -1,7 +1,13 @@
-from os.path import isfile
+from filecmp import cmp
+from glob import glob
+from os.path import basename, isfile, join as path_join
 from re import MULTILINE
 from re import split as re_split
 from typing import Any, Optional
+from subprocess import run
+
+from json import loads as json_loads
+from time import time
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -25,6 +31,9 @@ manifests = [
         "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
     ]
 ]
+
+class ExternalCommandException(Exception):
+    """Exception running spawned external commands"""
 
 
 class DominoStack(cdk.Stack):
@@ -751,3 +760,59 @@ class DominoStack(cdk.Stack):
         cfg["private_docker_registry"] = self.config["install"]["private_docker_registry"]
 
         return cfg
+
+    @classmethod
+    def generate_asset_parameters(cls, asset_dir: str, asset_bucket: str, stack_name: str, manifest_file: str = None):
+        with open(manifest_file or path_join(asset_dir, "manifest.json")) as f:
+            cfg = json_loads(f.read())['artifacts'][stack_name]['metadata'][f"/{stack_name}"]
+
+        parameters = {}
+
+        for c in cfg:
+            if c["type"] == "aws:cdk:asset":
+                d = c["data"]
+                path = d['path']
+                if ".zip" not in path and ".json" not in path:
+                    shell_command = f"cd {asset_dir}/{path}/ && zip -9r {path}.zip ./* && mv {path}.zip ../"
+                    output = run(shell_command, shell=True, capture_output=True)
+                    if output.returncode:
+                        raise ExternalCommandException(f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}")
+                    path = f"{path}.zip"
+                parameters[d['artifactHashParameter']] = d['sourceHash']
+                parameters[d['s3BucketParameter']] = asset_bucket
+                parameters[d['s3KeyParameter']] = f"||{path}"
+
+        return parameters
+
+    # disable_random_templates is a negative flag that's False by default to facilitate the naive cli access (ie any parameter given triggers it)
+    @classmethod
+    def generate_terraform_bootstrap(cls, module_path: str, asset_bucket: str, asset_dir: str, aws_region: str, name: str, stack_name: str, disable_random_templates: bool = False):
+        template_filename = path_join(asset_dir, f"{stack_name}.template.json")
+
+        if not disable_random_templates:
+            template_files = sorted(glob(f"{asset_dir}/{stack_name}-*.template.json"))
+            last_template_file = template_files[-1] if template_files else None
+
+            # Generate new timestamped template file?
+            if not last_template_file or not cmp(template_filename, last_template_file):
+                ts_template_filename = f"{stack_name}-{int(time())}.template.json"
+                shell_command = f"cp {template_filename} {asset_dir}/{ts_template_filename}"
+                output = run(shell_command, shell=True, capture_output=True)
+                if output.returncode:
+                    raise ExternalCommandException(f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}")
+                template_filename = ts_template_filename
+            else:
+                template_filename = last_template_file
+        return {
+            "module": {
+                "cdk": {
+                    "source": "/home/mrgus/domino/cdk-cf-eks/terraform",
+                    "asset_bucket": asset_bucket,
+                    "asset_dir": asset_dir,
+                    "aws_region": aws_region,
+                    "name": name,
+                    "parameters": cls.generate_asset_parameters(asset_dir, asset_bucket, stack_name),
+                    "template_filename": basename(template_filename),
+                },
+            },
+        }

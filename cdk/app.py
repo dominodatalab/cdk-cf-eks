@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import os
+from json import dumps as json_dumps
+from sys import argv
 import yaml
 from aws_cdk import core
 
@@ -30,4 +33,12 @@ DominoStack(
 
 
 if __name__ == "__main__":
+    if len(argv) > 1:
+        if argv[1] == "generate_asset_parameters":
+            print(json_dumps(DominoStack.generate_asset_parameters(*argv[2:]), indent=4))
+        elif argv[1] == "generate_terraform_bootstrap":
+            print(json_dumps(DominoStack.generate_terraform_bootstrap(*argv[2:]), indent=4))
+        else:
+            print("Valid utility commands are 'generate_asset_parameters' and 'generate_terraform_bootstrap'. Otherwise, use cdk.")
+            exit(1)
     app.synth()
