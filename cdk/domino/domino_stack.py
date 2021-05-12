@@ -7,7 +7,7 @@ from re import MULTILINE
 from re import split as re_split
 from subprocess import run
 from time import time
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Tuple
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -347,7 +347,7 @@ class DominoStack(cdk.Stack):
         for name, cfg in self.config["eks"]["nodegroups"].items():
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
 
-    def _get_machine_image(self, cfg_name: str, cfg: dict[str, Any]) -> tuple[Optional[str], Optional[str]]:
+    def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
 
         if not image:
