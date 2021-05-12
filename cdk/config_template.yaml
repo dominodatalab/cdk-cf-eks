@@ -97,3 +97,4 @@ s3:
     registry:
       auto_delete_objects: false
       removal_policy_destroy: false
+install: {} # Values here will be passed through to the generated Domino Installer template
