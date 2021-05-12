@@ -2,7 +2,6 @@ resource "aws_s3_bucket" "cf_asset_bucket" {
   bucket = var.asset_bucket
   acl = "private"
   force_destroy = true
-  region = var.aws_region
   versioning  {
     enabled = true
   }
