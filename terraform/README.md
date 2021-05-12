@@ -83,7 +83,7 @@ Terraform will not detect changes inside the CloudFormation template contents, b
     cp /tmp/prepared-config.yaml ./config.yaml
     cdk synth -o /assetdir
     mkdir /terraform
-    python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 mydomino yourname-eks-stack > /terraform/main.tf.json
+    python3 app.py generate\_terraform\_bootstrap ./terraform my-bucket /assetdir us-west-2 mydomino yourname-eks-stack /path/to/outputs > /terraform/main.tf.json
     cd /terraform
     terraform init
     terraform plan -out terraform.plan
