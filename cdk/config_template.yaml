@@ -25,6 +25,8 @@ route53:
 eks:
   version: 1.19
   private_api: true
+  global_node_labels:
+    dominodatalab.com/domino-node: "true"
   managed_nodegroups:
     platform:
       spot: false
@@ -39,10 +41,8 @@ eks:
       instance_types:
         - m5.2xlarge
       labels:
-        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: platform
       tags:
-        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: platform
     compute:
       spot: false
@@ -58,11 +58,9 @@ eks:
       instance_types:
         - m5.2xlarge
       labels:
-        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
       tags:
-        dominodatalab.com/domino-node: "true"
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
   nodegroups:
@@ -82,7 +80,6 @@ eks:
         nvidia.com/gpu: "true:NoSchedule"
       labels:
         dominodatalab.com/node-pool": default-gpu
-        dominodatalab.com/domino-node": "true"
         nvidia.com/gpu: "true"
       tags:
         dominodatalab.com/node-pool: default-gpu

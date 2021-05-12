@@ -18,6 +18,11 @@ variable "name" {
     description = "Unique identifier for deployment"
 }
 
+variable "output_dir" {
+    type        = string
+    description = "Output directory for agent_template.yaml and kubeconfig"
+}
+
 variable "parameters" {
     type        = map
     description = "Paraemters to feed into cloudformation"

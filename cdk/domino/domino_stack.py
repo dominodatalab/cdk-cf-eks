@@ -292,6 +292,7 @@ class DominoStack(cdk.Stack):
 
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
             ami_id, user_data = self._get_machine_image(name, cfg)
             machine_image: Optional[ec2.IMachineImage] = None
             if ami_id:
@@ -345,6 +346,7 @@ class DominoStack(cdk.Stack):
                     self.route53_policy.attach_to_role(ng.role)
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
@@ -652,8 +654,8 @@ class DominoStack(cdk.Stack):
     def generate_install_config(self):
         cfg = {
             "name": self.config["name"],
-            "hostname": self.config["install"]["hostname"],
             "pod_cidr": self.vpc.vpc_cidr_block,
+            "global_node_selectors": self.config["eks"]["global_node_labels"],
             "storage_classes": {
                 "shared": {
                     "efs": {
@@ -726,7 +728,6 @@ class DominoStack(cdk.Stack):
         if self.config["route53"]["zone_ids"]:
             cfg["external_dns"] = {
                 "enabled": True,
-                "domain_filters": [self.config["install"]["domain"]],
                 "zone_id_filters": self.config["route53"]["zone_ids"],
                 "txt_owner_id": self.outputs["route53-txt-owner-id"].value,
             }
@@ -744,7 +745,6 @@ class DominoStack(cdk.Stack):
                         "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                         "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
                         "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",  # noqa
-                        "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": self.config["install"]["acm_cert_arn"],
                         "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
                         # "service.beta.kubernetes.io/aws-load-balancer-security-groups":
                         #     "could-propagate-this-instead-of-create"
@@ -755,9 +755,7 @@ class DominoStack(cdk.Stack):
             }
         }
 
-        cfg["global_node_selectors"] = self.config["install"]["global_node_selectors"]
-        cfg["helm"] = self.config["install"]["helm"]
-        cfg["private_docker_registry"] = self.config["install"]["private_docker_registry"]
+        cfg = {**cfg, **self.config["install"]}
 
         return cfg
 
@@ -772,7 +770,7 @@ class DominoStack(cdk.Stack):
             if c["type"] == "aws:cdk:asset":
                 d = c["data"]
                 path = d['path']
-                if ".zip" not in path and ".json" not in path:
+                if ".zip" not in path and ".json" not in path and not isfile(path_join(asset_dir, f"path.zip")):
                     shell_command = f"cd {asset_dir}/{path}/ && zip -9r {path}.zip ./* && mv {path}.zip ../"
                     output = run(shell_command, shell=True, capture_output=True)
                     if output.returncode:
@@ -796,6 +794,7 @@ class DominoStack(cdk.Stack):
         aws_region: str,
         name: str,
         stack_name: str,
+        output_dir: str,
         disable_random_templates: bool = False,
     ):
         template_filename = path_join(asset_dir, f"{stack_name}.template.json")
@@ -826,6 +825,7 @@ class DominoStack(cdk.Stack):
                     "name": name,
                     "parameters": cls.generate_asset_parameters(asset_dir, asset_bucket, stack_name),
                     "template_filename": basename(template_filename),
+                    "output_dir": output_dir,
                 },
             },
             "output": {

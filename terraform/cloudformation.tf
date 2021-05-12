@@ -15,14 +15,14 @@ output "cloudformation_outputs" {
 
 resource "local_file" "agent_template" {
   content = lookup(aws_cloudformation_stack.cdk_stack.outputs, "agentconfig", "")
-  filename = abspath("${path.module}/../agent_template.yaml")
+  filename = abspath("${var.output_dir}/agent_template.yaml")
   file_permission = "0600"
   depends_on = [aws_cloudformation_stack.cdk_stack]
 }
 
 resource "null_resource" "kubeconfig" {
   provisioner "local-exec" {
-    command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${path.module}/../kubeconfig")}"
+    command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${var.output_dir}/kubeconfig")}"
   }
 
   depends_on = [aws_cloudformation_stack.cdk_stack]
