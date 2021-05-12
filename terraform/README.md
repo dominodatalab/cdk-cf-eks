@@ -129,7 +129,7 @@ The CloudFormation will require several arbitrarily-named parameters for each on
 
 Here is a `jq` command that can be used to determine the parameters:
 
-    jq -r '.artifacts."yourname-eks-stack".metadata."/yourname-eks-stack"[] | select(.type == "aws:cdk:asset") | .data | "\(.artifactHashParameter)=\(.sourceHash)\n\(.s3KeyParameter)=||\(.path)\n\(.s3BucketParameter)=yourbucketname"' manifest.json | sed '/\.zip$/! s/\(VersionKey.*\)/\1.zip/'
+    jq -r '.artifacts."cdktest5-eks-stack".metadata."/cdktest5-eks-stack"[] | select(.type == "aws:cdk:asset") | .data | "\(.artifactHashParameter)=\(.sourceHash)\n\(.s3KeyParameter)=||\(.path)\n\(.s3BucketParameter)=yourbucketname"' assetdir/manifest.json | sed -E '/\.(zip|json)$/! s/(VersionKey.*)/\1.zip/'
 
 It'll produce output like this:
 
