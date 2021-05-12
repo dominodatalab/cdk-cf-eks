@@ -29,7 +29,7 @@ The terraform module has a handful of arguments. Most are basic, but the asset p
 
 ### Terraform module parameters
 
-* asset\_bucket: The name of the bucket to be created by terraform, which will hold the assets/cloudformation manifest
+* asset\_bucket: The name of the bucket to be created by terraform, which will hold the assets/cloudformation manifest. If using an existing bucket, you'll need to import it into the Terraform statefile and the bucket will be subject to the modules s3 policies (ie enforcing ssl).
 * asset\_dir: The directory that `cdk synth` output to. By default this is `cdk.out`, or overridden with `-o` to be `output_dir` in the previous example.
 * aws\_region: The region to be deployed into. This must match the region given in the Domino CDK config
 * name: The unique name of the deployment. This must match the name given in the Domino CDK config
