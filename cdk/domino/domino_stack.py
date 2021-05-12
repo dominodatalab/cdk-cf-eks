@@ -755,7 +755,7 @@ class DominoStack(cdk.Stack):
             }
         }
 
-        cfg = {**cfg, **self.config["install"]}
+        cfg = deep_merge(cfg, self.config["install"])
 
         return cfg
 
@@ -834,3 +834,34 @@ class DominoStack(cdk.Stack):
                 }
             },
         }
+
+
+def deep_merge(*dictionaries) -> dict:
+    """
+    Recursive dict merge.
+
+    Takes any number of dictionaries as arguments. Each subsequent dictionary will be overlaid on the previous ones
+    before. Therefore, the rightmost dictionary's value will take precedence. None values will be interpreted as
+    empty dictionaries, but otherwise arguments provided must be of the dict type.
+    """
+
+    def check_type(dx) -> dict:
+        if dx is None:
+            dx = {}
+        if not isinstance(dx, dict):
+            raise TypeError("Must provide only dictionaries!")
+        return dx
+
+    def merge(alpha, omega, key):
+        if isinstance(alpha.get(key), dict) and isinstance(omega[key], dict):
+            return deep_merge(alpha[key], omega[key])
+        else:
+            return omega[key]
+
+    def overlay(alpha: dict, omega: dict) -> dict:
+        return {**alpha, **{k: merge(alpha, omega, k) for k, _ in omega.items()}}
+
+    if 0 == len(dictionaries):
+        return {}
+    base_dict = check_type(dictionaries[0])
+    return base_dict if len(dictionaries) == 1 else overlay(base_dict, deep_merge(*dictionaries[1:]))
