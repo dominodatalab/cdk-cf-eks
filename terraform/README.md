@@ -17,9 +17,9 @@ The most important steps are the preparation beforehand.
 
 ## Generate CloudFormation and associated Assets
 
-Run "cdk synth" to generate CloudFormation from cdk. You can set the output directory to something specific with `-o`, otherwise it defaults to generating a subdirectory `cdk.out`.
+Run "cdk synth" to generate CloudFormation from cdk. You can set the asset output directory to something specific with `-o`, otherwise it defaults to generating a subdirectory `cdk.out`.
 
- cdk synth -o output\_dir
+    cdk synth -o /assetdir
 
 `cdk synth` will generate a number of assets with the filename `asset.<HASH>`, as well as some json files (including the CloudFormation manifest). Some of the `asset.<HASH>` files will be zip files, others will be directories that need to be zipped up.
 
