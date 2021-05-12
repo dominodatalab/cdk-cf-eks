@@ -818,7 +818,7 @@ class DominoStack(cdk.Stack):
         return {
             "module": {
                 "cdk": {
-                    "source": "/home/mrgus/domino/cdk-cf-eks/terraform",
+                    "source": module_path,
                     "asset_bucket": asset_bucket,
                     "asset_dir": asset_dir,
                     "aws_region": aws_region,
