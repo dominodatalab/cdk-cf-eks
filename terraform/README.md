@@ -41,7 +41,7 @@ The terraform module has a handful of arguments. Most are basic, but the asset p
 
 There is a helper command `generate_terraform_bootstrap` in `app.py` that you can use to generate a Terraform configuration utilizing this module:
 
-    python3 app.py generate_terraform_bootstrap /path/to/this/module your-asset-bucket-name aws-region your-deployment-name yourname-eks-stack /path/to/outputs
+    python3 app.py generate_terraform_bootstrap /path/to/this/module your-asset-bucket-name /path/to/asset/dir aws-region your-deployment-name yourname-eks-stack /path/to/outputs
 
 This command will prepare the asset directory (some files need to be zipped), determine the proper asset prameters, and then finally generate the config for the terraform module and print it to standard out. This terraform config can be used as-is to deploy your CDK CloudFormation stack.
 
