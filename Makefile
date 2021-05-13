@@ -11,4 +11,4 @@ dist:
 	cd terraform && tar -zcvvf ../$(DIST_DIR)/$(TERRAFORM_DIST_NAME)-$(VERSION).tar.gz ./*
 
 clean:
-	rm  $(DIST_DIR)/* && rmdir $(DIST_DIR)
+	rm -Rf $(DIST_DIR) cdk/build cdk/domino_cdk.egg-info

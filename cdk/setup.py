@@ -14,8 +14,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     author="Domino Data Lab",
     packages=["domino_cdk"],
+    package_data={"domino_cdk": ["config_template.yaml"]},
     data_files=[
-        ('domino-cdk', ['app.py']),
+        ("domino-cdk", ["app.py"]),
     ],
     install_requires=[
         "aws-cdk.core==1.97.0",

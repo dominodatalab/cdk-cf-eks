@@ -1,7 +1,7 @@
 from filecmp import cmp
 from glob import glob
 from json import loads as json_loads
-from os.path import basename, isfile
+from os.path import dirname, basename, isfile
 from os.path import join as path_join
 from re import MULTILINE
 from re import split as re_split
@@ -876,6 +876,10 @@ class DominoEksStack(cdk.Stack):
             },
         }
 
+    @classmethod
+    def config_template(cls):
+        with open(path_join(dirname(__file__), "config_template.yaml")) as f:
+            return yaml_safe_load(f.read())
 
 def deep_merge(*dictionaries) -> dict:
     """
