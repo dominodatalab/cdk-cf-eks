@@ -1,0 +1,161 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cloudformation:GetTemplate",
+        "cloudformation:CreateChangeSet",
+        "cloudformation:DeleteChangeSet",
+        "cloudformation:DeleteStack",
+        "cloudformation:DescribeStacks",
+        "cloudformation:DescribeChangeSet",
+        "cloudformation:ExecuteChangeSet",
+        "cloudformation:DescribeStackEvents"
+      ],
+      "Resource": [
+        "arn:aws:cloudformation:*:890728157128:stack/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction"
+      ],
+      "Resource": [
+        "arn:aws:lambda:*:890728157128:function:denis-test2-*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:CreateAutoScalingGroup",
+        "autoscaling:DeleteAutoScalingGroup",
+        "autoscaling:DescribeAutoScalingGroups",
+        "autoscaling:DescribeScalingActivities",
+        "autoscaling:UpdateAutoScalingGroup",
+        "ec2:DescribeLaunchTemplates",
+        "ec2:GetLaunchTemplateData",
+        "ec2:CreateLaunchTemplate",
+        "ec2:DeleteLaunchTemplate",
+        "ssm:GetParameters",
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:PutBucketTagging",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:GetObject",
+        "ec2:AllocateAddress",
+        "ec2:ReleaseAddress",
+        "ec2:describeAddresses",
+        "ec2:DescribeAvailabilityZones",
+        "ec2:DescribeAccountAttributes",
+        "ec2:*NatGateway*",
+        "ec2:*InternetGateway*",
+        "ec2:*Vpc*",
+        "ec2:*Subnet*",
+        "ec2:*NetworkInterface*",
+        "ec2:*Route*",
+        "ec2:*SecurityGroupEgress",
+        "ec2:*SecurityGroupIngress",
+        "ec2:DescribeSecurityGroups",
+        "ec2:CreateSecurityGroup",
+        "ec2:DeleteSecurityGroup",
+        "ec2:CreateTags",
+        "ec2:RunInstances",
+        "elasticfilesystem:DescribeMountTargets",
+        "elasticfilesystem:CreateMountTarget",
+        "elasticfilesystem:DeleteMountTarget"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:GetRole",
+        "iam:PassRole",
+        "iam:DeleteRole",
+        "iam:GetPolicy",
+        "iam:DeletePolicy",
+        "iam:CreatePolicy",
+        "iam:ListPolicyVersions",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:Tag*",
+        "iam:Untag*"
+      ],
+      "Resource": [
+        "arn:aws:iam::890728157128:policy/denis-test2-*",
+        "arn:aws:iam::890728157128:role/denis-test2-*",
+        "arn:aws:iam::890728157128:instance-profile/denis-test2-*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "backup:TagResource",
+        "backup:ListTags",
+        "backup:*BackupVault*",
+        "backup:CreateBackupPlan",
+        "backup:DeleteBackupPlan",
+        "backup:GetBackupPlan",
+        "backup:CreateBackupSelection",
+        "backup:GetBackupSelection",
+        "backup:DeleteBackupSelection"
+      ],
+      "Condition": {
+        "ForAnyValue:StringEquals": {
+          "aws:CalledVia": [
+            "cloudformation.amazonaws.com"
+          ]
+        }
+      },
+      "Resource": [
+        "arn:aws:backup:*:890728157128:backup-vault:denis-test2-efs",
+        "arn:aws:backup:*:890728157128:backup-plan:denis-tes2-efs"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "elasticfilesystem:Backup",
+        "elasticfilesystem:CreateAccessPoint",
+        "elasticfilesystem:CreateFileSystem",
+        "elasticfilesystem:CreateMountTarget",
+        "elasticfilesystem:DeleteAccessPoint",
+        "elasticfilesystem:DeleteFileSystem",
+        "elasticfilesystem:DeleteMountTarget",
+        "elasticfilesystem:DescribeAccessPoints",
+        "elasticfilesystem:DescribeFileSystems",
+        "elasticfilesystem:DescribeMountTargets",
+        "iam:GetRole",
+        "iam:ListAttachedRolePolicies",
+        "kms:CreateGrant",
+        "kms:Decrypt",
+        "kms:DescribeKey",
+        "kms:GenerateDataKey",
+        "kms:RetireGrant"
+      ],
+      "Condition": {
+        "ForAnyValue:StringEquals": {
+          "aws:CalledVia": [
+            "cloudformation.amazonaws.com"
+          ]
+        }
+      },
+      "Resource": "*"
+    }
+  ]
+}

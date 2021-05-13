@@ -32,3 +32,8 @@ variable "template_filename" {
     type        = string
     description = "Filename of CloudFormation Template file in asset_dir (usually <stack_name>.template.json)"
 }
+
+variable "iam_role_arn" {
+    type        = string
+    description = "IAM role to use for deployment"
+}
