@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
+import os
+from json import dumps as json_dumps
+from sys import argv
+
 import yaml
 from aws_cdk import core
 
-from eks.eks_stack import EksStack
+from domino.domino_stack import DominoStack
 
 with open("config.yaml") as f:
     y = f.read()
@@ -12,7 +16,7 @@ app = core.App(context={"config": cfg})
 
 env_vars = {}
 
-EksStack(
+DominoStack(
     app,
     f"{cfg['name']}-eks-stack",
     # If you don't specify 'env', this stack will be environment-agnostic.
@@ -28,4 +32,16 @@ EksStack(
     env=core.Environment(region=cfg.get("aws_region"), account=cfg.get("aws_account_id", None)),
 )
 
-app.synth()
+
+if __name__ == "__main__":
+    if len(argv) > 1:
+        if argv[1] == "generate_asset_parameters":
+            print(json_dumps(DominoStack.generate_asset_parameters(*argv[2:]), indent=4))
+        elif argv[1] == "generate_terraform_bootstrap":
+            print(json_dumps(DominoStack.generate_terraform_bootstrap(*argv[2:]), indent=4))
+        else:
+            print(
+                "Valid utility commands are 'generate_asset_parameters' and 'generate_terraform_bootstrap'. Otherwise, use cdk."
+            )
+            exit(1)
+    app.synth()
