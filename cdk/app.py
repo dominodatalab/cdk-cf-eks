@@ -29,7 +29,7 @@ DominoEksStack(
     # want to deploy the stack to. */
     # env=core.Environment(account='123456789012', region='us-east-1'),
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-    env=core.Environment(region=cfg.get("aws_region"), account=cfg.get("aws_account_id", None)),
+    env=core.Environment(region=cfg.get("aws_region")),
 )
 
 
