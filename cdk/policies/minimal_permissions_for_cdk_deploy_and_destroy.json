@@ -4,14 +4,14 @@
         {
             "Effect": "Allow",
             "Action": [
-                "cloudformation:GetTemplate",
                 "cloudformation:CreateChangeSet",
                 "cloudformation:DeleteChangeSet",
                 "cloudformation:DeleteStack",
-                "cloudformation:DescribeStacks",
                 "cloudformation:DescribeChangeSet",
+                "cloudformation:DescribeStackEvents",
+                "cloudformation:DescribeStacks",
                 "cloudformation:ExecuteChangeSet",
-                "cloudformation:DescribeStackEvents"
+                "cloudformation:GetTemplate"
             ],
             "Resource": [
                 "arn:aws:cloudformation:*:<YOUR_ACCOUNT>:stack/<YOUR_STACK_NAME>-eks-stack/*",
@@ -21,9 +21,9 @@
         {
             "Effect": "Allow",
             "Action": [
-                "s3:ListBucket",
+                "s3:*Object",
                 "s3:GetBucketLocation",
-                "s3:*Object"
+                "s3:ListBucket"
             ],
             "Resource": [
                 "arn:aws:s3:::cdktoolkit-stagingbucket-*"
@@ -34,12 +34,12 @@
             "Action": [
                 "s3:CreateBucket",
                 "s3:DeleteBucket",
-                "s3:ListBucket",
-                "s3:GetBucketLocation",
-                "s3:PutEncryptionConfiguration",
-                "s3:PutBucketPolicy",
                 "s3:DeleteBucketPolicy",
-                "s3:PutBucketTagging"
+                "s3:GetBucketLocation",
+                "s3:ListBucket",
+                "s3:PutBucketPolicy",
+                "s3:PutBucketTagging",
+                "s3:PutEncryptionConfiguration"
             ],
             "Condition": {
                 "ForAnyValue:StringEquals": {
@@ -55,23 +55,23 @@
         {
             "Effect": "Allow",
             "Action": [
-                "iam:CreateRole",
-                "iam:GetRole",
-                "iam:PassRole",
-                "iam:DeleteRole",
-                "iam:GetPolicy",
-                "iam:DeletePolicy",
-                "iam:CreatePolicy",
-                "iam:ListPolicyVersions",
-                "iam:AttachRolePolicy",
-                "iam:DetachRolePolicy",
-                "iam:PutRolePolicy",
-                "iam:DeleteRolePolicy",
-                "iam:ListAttachedRolePolicies",
-                "iam:CreateInstanceProfile",
-                "iam:DeleteInstanceProfile",
-                "iam:GetInstanceProfile",
                 "iam:AddRoleToInstanceProfile",
+                "iam:AttachRolePolicy",
+                "iam:CreateInstanceProfile",
+                "iam:CreatePolicy",
+                "iam:CreateRole",
+                "iam:DeleteInstanceProfile",
+                "iam:DeletePolicy",
+                "iam:DeleteRole",
+                "iam:DeleteRolePolicy",
+                "iam:DetachRolePolicy",
+                "iam:GetInstanceProfile",
+                "iam:GetPolicy",
+                "iam:GetRole",
+                "iam:ListAttachedRolePolicies",
+                "iam:ListPolicyVersions",
+                "iam:PassRole",
+                "iam:PutRolePolicy",
                 "iam:RemoveRoleFromInstanceProfile"
             ],
             "Condition": {
@@ -92,12 +92,12 @@
             "Action": [
                 "lambda:CreateFunction",
                 "lambda:DeleteFunction",
-                "lambda:GetFunction",
-                "lambda:InvokeFunction",
-                "lambda:PublishLayerVersion",
-                "lambda:GetLayerVersion",
                 "lambda:DeleteLayerVersion",
-                "lambda:GetLayerVersionPolicy"
+                "lambda:GetFunction",
+                "lambda:GetLayerVersion",
+                "lambda:GetLayerVersionPolicy",
+                "lambda:InvokeFunction",
+                "lambda:PublishLayerVersion"
             ],
             "Condition": {
                 "ForAnyValue:StringEquals": {
@@ -133,11 +133,11 @@
         {
             "Effect": "Allow",
             "Action": [
-                "eks:TagResource",
-                "eks:UntagResource",
                 "eks:CreateNodegroup",
                 "eks:DeleteNodegroup",
-                "eks:DescribeNodegroup"
+                "eks:DescribeNodegroup",
+                "eks:TagResource",
+                "eks:UntagResource"
             ],
             "Resource": [
                 "arn:aws:eks:*:<YOUR_ACCOUNT>:cluster/*"
@@ -146,9 +146,9 @@
         {
             "Effect": "Allow",
             "Action": [
-                "ssm:PutParameter",
-                "ssm:DeleteParameter",
                 "ssm:AddTagsToResource",
+                "ssm:DeleteParameter",
+                "ssm:PutParameter",
                 "ssm:RemoveTagsFromResource"
             ],
             "Condition": {
@@ -174,15 +174,15 @@
         {
             "Effect": "Allow",
             "Action": [
-                "backup:TagResource",
-                "backup:ListTags",
                 "backup:*BackupVault*",
                 "backup:CreateBackupPlan",
-                "backup:DeleteBackupPlan",
-                "backup:GetBackupPlan",
                 "backup:CreateBackupSelection",
+                "backup:DeleteBackupPlan",
+                "backup:DeleteBackupSelection",
+                "backup:GetBackupPlan",
                 "backup:GetBackupSelection",
-                "backup:DeleteBackupSelection"
+                "backup:ListTags",
+                "backup:TagResource"
             ],
             "Condition": {
                 "ForAnyValue:StringEquals": {
