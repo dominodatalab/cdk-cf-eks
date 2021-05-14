@@ -25,7 +25,7 @@ variable "output_dir" {
 
 variable "parameters" {
     type        = map
-    description = "Paraemters to feed into cloudformation"
+    description = "Parameters to feed into cloudformation"
 }
 
 variable "template_filename" {
@@ -36,4 +36,5 @@ variable "template_filename" {
 variable "iam_role_arn" {
     type        = string
     description = "IAM role to use for deployment"
+    default = ""
 }

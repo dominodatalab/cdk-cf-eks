@@ -522,7 +522,7 @@ class DominoStack(cdk.Stack):
             vault = backup.BackupVault(
                 self,
                 "efs_backup",
-                # backup_vault_name=f"{self._name}-efs-backup",
+                backup_vault_name=f'{self.config["name"]}-efs',
                 removal_policy=cdk.RemovalPolicy[efs_backup.get("removal_policy", cdk.RemovalPolicy.RETAIN.value)],
             )
             plan = backup.BackupPlan(
@@ -796,6 +796,7 @@ class DominoStack(cdk.Stack):
         stack_name: str,
         output_dir: str,
         disable_random_templates: bool = False,
+        iam_role_arn: str = "",
     ):
         template_filename = path_join(asset_dir, f"{stack_name}.template.json")
 
@@ -823,6 +824,7 @@ class DominoStack(cdk.Stack):
                     "asset_dir": asset_dir,
                     "aws_region": aws_region,
                     "name": name,
+                    "iam_role_arn": iam_role_arn,
                     "parameters": cls.generate_asset_parameters(asset_dir, asset_bucket, stack_name),
                     "template_filename": basename(template_filename),
                     "output_dir": output_dir,
