@@ -288,7 +288,7 @@ class DominoEksStack(cdk.Stack):
             self.outputs["route53-txt-owner-id"] = cdk.CfnOutput(
                 self,
                 "route53-txt-owner-id",
-                value=f"{self.config['name']}AWS",
+                value=f"{self.config['name']}CDK",
             )
 
         self.ecr_policy = iam.ManagedPolicy(
@@ -564,6 +564,7 @@ class DominoEksStack(cdk.Stack):
                 backup_vault_name=f'{self.config["name"]}-efs',
                 removal_policy=cdk.RemovalPolicy[efs_backup.get("removal_policy", cdk.RemovalPolicy.RETAIN.value)],
             )
+            cdk.CfnOutput(self, "backup-vault", value=vault.backup_vault_name)
             plan = backup.BackupPlan(
                 self,
                 "efs_backup_plan",
