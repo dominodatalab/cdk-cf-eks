@@ -6,7 +6,7 @@ from sys import argv
 import yaml
 from aws_cdk import core
 
-from domino_cdk.domino_stack import DominoEksStack
+from domino_cdk.eks_stack import DominoEksStack
 
 with open("config.yaml") as f:
     y = f.read()
