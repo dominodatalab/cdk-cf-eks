@@ -384,10 +384,6 @@ class DominoEksStack(cdk.Stack):
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
             self.provision_unmanaged_nodegroup(name, cfg, eks_version)
 
-        # ensure bucket delete happens after cluster delete (ie to avoid race conditions during force destroy)
-        for bucket in self.buckets.values():
-            bucket.node.add_dependency(self.cluster)
-
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
 
