@@ -4,7 +4,7 @@ resource "aws_cloudformation_stack" "cdk_stack" {
     "CAPABILITY_IAM",
     "CAPABILITY_NAMED_IAM"
   ]
-  parameters = merge({"name": "${var.name}"}, var.parameters)
+  parameters = var.parameters
   template_url = "https://${aws_s3_bucket.cf_asset_bucket.bucket_regional_domain_name}/${var.template_filename}"
   iam_role_arn = "${var.iam_role_arn}"
   depends_on = [aws_s3_bucket_object.assets]

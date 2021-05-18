@@ -47,15 +47,9 @@ class DominoEksStack(cdk.Stack):
         # The code that defines your stack goes here
         self.config = self.node.try_get_context("config")
         self.env = kwargs["env"]
-        self._name = cdk.CfnParameter(
-            self,
-            "name",
-            type="String",
-            description="Unique deployment id",
-            default=self.config["name"],
-        ).value_as_string
-        cdk.CfnOutput(self, "deploy_name", value=self._name)
-        cdk.Tags.of(self).add("domino-deploy-id", self.config["name"])
+        self.name = self.config["name"]
+        cdk.CfnOutput(self, "deploy_name", value=self.name)
+        cdk.Tags.of(self).add("domino-deploy-id", self.name)
         for k, v in self.config["tags"].items():
             cdk.Tags.of(self).add(str(k), str(v))
 
@@ -87,7 +81,7 @@ class DominoEksStack(cdk.Stack):
             self.buckets[bucket] = Bucket(
                 self,
                 bucket,
-                bucket_name=f"{self._name}-{bucket}",
+                bucket_name=f"{self.name}-{bucket}",
                 auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"],
                 removal_policy=cdk.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else cdk.RemovalPolicy.RETAIN,
                 enforce_ssl=True,
@@ -129,7 +123,7 @@ class DominoEksStack(cdk.Stack):
         self.s3_policy = iam.ManagedPolicy(
             self,
             "S3",
-            managed_policy_name=f"{self._name}-S3",
+            managed_policy_name=f"{self.name}-S3",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -144,8 +138,8 @@ class DominoEksStack(cdk.Stack):
         )
 
     def provision_vpc(self, vpc: dict):
-        self.public_subnet_name = f"{self.config['name']}-public"
-        self.private_subnet_name = f"{self.config['name']}-private"
+        self.public_subnet_name = f"{self.name}-public"
+        self.private_subnet_name = f"{self.name}-private"
         if not vpc["create"]:
             self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc["id"])
             return
@@ -173,7 +167,7 @@ class DominoEksStack(cdk.Stack):
             },
             nat_gateway_provider=self.nat_provider,
         )
-        cdk.Tags.of(self.vpc).add("Name", self._name)
+        cdk.Tags.of(self.vpc).add("Name", self.name)
         cdk.CfnOutput(self, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
@@ -183,7 +177,7 @@ class DominoEksStack(cdk.Stack):
             pod_subnet = ec2.PrivateSubnet(
                 self,
                 # this can't be okay
-                f"{self.config['name']}-pod-{c}",  # Can't use parameter/token in this name
+                f"{self.name}-pod-{c}",  # Can't use parameter/token in this name
                 vpc_id=self.vpc.vpc_id,
                 availability_zone=az,
                 cidr_block=f"100.64.{c}.0/18",
@@ -218,7 +212,7 @@ class DominoEksStack(cdk.Stack):
         self.cluster = eks.Cluster(
             self,
             "eks",
-            # cluster_name=self._name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
+            # cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
             vpc_subnets=[ec2.SubnetType.PRIVATE] if self.config["eks"]["private_api"] else None,
             version=eks_version,
@@ -244,7 +238,7 @@ class DominoEksStack(cdk.Stack):
         self.autoscaler_policy = iam.ManagedPolicy(
             self,
             "autoscaler",
-            managed_policy_name=f"{self._name}-autoscaler",
+            managed_policy_name=f"{self.name}-autoscaler",
             statements=[
                 iam.PolicyStatement(
                     actions=[
@@ -263,7 +257,7 @@ class DominoEksStack(cdk.Stack):
             self.route53_policy = iam.ManagedPolicy(
                 self,
                 "route53",
-                managed_policy_name=f"{self._name}-route53",
+                managed_policy_name=f"{self.name}-route53",
                 statements=[
                     iam.PolicyStatement(
                         actions=["route53:ListHostedZones"],
@@ -288,7 +282,7 @@ class DominoEksStack(cdk.Stack):
             self.outputs["route53-txt-owner-id"] = cdk.CfnOutput(
                 self,
                 "route53-txt-owner-id",
-                value=f"{self.config['name']}CDK",
+                value=f"{self.name}CDK",
             )
 
         self.ecr_policy = iam.ManagedPolicy(
@@ -324,7 +318,7 @@ class DominoEksStack(cdk.Stack):
                     lt = ec2.LaunchTemplate(
                         self.cluster,
                         f"LaunchTemplate{name}{i}",
-                        launch_template_name=f"{self._name}-{name}-{i}",
+                        launch_template_name=f"{self.name}-{name}-{i}",
                         block_devices=[
                             ec2.BlockDevice(
                                 device_name="/dev/xvda",
@@ -363,7 +357,7 @@ class DominoEksStack(cdk.Stack):
 
             ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
-                    nodegroup_name=f"{self._name}-{name}-{az}",  # this might be dangerous
+                    nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                     disk_size=disk_size,
                     min_size=cfg["min_size"],
@@ -413,7 +407,7 @@ class DominoEksStack(cdk.Stack):
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(
-                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
+                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG"
             )
 
         managed_policies = [
@@ -426,7 +420,7 @@ class DominoEksStack(cdk.Stack):
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones):
-            indexed_name = f"{self._name}-{name}-{i}"
+            indexed_name = f"{self.name}-{name}-{i}"
             role = iam.Role(
                 scope,
                 f"UMNodeGroup{name}-{i}",
@@ -528,7 +522,7 @@ class DominoEksStack(cdk.Stack):
             "Efs",
             vpc=self.vpc,
             # encrypted=True,
-            file_system_name=self._name,
+            file_system_name=self.name,
             # kms_key,
             # lifecycle_policy,
             performance_mode=efs.PerformanceMode.MAX_IO,
@@ -561,14 +555,14 @@ class DominoEksStack(cdk.Stack):
             vault = backup.BackupVault(
                 self,
                 "efs_backup",
-                backup_vault_name=f'{self.config["name"]}-efs',
+                backup_vault_name=f'{self.name}-efs',
                 removal_policy=cdk.RemovalPolicy[efs_backup.get("removal_policy", cdk.RemovalPolicy.RETAIN.value)],
             )
             cdk.CfnOutput(self, "backup-vault", value=vault.backup_vault_name)
             plan = backup.BackupPlan(
                 self,
                 "efs_backup_plan",
-                backup_plan_name=f"{self._name}-efs",
+                backup_plan_name=f"{self.name}-efs",
                 backup_plan_rules=[
                     backup.BackupPlanRule(
                         backup_vault=vault,
@@ -587,7 +581,7 @@ class DominoEksStack(cdk.Stack):
                 self,
                 "efs_backup_role",
                 assumed_by=iam.ServicePrincipal("backup.amazonaws.com"),
-                role_name=f"{self._name}-efs-backup",
+                role_name=f"{self.name}-efs-backup",
             )
             backup.BackupSelection(
                 self,
@@ -595,7 +589,7 @@ class DominoEksStack(cdk.Stack):
                 backup_plan=plan,
                 resources=[backup.BackupResource.from_efs_file_system(self.efs)],
                 allow_restores=False,
-                backup_selection_name=f"{self._name}-efs",
+                backup_selection_name=f"{self.name}-efs",
                 role=backupRole,
             )
 
@@ -693,7 +687,7 @@ class DominoEksStack(cdk.Stack):
 
     def generate_install_config(self):
         cfg = {
-            "name": self.config["name"],
+            "name": self.name,
             "pod_cidr": self.vpc.vpc_cidr_block,
             "global_node_selectors": self.config["eks"]["global_node_labels"],
             "storage_classes": {
