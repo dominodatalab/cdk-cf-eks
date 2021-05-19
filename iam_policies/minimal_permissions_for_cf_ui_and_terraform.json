@@ -204,6 +204,23 @@
         {
             "Effect": "Allow",
             "Action": [
+                "ecr:CreateRepository",
+                "ecr:DeleteRepository"
+            ],
+            "Condition": {
+                "ForAnyValue:StringEquals": {
+                    "aws:CalledVia": [
+                        "cloudformation.amazonaws.com"
+                    ]
+                }
+            },
+            "Resource": [
+                "arn:aws:ecr:*:<YOUR_ACCOUNT>:repository/<YOUR_STACK_NAME>*"
+            ]
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "autoscaling:CreateAutoScalingGroup",
                 "autoscaling:DeleteAutoScalingGroup",
                 "autoscaling:DescribeAutoScalingGroups",
