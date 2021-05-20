@@ -288,7 +288,7 @@ class DominoEksStack(cdk.Stack):
         self.ecr_policy = iam.ManagedPolicy(
             self,
             "DominoEcrReadOnly",
-            managed_policy_name=f"{self._name}-DominoEcrRestricted",
+            managed_policy_name=f"{self.name}-DominoEcrRestricted",
             statements=[
                 iam.PolicyStatement(
                     effect=iam.Effect.DENY,
@@ -350,7 +350,7 @@ class DominoEksStack(cdk.Stack):
             ng_role = iam.Role(
                 self,
                 f"MNodeGroup{name}-{i}",
-                role_name=f"{self._name}-{name}-{i}-NG",
+                role_name=f"{self.name}-{name}-{i}-NG",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
                 managed_policies=managed_policies,
             )
