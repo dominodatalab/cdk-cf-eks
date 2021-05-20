@@ -22,6 +22,7 @@ setuptools.setup(
         "aws-cdk.core==1.97.0",
         "aws-cdk.aws_s3==1.97.0",
         "aws-cdk.aws_ec2==1.97.0",
+        "aws-cdk.aws_ecr==1.97.0",
         "aws-cdk.aws_eks==1.97.0",
         "aws-cdk.aws_efs==1.97.0",
         "aws-cdk.aws_iam==1.97.0",

@@ -12,6 +12,8 @@ pyyaml = "*"
 "aws-cdk.aws-eks" = "*"
 requests = "*"
 "aws-cdk.aws-backup" = "*"
+"aws-cdk.aws-iam" = "*"
+"aws-cdk.aws-ecr" = "*"
 
 [dev-packages]
 isort = "*"
