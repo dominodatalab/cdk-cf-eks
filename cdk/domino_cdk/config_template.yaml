@@ -10,7 +10,7 @@ vpc:
   id: null # ignored if create=true
   create: true
   cidr: "10.0.0.0/16"
-  max_azs: 3
+  max_azs: 3 # Must be 2+, as EKS control plane can't provision in a single AZ
 efs:
   removal_policy_destroy: true
   backup:
@@ -24,6 +24,7 @@ route53:
 eks:
   version: 1.19
   private_api: true
+  max_nodegroup_azs: 1
   global_node_labels:
     dominodatalab.com/domino-node: "true"
   managed_nodegroups:

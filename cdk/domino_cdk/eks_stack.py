@@ -303,80 +303,86 @@ class DominoEksStack(cdk.Stack):
             ],
         )
 
-        # managed nodegroups
+        max_nodegroup_azs = self.config["eks"]["max_nodegroup_azs"]
+
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            ami_id, user_data = self._get_machine_image(name, cfg)
-            machine_image: Optional[ec2.IMachineImage] = None
-            if ami_id:
-                machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
-
-            for i, az in enumerate(self.vpc.availability_zones):
-                disk_size = cfg.get("disk_size", None)
-                lts: Optional[eks.LaunchTemplateSpec] = None
-                if machine_image:
-                    lt = ec2.LaunchTemplate(
-                        self.cluster,
-                        f"LaunchTemplate{name}{i}",
-                        launch_template_name=f"{self.name}-{name}-{i}",
-                        block_devices=[
-                            ec2.BlockDevice(
-                                device_name="/dev/xvda",
-                                volume=ec2.BlockDeviceVolume.ebs(
-                                    cfg["disk_size"],
-                                    volume_type=ec2.EbsDeviceVolumeType.GP2,
-                                ),
-                            )
-                        ],
-                        machine_image=machine_image,
-                        user_data=ec2.UserData.custom(
-                            cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
-                        ),
-                    )
-                    lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
-                    disk_size = None
-
-            managed_policies = [
-                self.ecr_policy,
-                self.s3_policy,
-                self.autoscaler_policy,
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
-            ]
-            if self.config["route53"]["zone_ids"]:
-                managed_policies.append(self.route53_policy)
-
-            ng_role = iam.Role(
-                self,
-                f"MNodeGroup{name}-{i}",
-                role_name=f"{self.name}-{name}-{i}-NG",
-                assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=managed_policies,
-            )
-
-            ng = self.cluster.add_nodegroup_capacity(
-                    f"{name}-{i}",  # this might be dangerous
-                    nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
-                    capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                    disk_size=disk_size,
-                    min_size=cfg["min_size"],
-                    max_size=cfg["max_size"],
-                    desired_size=cfg["desired_size"],
-                    subnets=ec2.SubnetSelection(
-                        subnet_group_name=self.private_subnet_name,
-                        availability_zones=[az],
-                    ),
-                    instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
-                    launch_template_spec=lts,
-                    labels=cfg["labels"],
-                    tags=cfg["tags"],
-                    node_role=ng_role,
-                )
+            self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_unmanaged_nodegroup(name, cfg, eks_version)
+            self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
+
+    #def provision_managed_nodegroups(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
+    def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
+        # managed nodegroups
+        ami_id, user_data = self._get_machine_image(name, cfg)
+        machine_image: Optional[ec2.IMachineImage] = None
+        if ami_id:
+            machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
+
+        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
+            disk_size = cfg.get("disk_size", None)
+            lts: Optional[eks.LaunchTemplateSpec] = None
+            if machine_image:
+                lt = ec2.LaunchTemplate(
+                    self.cluster,
+                    f"LaunchTemplate{name}{i}",
+                    launch_template_name=f"{self.name}-{name}-{i}",
+                    block_devices=[
+                        ec2.BlockDevice(
+                            device_name="/dev/xvda",
+                            volume=ec2.BlockDeviceVolume.ebs(
+                                cfg["disk_size"],
+                                volume_type=ec2.EbsDeviceVolumeType.GP2,
+                            ),
+                        )
+                    ],
+                    machine_image=machine_image,
+                    user_data=ec2.UserData.custom(
+                        cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
+                    ),
+                )
+                lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
+                disk_size = None
+
+        managed_policies = [
+            self.ecr_policy,
+            self.s3_policy,
+            self.autoscaler_policy,
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
+        ]
+        if self.config["route53"]["zone_ids"]:
+            managed_policies.append(self.route53_policy)
+
+        ng_role = iam.Role(
+            self,
+            f"MNodeGroup{name}-{i}",
+            role_name=f"{self.name}-{name}-{i}-NG",
+            assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
+            managed_policies=managed_policies,
+        )
+
+        ng = self.cluster.add_nodegroup_capacity(
+                f"{name}-{i}",  # this might be dangerous
+                nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
+                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
+                disk_size=disk_size,
+                min_size=cfg["min_size"],
+                max_size=cfg["max_size"],
+                desired_size=cfg["desired_size"],
+                subnets=ec2.SubnetSelection(
+                    subnet_group_name=self.private_subnet_name,
+                    availability_zones=[az],
+                ),
+                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                launch_template_spec=lts,
+                labels=cfg["labels"],
+                tags=cfg["tags"],
+                node_role=ng_role,
+            )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
@@ -392,7 +398,7 @@ class DominoEksStack(cdk.Stack):
 
         raise ValueError(f"{cfg_name}: ami_id and user_data must both be specified")
 
-    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
+    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion) -> None:
         ami_id, user_data = self._get_machine_image(name, cfg)
 
         machine_image = (
@@ -419,7 +425,7 @@ class DominoEksStack(cdk.Stack):
             managed_policies.append(self.route53_policy)
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
-        for i, az in enumerate(self.vpc.availability_zones):
+        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             indexed_name = f"{self.name}-{name}-{i}"
             role = iam.Role(
                 scope,
