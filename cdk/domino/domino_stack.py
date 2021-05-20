@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_ecr as ecr
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_events as events
@@ -290,6 +291,24 @@ class DominoStack(cdk.Stack):
                 value=f"{self.config['name']}AWS",
             )
 
+        self.ecr_policy = iam.ManagedPolicy(
+            self,
+            "DominoEcrReadOnly",
+            managed_policy_name=f"{self._name}-DominoEcrRestricted",
+            statements=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.DENY,
+                    actions=["ecr:*"],
+                    conditions={
+                        "StringNotEqualsIfExists": {
+                            "ecr:ResourceTag/domino-deploy-id": self.config["name"]
+                        }
+                    },
+                    resources=[f"arn:aws:ecr:*:{self.account}:*"],
+                ),
+            ],
+        )
+
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
@@ -323,7 +342,26 @@ class DominoStack(cdk.Stack):
                     lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                     disk_size = None
 
-                ng = self.cluster.add_nodegroup_capacity(
+            managed_policies = [
+                self.ecr_policy,
+                self.s3_policy,
+                self.autoscaler_policy,
+                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
+                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
+                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
+            ]
+            if self.config["route53"]["zone_ids"]:
+                managed_policies.append(self.route53_policy)
+
+            ng_role = iam.Role(
+                self,
+                f"MNodeGroup{name}-{i}",
+                role_name=f"{self._name}-{name}-{i}-NG",
+                assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
+                managed_policies=managed_policies,
+            )
+
+            ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
                     nodegroup_name=f"{self._name}-{name}-{az}",  # this might be dangerous
                     capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
@@ -339,11 +377,8 @@ class DominoStack(cdk.Stack):
                     launch_template_spec=lts,
                     labels=cfg["labels"],
                     tags=cfg["tags"],
+                    node_role=ng_role,
                 )
-                self.s3_policy.attach_to_role(ng.role)
-                self.autoscaler_policy.attach_to_role(ng.role)
-                if self.config["route53"]["zone_ids"]:
-                    self.route53_policy.attach_to_role(ng.role)
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
@@ -381,7 +416,11 @@ class DominoStack(cdk.Stack):
                 self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
             )
 
-        managed_policies = [self.s3_policy, self.autoscaler_policy]
+        managed_policies = [
+            self.ecr_policy,
+            self.s3_policy,
+            self.autoscaler_policy,
+        ]
         if self.config["route53"]["zone_ids"]:
             managed_policies.append(self.route53_policy)
 
@@ -390,8 +429,8 @@ class DominoStack(cdk.Stack):
             indexed_name = f"{self._name}-{name}-{i}"
             role = iam.Role(
                 scope,
-                f"NodeGroup{i}",
-                role_name=f"{indexed_name}NodeGroup",
+                f"UMNodeGroup{name}-{i}",
+                role_name=f"{indexed_name}-NG",
                 assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
                 managed_policies=managed_policies,
             )
