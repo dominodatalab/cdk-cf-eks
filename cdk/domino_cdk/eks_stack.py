@@ -209,15 +209,18 @@ class DominoEksStack(cdk.Stack):
 
     def provision_eks_cluster(self):
         eks_version = eks.KubernetesVersion.V1_19
+        # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
         self.cluster = eks.Cluster(
             self,
             "eks",
-            # cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
+            cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
-            vpc_subnets=[ec2.SubnetType.PRIVATE] if self.config["eks"]["private_api"] else None,
+            endpoint_access=eks.EndpointAccess.PRIVATE if self.config["eks"]["private_api"] else None,
+            vpc_subnets=[ec2.SubnetType.PRIVATE],
             version=eks_version,
             default_capacity=0,
         )
+
         cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(
             self,
