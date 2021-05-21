@@ -13,6 +13,7 @@ vpc:
   cidr: "10.0.0.0/16"
   max_azs: 3 # Must be 2+, as EKS control plane can't provision in a single AZ
   bastion:
+    enabled: true
     #key_name: some-aws-keypair
     instance_type: t2.micro
     ingress_ports:

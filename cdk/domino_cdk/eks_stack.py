@@ -207,7 +207,8 @@ class DominoEksStack(cdk.Stack):
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
-        self.provision_bastion(self.config["vpc"]["bastion"])
+        if self.config["vpc"]["bastion"]["enabled"]:
+            self.provision_bastion(self.config["vpc"]["bastion"])
 
     def provision_bastion(self, cfg: dict) -> None:
         ami_id, user_data = self._get_machine_image("bastion", cfg)
@@ -473,15 +474,16 @@ class DominoEksStack(cdk.Stack):
                 self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG"
             )
 
-        self.unmanaged_sg.add_ingress_rule(
-            peer=self.bastion_sg,
-            connection=ec2.Port(
-                protocol=ec2.Protocol("TCP"),
-                string_representation="ssh",
-                from_port=22,
-                to_port=22,
-            ),
-        )
+        if self.config["vpc"]["bastion"]["enabled"]:
+            self.unmanaged_sg.add_ingress_rule(
+                peer=self.bastion_sg,
+                connection=ec2.Port(
+                    protocol=ec2.Protocol("TCP"),
+                    string_representation="ssh",
+                    from_port=22,
+                    to_port=22,
+                ),
+            )
 
         managed_policies = [
             self.ecr_policy,
