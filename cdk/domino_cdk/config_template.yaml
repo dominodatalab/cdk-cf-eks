@@ -1,5 +1,6 @@
 name: domino
 #aws_region: "__FILL__"
+#aws_account_id: "__FILL__"
 availability_zones: []
 #  - "us-west-2a"
 #  - "us-west-2b"
@@ -93,7 +94,7 @@ eks:
       taints:
         nvidia.com/gpu: "true:NoSchedule"
       labels:
-        dominodatalab.com/node-pool": default-gpu
+        dominodatalab.com/node-pool: default-gpu
         nvidia.com/gpu: "true"
       tags:
         dominodatalab.com/node-pool: default-gpu
