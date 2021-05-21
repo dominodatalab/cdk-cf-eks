@@ -207,6 +207,59 @@ class DominoEksStack(cdk.Stack):
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
+        self.provision_bastion(self.config["vpc"]["bastion"])
+
+    def provision_bastion(self, cfg: dict) -> None:
+        ami_id, user_data = self._get_machine_image("bastion", cfg)
+
+        if ami_id:
+            bastion_machine_image = ec2.MachineImage.generic_linux({self.region: ami_id}, user_data=ec2.UserData.custom(user_data))
+        else:
+            if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?
+                raise ValueError("Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id")
+
+            bastion_machine_image = ec2.LookupMachineImage(name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"])
+
+        self.bastion_sg = ec2.SecurityGroup(
+            self,
+            "bastion_sg",
+            vpc=self.vpc,
+            security_group_name=f"{self.name}-bastion",
+        )
+
+        for rule in cfg["ingress_ports"]:
+            for ip_cidr in rule["ip_cidrs"]:
+                self.bastion_sg.add_ingress_rule(
+                    peer=ec2.Peer.ipv4(ip_cidr),
+                    connection=ec2.Port(
+                        protocol=ec2.Protocol(rule["protocol"]),
+                        string_representation=rule["name"],
+                        from_port=rule["from_port"],
+                        to_port=rule["to_port"],
+                    ),
+            )
+
+        bastion = ec2.Instance(
+            self,
+            "bastion",
+            machine_image=bastion_machine_image,
+            vpc=self.vpc,
+            instance_type=ec2.InstanceType(cfg["instance_type"]),
+            key_name=cfg.get("key_name", None),
+            security_group=self.bastion_sg,
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_group_name=self.public_subnet_name,
+            )
+        )
+
+        ec2.CfnEIP(
+            self,
+            "bastion_eip",
+            instance_id=bastion.instance_id,
+        )
+
+        cdk.CfnOutput(self, "bastion_public_ip", value=bastion.instance_public_ip)
+
     def provision_eks_cluster(self):
         eks_version = eks.KubernetesVersion.V1_19
         # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
@@ -385,6 +438,7 @@ class DominoEksStack(cdk.Stack):
                 labels=cfg["labels"],
                 tags=cfg["tags"],
                 node_role=ng_role,
+                remote_access=eks.NodegroupRemoteAccess(cfg["key_name"]),
             )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
@@ -418,6 +472,16 @@ class DominoEksStack(cdk.Stack):
             self.unmanaged_sg = ec2.SecurityGroup(
                 self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG"
             )
+
+        self.unmanaged_sg.add_ingress_rule(
+            peer=self.bastion_sg,
+            connection=ec2.Port(
+                protocol=ec2.Protocol("TCP"),
+                string_representation="ssh",
+                from_port=22,
+                to_port=22,
+            ),
+        )
 
         managed_policies = [
             self.ecr_policy,
@@ -461,6 +525,7 @@ class DominoEksStack(cdk.Stack):
                         f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
                         "k8s.io/cluster-autoscaler/enabled": "true",
                         "eks:cluster-name": self.cluster.cluster_name,
+                        "Name": indexed_name,
                     },
                 }
             ).items():
@@ -481,6 +546,7 @@ class DominoEksStack(cdk.Stack):
                 ],
                 role=role,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                key_name=cfg["key_name"],
                 machine_image=machine_image,
                 user_data=asg.user_data,
                 security_group=self.unmanaged_sg,

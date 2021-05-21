@@ -11,6 +11,20 @@ vpc:
   create: true
   cidr: "10.0.0.0/16"
   max_azs: 3 # Must be 2+, as EKS control plane can't provision in a single AZ
+  bastion:
+    #key_name: some-aws-keypair
+    instance_type: t2.micro
+    ingress_ports:
+      - name: "ssh"
+        from_port: 22
+        to_port: 22
+        protocol: "TCP"
+        ip_cidrs:
+          - "0.0.0.0/0"
+        protocol: "TCP"
+    #machine_image:
+    #  ami_id: xxx
+    #  user_data: null
 efs:
   removal_policy_destroy: true
   backup:
