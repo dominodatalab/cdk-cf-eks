@@ -309,6 +309,25 @@ class DominoStack(cdk.Stack):
             ],
         )
 
+        managed_policies = [
+            self.ecr_policy,
+            self.s3_policy,
+            self.autoscaler_policy,
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
+        ]
+        if self.config["route53"]["zone_ids"]:
+            managed_policies.append(self.route53_policy)
+
+        self.ng_role = iam.Role(
+            self,
+            f'{self.config["name"]}-NG',
+            role_name=f"{self._name}-NG",
+            assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
+            managed_policies=managed_policies,
+        )
+
         # managed nodegroups
         for name, cfg in self.config["eks"]["managed_nodegroups"].items():
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
@@ -342,24 +361,6 @@ class DominoStack(cdk.Stack):
                     lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                     disk_size = None
 
-            managed_policies = [
-                self.ecr_policy,
-                self.s3_policy,
-                self.autoscaler_policy,
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
-                iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
-            ]
-            if self.config["route53"]["zone_ids"]:
-                managed_policies.append(self.route53_policy)
-
-            ng_role = iam.Role(
-                self,
-                f"MNodeGroup{name}-{i}",
-                role_name=f"{self._name}-{name}-{i}-NG",
-                assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=managed_policies,
-            )
 
             ng = self.cluster.add_nodegroup_capacity(
                     f"{name}-{i}",  # this might be dangerous
@@ -377,7 +378,7 @@ class DominoStack(cdk.Stack):
                     launch_template_spec=lts,
                     labels=cfg["labels"],
                     tags=cfg["tags"],
-                    node_role=ng_role,
+                    node_role=self.ng_role,
                 )
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
@@ -416,25 +417,9 @@ class DominoStack(cdk.Stack):
                 self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self._name}-sharedNodeSG"
             )
 
-        managed_policies = [
-            self.ecr_policy,
-            self.s3_policy,
-            self.autoscaler_policy,
-        ]
-        if self.config["route53"]["zone_ids"]:
-            managed_policies.append(self.route53_policy)
-
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones):
             indexed_name = f"{self._name}-{name}-{i}"
-            role = iam.Role(
-                scope,
-                f"UMNodeGroup{name}-{i}",
-                role_name=f"{indexed_name}-NG",
-                assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=managed_policies,
-            )
-
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
                 f"ASG{i}",
@@ -448,7 +433,7 @@ class DominoStack(cdk.Stack):
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
                 ),
-                role=role,
+                role=self.ng_role,
                 security_group=self.unmanaged_sg,
             )
             for k, v in (
@@ -476,7 +461,7 @@ class DominoStack(cdk.Stack):
                         ),
                     )
                 ],
-                role=role,
+                role=self.ng_role,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 machine_image=machine_image,
                 user_data=asg.user_data,
