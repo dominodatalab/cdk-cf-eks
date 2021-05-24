@@ -6,7 +6,7 @@ from sys import argv
 import yaml
 from aws_cdk import core
 
-from domino.domino_stack import DominoStack
+from domino_cdk.eks_stack import DominoEksStack
 
 with open("config.yaml") as f:
     y = f.read()
@@ -16,7 +16,7 @@ app = core.App(context={"config": cfg})
 
 env_vars = {}
 
-DominoStack(
+DominoEksStack(
     app,
     f"{cfg['name']}-eks-stack",
     # If you don't specify 'env', this stack will be environment-agnostic.
@@ -29,7 +29,7 @@ DominoStack(
     # want to deploy the stack to. */
     # env=core.Environment(account='123456789012', region='us-east-1'),
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-    env=core.Environment(region=cfg.get("aws_region"), account=cfg.get("aws_account_id", None)),
+    env=core.Environment(region=cfg.get("aws_region")),
 )
 
 

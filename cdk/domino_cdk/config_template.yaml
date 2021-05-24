@@ -1,0 +1,99 @@
+name: domino
+#aws_region: "__FILL__"
+availability_zones: []
+#  - "us-west-2a"
+#  - "us-west-2b"
+#  - "us-west-2c"
+tags:
+  domino-infrastructure: "true"
+vpc:
+  id: null # ignored if create=true
+  create: true
+  cidr: "10.0.0.0/16"
+  max_azs: 3
+efs:
+  removal_policy_destroy: true
+  backup:
+    enable: true
+    schedule: '0 12 * * ? *' # https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions
+    move_to_cold_storage_after: 35 # number of days (null to disable)
+    delete_after: 125 # number of days, must be 90 days after cold_storage_after (null to disable)
+    removal_policy: DESTROY # DESTROY, RETAIN, or SNAPSHOT
+route53:
+  zone_ids: []
+eks:
+  version: 1.19
+  private_api: true
+  global_node_labels:
+    dominodatalab.com/domino-node: "true"
+  managed_nodegroups:
+    platform:
+      spot: false
+      disk_size: 20
+      min_size: 1
+      max_size: 1
+      desired_size: 1
+      # machine_image:
+      #   ami_id: ami-xxxxx
+      #   user_data: |
+      #     data goes here
+      instance_types:
+        - m5.2xlarge
+      labels:
+        dominodatalab.com/node-pool: platform
+      tags:
+        dominodatalab.com/node-pool: platform
+    compute:
+      spot: false
+      disk_size: 100
+      min_size: 1 # min 0 not supported w/managed node groups
+      max_size: 10
+      desired_size: 1
+      # machine_image:
+      #   ami_id: ami-xxxxx
+      #   user_data: |
+      #     #!/bin/bash
+      #     echo ${ClusterName}
+      instance_types:
+        - m5.2xlarge
+      labels:
+        dominodatalab.com/node-pool: default
+        domino/build-node: "true"
+      tags:
+        dominodatalab.com/node-pool: default
+        domino/build-node: "true"
+  nodegroups:
+    nvidia:
+      gpu: true
+      disk_size: 100
+      min_size: 0
+      max_size: 10
+      # machine_image:
+      #   ami_id: ami-xxxxx
+      #   user_data: |
+      #     #!/bin/bash
+      #     echo ${ClusterName}
+      instance_types:
+        - m5.2xlarge
+      taints:
+        nvidia.com/gpu: "true:NoSchedule"
+      labels:
+        dominodatalab.com/node-pool": default-gpu
+        nvidia.com/gpu: "true"
+      tags:
+        dominodatalab.com/node-pool: default-gpu
+s3:
+  buckets:
+    blobs:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    logs:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    backups:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+    registry:
+      auto_delete_objects: false
+      removal_policy_destroy: false
+install: {} # Values here will be passed through to the generated Domino Installer template

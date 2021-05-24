@@ -1,22 +1,28 @@
 import setuptools
 
+from domino_cdk import __version__
+
 with open("README.md") as fp:
     long_description = fp.read()
 
 
 setuptools.setup(
-    name="domino-eks",
-    version="0.0.1",
-    description="An empty CDK Python app",
+    name="domino-cdk",
+    version=__version__,
+    description="Domino CDK Stacks",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="author",
-    package_dir={"": "domino"},
-    packages=setuptools.find_packages(where="domino"),
+    author="Domino Data Lab",
+    packages=["domino_cdk"],
+    package_data={"domino_cdk": ["config_template.yaml"]},
+    data_files=[
+        ("domino-cdk", ["app.py"]),
+    ],
     install_requires=[
         "aws-cdk.core==1.97.0",
         "aws-cdk.aws_s3==1.97.0",
         "aws-cdk.aws_ec2==1.97.0",
+        "aws-cdk.aws_ecr==1.97.0",
         "aws-cdk.aws_eks==1.97.0",
         "aws-cdk.aws_efs==1.97.0",
         "aws-cdk.aws_iam==1.97.0",
