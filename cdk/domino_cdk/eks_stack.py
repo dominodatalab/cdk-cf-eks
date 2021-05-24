@@ -1,7 +1,7 @@
 from filecmp import cmp
 from glob import glob
 from json import loads as json_loads
-from os.path import dirname, basename, isfile
+from os.path import basename, dirname, isfile
 from os.path import join as path_join
 from re import MULTILINE
 from re import split as re_split
@@ -293,11 +293,7 @@ class DominoEksStack(cdk.Stack):
                 iam.PolicyStatement(
                     effect=iam.Effect.DENY,
                     actions=["ecr:*"],
-                    conditions={
-                        "StringNotEqualsIfExists": {
-                            "ecr:ResourceTag/domino-deploy-id": self.config["name"]
-                        }
-                    },
+                    conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": self.config["name"]}},
                     resources=[f"arn:aws:ecr:*:{self.account}:*"],
                 ),
             ],
@@ -355,25 +351,24 @@ class DominoEksStack(cdk.Stack):
                     lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                     disk_size = None
 
-
             ng = self.cluster.add_nodegroup_capacity(
-                    f"{name}-{i}",  # this might be dangerous
-                    nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
-                    capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                    disk_size=disk_size,
-                    min_size=cfg["min_size"],
-                    max_size=cfg["max_size"],
-                    desired_size=cfg["desired_size"],
-                    subnets=ec2.SubnetSelection(
-                        subnet_group_name=self.private_subnet_name,
-                        availability_zones=[az],
-                    ),
-                    instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
-                    launch_template_spec=lts,
-                    labels=cfg["labels"],
-                    tags=cfg["tags"],
-                    node_role=self.ng_role,
-                )
+                f"{name}-{i}",  # this might be dangerous
+                nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
+                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
+                disk_size=disk_size,
+                min_size=cfg["min_size"],
+                max_size=cfg["max_size"],
+                desired_size=cfg["desired_size"],
+                subnets=ec2.SubnetSelection(
+                    subnet_group_name=self.private_subnet_name,
+                    availability_zones=[az],
+                ),
+                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                launch_template_spec=lts,
+                labels=cfg["labels"],
+                tags=cfg["tags"],
+                node_role=self.ng_role,
+            )
 
         for name, cfg in self.config["eks"]["nodegroups"].items():
             cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
@@ -861,6 +856,7 @@ class DominoEksStack(cdk.Stack):
     def config_template(cls):
         with open(path_join(dirname(__file__), "config_template.yaml")) as f:
             return yaml_safe_load(f.read())
+
 
 def deep_merge(*dictionaries) -> dict:
     """
