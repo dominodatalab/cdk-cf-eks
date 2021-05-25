@@ -65,7 +65,7 @@ eks:
     compute:
       gpu: false
       disk_size: 100
-      key_name: some-aws-keypair
+      # key_name: some-aws-keypair
       min_size: 0
       max_size: 10
       # machine_image:
