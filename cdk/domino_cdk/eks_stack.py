@@ -214,12 +214,18 @@ class DominoEksStack(cdk.Stack):
         ami_id, user_data = self._get_machine_image("bastion", cfg)
 
         if ami_id:
-            bastion_machine_image = ec2.MachineImage.generic_linux({self.region: ami_id}, user_data=ec2.UserData.custom(user_data))
+            bastion_machine_image = ec2.MachineImage.generic_linux(
+                {self.region: ami_id}, user_data=ec2.UserData.custom(user_data)
+            )
         else:
             if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?
-                raise ValueError("Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id")
+                raise ValueError(
+                    "Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
+                )
 
-            bastion_machine_image = ec2.LookupMachineImage(name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"])
+            bastion_machine_image = ec2.LookupMachineImage(
+                name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"]
+            )
 
         self.bastion_sg = ec2.SecurityGroup(
             self,
@@ -238,7 +244,7 @@ class DominoEksStack(cdk.Stack):
                         from_port=rule["from_port"],
                         to_port=rule["to_port"],
                     ),
-            )
+                )
 
         bastion = ec2.Instance(
             self,
@@ -250,7 +256,7 @@ class DominoEksStack(cdk.Stack):
             security_group=self.bastion_sg,
             vpc_subnets=ec2.SubnetSelection(
                 subnet_group_name=self.public_subnet_name,
-            )
+            ),
         )
 
         ec2.CfnEIP(
@@ -388,7 +394,7 @@ class DominoEksStack(cdk.Stack):
             managed_policies=managed_policies,
         )
 
-    #def provision_managed_nodegroups(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
+    # def provision_managed_nodegroups(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
     def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
         # managed nodegroups
         ami_id, user_data = self._get_machine_image(name, cfg)
@@ -414,32 +420,30 @@ class DominoEksStack(cdk.Stack):
                         )
                     ],
                     machine_image=machine_image,
-                    user_data=ec2.UserData.custom(
-                        cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
-                    ),
+                    user_data=ec2.UserData.custom(cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})),
                 )
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
 
         ng = self.cluster.add_nodegroup_capacity(
-                f"{name}-{i}",  # this might be dangerous
-                nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
-                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                disk_size=disk_size,
-                min_size=cfg["min_size"],
-                max_size=cfg["max_size"],
-                desired_size=cfg["desired_size"],
-                subnets=ec2.SubnetSelection(
-                    subnet_group_name=self.private_subnet_name,
-                    availability_zones=[az],
-                ),
-                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
-                launch_template_spec=lts,
-                labels=cfg["labels"],
-                tags=cfg["tags"],
-                node_role=ng_role,
-                remote_access=eks.NodegroupRemoteAccess(cfg["key_name"]),
-            )
+            f"{name}-{i}",  # this might be dangerous
+            nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
+            capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
+            disk_size=disk_size,
+            min_size=cfg["min_size"],
+            max_size=cfg["max_size"],
+            desired_size=cfg["desired_size"],
+            subnets=ec2.SubnetSelection(
+                subnet_group_name=self.private_subnet_name,
+                availability_zones=[az],
+            ),
+            instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+            launch_template_spec=lts,
+            labels=cfg["labels"],
+            tags=cfg["tags"],
+            node_role=ng_role,
+            remote_access=eks.NodegroupRemoteAccess(cfg["key_name"]),
+        )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
@@ -455,7 +459,9 @@ class DominoEksStack(cdk.Stack):
 
         raise ValueError(f"{cfg_name}: ami_id and user_data must both be specified")
 
-    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion) -> None:
+    def provision_unmanaged_nodegroup(
+        self, name: str, cfg: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
+    ) -> None:
         ami_id, user_data = self._get_machine_image(name, cfg)
 
         machine_image = (
@@ -936,6 +942,7 @@ class DominoEksStack(cdk.Stack):
     def config_template(cls):
         with open(path_join(dirname(__file__), "config_template.yaml")) as f:
             return yaml_safe_load(f.read())
+
 
 def deep_merge(*dictionaries) -> dict:
     """
