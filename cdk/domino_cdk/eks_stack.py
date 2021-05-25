@@ -1,7 +1,7 @@
 from filecmp import cmp
 from glob import glob
 from json import loads as json_loads
-from os.path import dirname, basename, isfile
+from os.path import basename, dirname, isfile
 from os.path import join as path_join
 from re import MULTILINE
 from re import split as re_split
@@ -282,6 +282,19 @@ class DominoEksStack(cdk.Stack):
             value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )
 
+        self.provision_eks_iam_policies()
+
+        max_nodegroup_azs = self.config["eks"]["max_nodegroup_azs"]
+
+        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+            self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
+
+        for name, cfg in self.config["eks"]["nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+            self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
+
+    def provision_eks_iam_policies(self):
         self.asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
@@ -350,25 +363,30 @@ class DominoEksStack(cdk.Stack):
                 iam.PolicyStatement(
                     effect=iam.Effect.DENY,
                     actions=["ecr:*"],
-                    conditions={
-                        "StringNotEqualsIfExists": {
-                            "ecr:ResourceTag/domino-deploy-id": self.config["name"]
-                        }
-                    },
+                    conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": self.config["name"]}},
                     resources=[f"arn:aws:ecr:*:{self.account}:*"],
                 ),
             ],
         )
 
-        max_nodegroup_azs = self.config["eks"]["max_nodegroup_azs"]
+        managed_policies = [
+            self.ecr_policy,
+            self.s3_policy,
+            self.autoscaler_policy,
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
+        ]
+        if self.config["route53"]["zone_ids"]:
+            managed_policies.append(self.route53_policy)
 
-        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
-
-        for name, cfg in self.config["eks"]["nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
+        self.ng_role = iam.Role(
+            self,
+            f'{self.config["name"]}-NG',
+            role_name=f"{self.name}-NG",
+            assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
+            managed_policies=managed_policies,
+        )
 
     #def provision_managed_nodegroups(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
     def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
@@ -402,25 +420,6 @@ class DominoEksStack(cdk.Stack):
                 )
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
-
-        managed_policies = [
-            self.ecr_policy,
-            self.s3_policy,
-            self.autoscaler_policy,
-            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
-            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
-            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
-        ]
-        if self.config["route53"]["zone_ids"]:
-            managed_policies.append(self.route53_policy)
-
-        ng_role = iam.Role(
-            self,
-            f"MNodeGroup{name}-{i}",
-            role_name=f"{self.name}-{name}-{i}-NG",
-            assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-            managed_policies=managed_policies,
-        )
 
         ng = self.cluster.add_nodegroup_capacity(
                 f"{name}-{i}",  # this might be dangerous
@@ -485,25 +484,10 @@ class DominoEksStack(cdk.Stack):
                 ),
             )
 
-        managed_policies = [
-            self.ecr_policy,
-            self.s3_policy,
-            self.autoscaler_policy,
-        ]
-        if self.config["route53"]["zone_ids"]:
-            managed_policies.append(self.route53_policy)
-
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
-            indexed_name = f"{self.name}-{name}-{i}"
-            role = iam.Role(
-                scope,
-                f"UMNodeGroup{name}-{i}",
-                role_name=f"{indexed_name}-NG",
-                assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
-                managed_policies=managed_policies,
-            )
 
+            indexed_name = f"{self.name}-{name}-{i}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
                 f"ASG{i}",
@@ -517,7 +501,7 @@ class DominoEksStack(cdk.Stack):
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
                 ),
-                role=role,
+                role=self.ng_role,
                 security_group=self.unmanaged_sg,
             )
             for k, v in (
@@ -546,7 +530,7 @@ class DominoEksStack(cdk.Stack):
                         ),
                     )
                 ],
-                role=role,
+                role=self.ng_role,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 key_name=cfg["key_name"],
                 machine_image=machine_image,
