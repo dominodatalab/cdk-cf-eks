@@ -36,5 +36,11 @@ variable "template_filename" {
 variable "iam_role_arn" {
     type        = string
     description = "IAM role to use for deployment"
-    default = ""
+    default     = ""
+}
+
+variable "cloudformation_timeout_in_minutes" {
+    type        = number
+    description = "CloudFormation provisioning timeout in minutes"
+    default     = 60
 }
