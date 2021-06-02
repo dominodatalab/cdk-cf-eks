@@ -288,6 +288,19 @@ class DominoEksStack(cdk.Stack):
             value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )
 
+        self.provision_eks_iam_policies()
+
+        max_nodegroup_azs = self.config["eks"]["max_nodegroup_azs"]
+
+        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+            self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
+
+        for name, cfg in self.config["eks"]["nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+            self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
+
+    def provision_eks_iam_policies(self):
         self.asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
@@ -381,61 +394,55 @@ class DominoEksStack(cdk.Stack):
             managed_policies=managed_policies,
         )
 
+    def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
         # managed nodegroups
-        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            ami_id, user_data = self._get_machine_image(name, cfg)
-            machine_image: Optional[ec2.IMachineImage] = None
-            if ami_id:
-                machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
+        ami_id, user_data = self._get_machine_image(name, cfg)
+        machine_image: Optional[ec2.IMachineImage] = None
+        if ami_id:
+            machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
 
-            for i, az in enumerate(self.vpc.availability_zones):
-                disk_size = cfg.get("disk_size", None)
-                lts: Optional[eks.LaunchTemplateSpec] = None
-                if machine_image:
-                    lt = ec2.LaunchTemplate(
-                        self.cluster,
-                        f"LaunchTemplate{name}{i}",
-                        launch_template_name=f"{self.name}-{name}-{i}",
-                        block_devices=[
-                            ec2.BlockDevice(
-                                device_name="/dev/xvda",
-                                volume=ec2.BlockDeviceVolume.ebs(
-                                    cfg["disk_size"],
-                                    volume_type=ec2.EbsDeviceVolumeType.GP2,
-                                ),
-                            )
-                        ],
-                        machine_image=machine_image,
-                        user_data=ec2.UserData.custom(
-                            cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
-                        ),
-                    )
-                    lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
-                    disk_size = None
+        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
+            disk_size = cfg.get("disk_size", None)
+            lts: Optional[eks.LaunchTemplateSpec] = None
+            if machine_image:
+                lt = ec2.LaunchTemplate(
+                    self.cluster,
+                    f"LaunchTemplate{name}{i}",
+                    launch_template_name=f"{self.name}-{name}-{i}",
+                    block_devices=[
+                        ec2.BlockDevice(
+                            device_name="/dev/xvda",
+                            volume=ec2.BlockDeviceVolume.ebs(
+                                cfg["disk_size"],
+                                volume_type=ec2.EbsDeviceVolumeType.GP2,
+                            ),
+                        )
+                    ],
+                    machine_image=machine_image,
+                    user_data=ec2.UserData.custom(cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})),
+                )
+                lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
+                disk_size = None
 
-            ng = self.cluster.add_nodegroup_capacity(
-                f"{name}-{i}",  # this might be dangerous
-                nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
-                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                disk_size=disk_size,
-                min_size=cfg["min_size"],
-                max_size=cfg["max_size"],
-                desired_size=cfg["desired_size"],
-                subnets=ec2.SubnetSelection(
-                    subnet_group_name=self.private_subnet_name,
-                    availability_zones=[az],
-                ),
-                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
-                launch_template_spec=lts,
-                labels=cfg["labels"],
-                tags=cfg["tags"],
-                node_role=self.ng_role,
-            )
-
-        for name, cfg in self.config["eks"]["nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_unmanaged_nodegroup(name, cfg, eks_version)
+        ng = self.cluster.add_nodegroup_capacity(
+            f"{name}-{i}",  # this might be dangerous
+            nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
+            capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
+            disk_size=disk_size,
+            min_size=cfg["min_size"],
+            max_size=cfg["max_size"],
+            desired_size=cfg["desired_size"],
+            subnets=ec2.SubnetSelection(
+                subnet_group_name=self.private_subnet_name,
+                availability_zones=[az],
+            ),
+            instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+            launch_template_spec=lts,
+            labels=cfg["labels"],
+            tags=cfg["tags"],
+            node_role=ng_role,
+            remote_access=eks.NodegroupRemoteAccess(cfg["key_name"]),
+        )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
