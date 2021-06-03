@@ -301,7 +301,7 @@ class DominoEksStack(cdk.Stack):
             self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
 
     def provision_eks_iam_policies(self):
-        self.asg_group_statement = iam.PolicyStatement(
+        asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
                 "autoscaling:SetDesiredCapacity",
@@ -325,7 +325,7 @@ class DominoEksStack(cdk.Stack):
                     ],
                     resources=["*"],
                 ),
-                self.asg_group_statement,
+                asg_group_statement,
             ],
         )
 
@@ -382,6 +382,7 @@ class DominoEksStack(cdk.Stack):
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'),
         ]
         if self.config["route53"]["zone_ids"]:
             managed_policies.append(self.route53_policy)
@@ -579,6 +580,9 @@ class DominoEksStack(cdk.Stack):
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
+                
+                if cfg["ssm_agent"]:
+                    asg.user_data.add_on_exit_commands("yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm")
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
