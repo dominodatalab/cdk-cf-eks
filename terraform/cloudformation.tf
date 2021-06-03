@@ -4,10 +4,10 @@ resource "aws_cloudformation_stack" "cdk_stack" {
     "CAPABILITY_IAM",
     "CAPABILITY_NAMED_IAM"
   ]
-  parameters = var.parameters
-  template_url = "https://${aws_s3_bucket.cf_asset_bucket.bucket_regional_domain_name}/${var.template_filename}"
-  iam_role_arn = var.iam_role_arn
-  depends_on = [aws_s3_bucket_object.assets]
+  parameters         = var.parameters
+  template_url       = "https://${aws_s3_bucket.cf_asset_bucket.bucket_regional_domain_name}/${var.template_filename}"
+  iam_role_arn       = var.iam_role_arn
+  depends_on         = [aws_s3_bucket_object.assets]
   timeout_in_minutes = var.cloudformation_timeout_in_minutes
 
   timeouts {
@@ -22,10 +22,10 @@ output "cloudformation_outputs" {
 }
 
 resource "local_file" "agent_template" {
-  content = lookup(aws_cloudformation_stack.cdk_stack.outputs, "agentconfig", "")
-  filename = abspath("${var.output_dir}/agent_template.yaml")
+  content         = lookup(aws_cloudformation_stack.cdk_stack.outputs, "agentconfig", "")
+  filename        = abspath("${var.output_dir}/agent_template.yaml")
   file_permission = "0600"
-  depends_on = [aws_cloudformation_stack.cdk_stack]
+  depends_on      = [aws_cloudformation_stack.cdk_stack]
 }
 
 resource "null_resource" "kubeconfig" {
