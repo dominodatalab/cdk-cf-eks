@@ -9,6 +9,12 @@ resource "aws_cloudformation_stack" "cdk_stack" {
   iam_role_arn = var.iam_role_arn
   depends_on = [aws_s3_bucket_object.assets]
   timeout_in_minutes = var.cloudformation_timeout_in_minutes
+
+  timeouts {
+    create = "${var.cloudformation_timeout_in_minutes}m"
+    update = "${var.cloudformation_timeout_in_minutes}m"
+    delete = "${var.cloudformation_timeout_in_minutes}m"
+  }
 }
 
 output "cloudformation_outputs" {
