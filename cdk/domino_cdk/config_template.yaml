@@ -29,7 +29,7 @@ eks:
   managed_nodegroups:
     platform:
       spot: false
-      disk_size: 20
+      disk_size: 100
       min_size: 1
       max_size: 1
       desired_size: 1
