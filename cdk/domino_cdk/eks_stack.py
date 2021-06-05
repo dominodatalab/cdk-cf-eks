@@ -1,17 +1,10 @@
-from filecmp import cmp
-from glob import glob
-from json import loads as json_loads
-from os.path import basename, dirname, isfile
-from os.path import join as path_join
+from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from subprocess import run
-from time import time
 from typing import Any, Dict, Optional, Tuple
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
-import aws_cdk.aws_ecr as ecr
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_events as events
@@ -428,7 +421,7 @@ class DominoEksStack(cdk.Stack):
                 disk_size = None
 
         key_name = cfg.get("key_name", None)
-        ng = self.cluster.add_nodegroup_capacity(
+        self.cluster.add_nodegroup_capacity(
             f"{name}-{i}",  # this might be dangerous
             nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
             capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
@@ -444,7 +437,7 @@ class DominoEksStack(cdk.Stack):
             launch_template_spec=lts,
             labels=cfg["labels"],
             tags=cfg["tags"],
-            node_role=ng_role,
+            node_role=self.ng_role,
             remote_access=eks.NodegroupRemoteAccess(key_name) if key_name else None,
         )
 

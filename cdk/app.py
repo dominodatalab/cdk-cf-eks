@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 from json import dumps as json_dumps
 from sys import argv
 

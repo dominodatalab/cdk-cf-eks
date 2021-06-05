@@ -3,28 +3,9 @@ from glob import glob
 from json import loads as json_loads
 from os.path import basename, dirname, isfile
 from os.path import join as path_join
-from re import MULTILINE
-from re import split as re_split
 from subprocess import run
 from time import time
-from typing import Any, Dict, Optional, Tuple
 
-import aws_cdk.aws_backup as backup
-import aws_cdk.aws_ec2 as ec2
-import aws_cdk.aws_ecr as ecr
-import aws_cdk.aws_efs as efs
-import aws_cdk.aws_eks as eks
-import aws_cdk.aws_events as events
-import aws_cdk.aws_iam as iam
-import aws_cdk.aws_lambda as aws_lambda
-from aws_cdk import aws_autoscaling
-from aws_cdk import core as cdk
-from aws_cdk.aws_kms import Key
-from aws_cdk.aws_s3 import Bucket, BucketEncryption
-from aws_cdk.lambda_layer_awscli import AwsCliLayer
-from aws_cdk.lambda_layer_kubectl import KubectlLayer
-from requests import get as requests_get
-from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
 
@@ -32,7 +13,7 @@ class ExternalCommandException(Exception):
     """Exception running spawned external commands"""
 
 
-class DominoCdkUtil(cdk.Stack):
+class DominoCdkUtil():
     @classmethod
     def generate_asset_parameters(cls, asset_dir: str, asset_bucket: str, stack_name: str, manifest_file: str = None):
         with open(manifest_file or path_join(asset_dir, "manifest.json")) as f:
@@ -44,7 +25,7 @@ class DominoCdkUtil(cdk.Stack):
             if c["type"] == "aws:cdk:asset":
                 d = c["data"]
                 path = d['path']
-                if ".zip" not in path and ".json" not in path and not isfile(path_join(asset_dir, f"path.zip")):
+                if ".zip" not in path and ".json" not in path and not isfile(path_join(asset_dir, "path.zip")):
                     shell_command = f"cd {asset_dir}/{path}/ && zip -9r {path}.zip ./* && mv {path}.zip ../"
                     output = run(shell_command, shell=True, capture_output=True)
                     if output.returncode:
@@ -134,7 +115,7 @@ class DominoCdkUtil(cdk.Stack):
 
         def merge(alpha, omega, key):
             if isinstance(alpha.get(key), dict) and isinstance(omega[key], dict):
-                return deep_merge(alpha[key], omega[key])
+                return cls.deep_merge(alpha[key], omega[key])
             else:
                 return omega[key]
 
@@ -144,4 +125,4 @@ class DominoCdkUtil(cdk.Stack):
         if 0 == len(dictionaries):
             return {}
         base_dict = check_type(dictionaries[0])
-        return base_dict if len(dictionaries) == 1 else overlay(base_dict, deep_merge(*dictionaries[1:]))
+        return base_dict if len(dictionaries) == 1 else overlay(base_dict, cls.deep_merge(*dictionaries[1:]))
