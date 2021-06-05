@@ -59,9 +59,11 @@ eks:
     #   instance_types:
     #     - m5.2xlarge
     #   labels:
-    #     dominodatalab.com/node-pool: platform
+    #     dominodatalab.com/node-pool: default
+    #     domino/build-node: "true"
     #   tags:
-    #     dominodatalab.com/node-pool: platform
+    #     dominodatalab.com/node-pool: default
+    #     domino/build-node: "true"
   nodegroups:
     platform:
       gpu: false
