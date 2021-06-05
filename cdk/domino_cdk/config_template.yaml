@@ -47,7 +47,7 @@ eks:
   managed_nodegroups: {}
     # managed_nodegroup_example:
     #   spot: false
-    #   disk_size: 20
+    #   disk_size: 100
     #   # key_name: some-aws-keypair
     #   min_size: 1
     #   max_size: 1
