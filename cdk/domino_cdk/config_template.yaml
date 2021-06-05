@@ -43,7 +43,25 @@ eks:
   max_nodegroup_azs: 1
   global_node_labels:
     dominodatalab.com/domino-node: "true"
+  # We support managed nodegroups, but recommend standard ones
   managed_nodegroups: {}
+    # managed_nodegroup_example:
+    #   spot: false
+    #   disk_size: 20
+    #   # key_name: some-aws-keypair
+    #   min_size: 1
+    #   max_size: 1
+    #   desired_size: 1
+    #   # machine_image:
+    #   #   ami_id: ami-xxxxx
+    #   #   user_data: |
+    #   #     data goes here
+    #   instance_types:
+    #     - m5.2xlarge
+    #   labels:
+    #     dominodatalab.com/node-pool: platform
+    #   tags:
+    #     dominodatalab.com/node-pool: platform
   nodegroups:
     platform:
       gpu: false
