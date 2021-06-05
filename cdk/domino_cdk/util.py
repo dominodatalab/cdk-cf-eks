@@ -97,6 +97,7 @@ class DominoCdkUtil():
         with open(path_join(dirname(__file__), "config_template.yaml")) as f:
             return yaml_safe_load(f.read())
 
+    @classmethod
     def deep_merge(cls, *dictionaries) -> dict:
         """
         Recursive dict merge.
