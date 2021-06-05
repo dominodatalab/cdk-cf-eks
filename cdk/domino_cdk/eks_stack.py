@@ -578,9 +578,15 @@ class DominoEksStack(cdk.Stack):
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
 
                 if cfg["ssm_agent"]:
-                    asg.user_data.add_on_exit_commands(
+                    # We can only access this as an attribute of either the launch template or asg (both are the
+                    # same object)as we are getting it from the default user_data included in the standard EKS ami
+                    lt.user_data.add_on_exit_commands(
                         "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm"
                     )
+            elif cfg["ssm_agent"] or cfg.get("labels") or cfg.get("taints"):
+                raise ValueError(
+                    "ssm_agent, labels and taints will not be automatically confiugured when user_data is specified in the config. Please set this up accordingly in your user_data."
+                )
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
