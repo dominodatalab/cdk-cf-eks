@@ -438,7 +438,7 @@ class DominoEksStack(cdk.Stack):
             labels=cfg["labels"],
             tags=cfg["tags"],
             node_role=self.ng_role,
-            remote_access=eks.NodegroupRemoteAccess(key_name) if key_name else None,
+            remote_access=eks.NodegroupRemoteAccess(ssh_key_name=key_name) if key_name else None,
         )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
