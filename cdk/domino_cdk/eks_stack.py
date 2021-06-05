@@ -581,9 +581,11 @@ class DominoEksStack(cdk.Stack):
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
-                
+
                 if cfg["ssm_agent"]:
-                    asg.user_data.add_on_exit_commands("yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm")
+                    asg.user_data.add_on_exit_commands(
+                        "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm"
+                    )
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
