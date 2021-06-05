@@ -425,6 +425,7 @@ class DominoEksStack(cdk.Stack):
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
 
+        key_name = cfg.get("key_name", None)
         ng = self.cluster.add_nodegroup_capacity(
             f"{name}-{i}",  # this might be dangerous
             nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
@@ -442,7 +443,7 @@ class DominoEksStack(cdk.Stack):
             labels=cfg["labels"],
             tags=cfg["tags"],
             node_role=ng_role,
-            remote_access=eks.NodegroupRemoteAccess(cfg["key_name"]),
+            remote_access=eks.NodegroupRemoteAccess(key_name) if key_name else None,
         )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
@@ -538,7 +539,7 @@ class DominoEksStack(cdk.Stack):
                 ],
                 role=self.ng_role,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
-                key_name=cfg["key_name"],
+                key_name=cfg.get("key_name", None),
                 machine_image=machine_image,
                 user_data=asg.user_data,
                 security_group=self.unmanaged_sg,
