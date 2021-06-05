@@ -42,12 +42,12 @@ class ExternalCommandException(Exception):
 
 
 class DominoEksStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, config: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.outputs = {}
         # The code that defines your stack goes here
-        self.config = self.node.try_get_context("config")
+        self.config = config
         self.env = kwargs["env"]
         self.name = self.config["name"]
         cdk.CfnOutput(self, "deploy_name", value=self.name)
