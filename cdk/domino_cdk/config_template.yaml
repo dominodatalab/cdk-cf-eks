@@ -1,5 +1,6 @@
 name: domino
 #aws_region: "__FILL__"
+#aws_account_id: "__FILL__"
 availability_zones: []
 #  - "us-west-2a"
 #  - "us-west-2b"
@@ -10,7 +11,22 @@ vpc:
   id: null # ignored if create=true
   create: true
   cidr: "10.0.0.0/16"
-  max_azs: 3
+  max_azs: 3 # Must be 2+, as EKS control plane can't provision in a single AZ
+  bastion:
+    enabled: true
+    #key_name: some-aws-keypair
+    instance_type: t2.micro
+    ingress_ports:
+      - name: "ssh"
+        from_port: 22
+        to_port: 22
+        protocol: "TCP"
+        ip_cidrs:
+          - "0.0.0.0/0"
+        protocol: "TCP"
+    #machine_image:
+    #  ami_id: xxx
+    #  user_data: null
 efs:
   removal_policy_destroy: true
   backup:
@@ -24,19 +40,43 @@ route53:
 eks:
   version: 1.19
   private_api: true
+  max_nodegroup_azs: 1
   global_node_labels:
     dominodatalab.com/domino-node: "true"
-  managed_nodegroups:
+  # We support managed nodegroups, but recommend standard ones
+  managed_nodegroups: {}
+    # managed_nodegroup_example:
+    #   spot: false
+    #   disk_size: 100
+    #   # key_name: some-aws-keypair
+    #   min_size: 1
+    #   max_size: 1
+    #   desired_size: 1
+    #   # machine_image:
+    #   #   ami_id: ami-xxxxx
+    #   #   user_data: |
+    #   #     data goes here
+    #   instance_types:
+    #     - m5.2xlarge
+    #   labels:
+    #     dominodatalab.com/node-pool: default
+    #     domino/build-node: "true"
+    #   tags:
+    #     dominodatalab.com/node-pool: default
+    #     domino/build-node: "true"
+  nodegroups:
     platform:
       spot: false
+      sm_agent: true
       disk_size: 100
+      # key_name: some-aws-keypair
       min_size: 1
-      max_size: 1
-      desired_size: 1
+      max_size: 10
       # machine_image:
       #   ami_id: ami-xxxxx
       #   user_data: |
-      #     data goes here
+      #     #!/bin/bash
+      #     echo ${ClusterName}
       instance_types:
         - m5.2xlarge
       labels:
@@ -44,11 +84,12 @@ eks:
       tags:
         dominodatalab.com/node-pool: platform
     compute:
-      spot: false
+      gpu: false
+      ssm_agent: true
       disk_size: 100
-      min_size: 1 # min 0 not supported w/managed node groups
+      # key_name: some-aws-keypair
+      min_size: 0
       max_size: 10
-      desired_size: 1
       # machine_image:
       #   ami_id: ami-xxxxx
       #   user_data: |
@@ -62,10 +103,11 @@ eks:
       tags:
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
-  nodegroups:
     nvidia:
       gpu: true
+      ssm_agent: true
       disk_size: 100
+      # key_name: some-aws-keypair
       min_size: 0
       max_size: 10
       # machine_image:
@@ -78,7 +120,7 @@ eks:
       taints:
         nvidia.com/gpu: "true:NoSchedule"
       labels:
-        dominodatalab.com/node-pool": default-gpu
+        dominodatalab.com/node-pool: default-gpu
         nvidia.com/gpu: "true"
       tags:
         dominodatalab.com/node-pool: default-gpu
