@@ -559,6 +559,13 @@ class DominoEksStack(cdk.Stack):
             cfn_asg.launch_configuration_name = None
             # Attach the launch template to the auto scaling group
             cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
+            lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
+                **cfn_lt.launch_template_data._values,
+                metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
+                    http_endpoint="enabled", http_tokens="required", http_put_response_hop_limit=2
+                ),
+            )
+            cfn_lt.launch_template_data = lt_data
             cfn_asg.mixed_instances_policy = cfn_asg.MixedInstancesPolicyProperty(
                 launch_template=cfn_asg.LaunchTemplateProperty(
                     launch_template_specification=cfn_asg.LaunchTemplateSpecificationProperty(
