@@ -66,8 +66,8 @@ eks:
     #     domino/build-node: "true"
   nodegroups:
     platform:
-      spot: false
-      sm_agent: true
+      gpu: false
+      ssm_agent: true
       disk_size: 100
       # key_name: some-aws-keypair
       min_size: 1
