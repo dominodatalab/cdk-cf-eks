@@ -1,17 +1,10 @@
-from filecmp import cmp
-from glob import glob
-from json import loads as json_loads
-from os.path import basename, dirname, isfile
-from os.path import join as path_join
+from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from subprocess import run
-from time import time
 from typing import Any, Dict, Optional, Tuple
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
-import aws_cdk.aws_ecr as ecr
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_events as events
@@ -27,6 +20,8 @@ from requests import get as requests_get
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
+from domino_cdk.util import DominoCdkUtil
+
 manifests = [
     [
         "calico",
@@ -40,12 +35,12 @@ class ExternalCommandException(Exception):
 
 
 class DominoEksStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, config: dict, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.outputs = {}
         # The code that defines your stack goes here
-        self.config = self.node.try_get_context("config")
+        self.config = config
         self.env = kwargs["env"]
         self.name = self.config["name"]
         cdk.CfnOutput(self, "deploy_name", value=self.name)
@@ -207,17 +202,90 @@ class DominoEksStack(cdk.Stack):
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
+        if self.config["vpc"]["bastion"]["enabled"]:
+            self.provision_bastion(self.config["vpc"]["bastion"])
+
+    def provision_bastion(self, cfg: dict) -> None:
+        ami_id, user_data = self._get_machine_image("bastion", cfg)
+
+        if ami_id:
+            bastion_machine_image = ec2.MachineImage.generic_linux(
+                {self.region: ami_id}, user_data=ec2.UserData.custom(user_data)
+            )
+        else:
+            if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?
+                raise ValueError(
+                    "Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
+                )
+
+            bastion_machine_image = ec2.LookupMachineImage(
+                name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"]
+            )
+
+        self.bastion_sg = ec2.SecurityGroup(
+            self,
+            "bastion_sg",
+            vpc=self.vpc,
+            security_group_name=f"{self.name}-bastion",
+        )
+
+        for rule in cfg["ingress_ports"]:
+            for ip_cidr in rule["ip_cidrs"]:
+                self.bastion_sg.add_ingress_rule(
+                    peer=ec2.Peer.ipv4(ip_cidr),
+                    connection=ec2.Port(
+                        protocol=ec2.Protocol(rule["protocol"]),
+                        string_representation=rule["name"],
+                        from_port=rule["from_port"],
+                        to_port=rule["to_port"],
+                    ),
+                )
+
+        bastion = ec2.Instance(
+            self,
+            "bastion",
+            machine_image=bastion_machine_image,
+            vpc=self.vpc,
+            instance_type=ec2.InstanceType(cfg["instance_type"]),
+            key_name=cfg.get("key_name", None),
+            security_group=self.bastion_sg,
+            vpc_subnets=ec2.SubnetSelection(
+                subnet_group_name=self.public_subnet_name,
+            ),
+        )
+
+        ec2.CfnEIP(
+            self,
+            "bastion_eip",
+            instance_id=bastion.instance_id,
+        )
+
+        cdk.CfnOutput(self, "bastion_public_ip", value=bastion.instance_public_ip)
+
     def provision_eks_cluster(self):
         eks_version = eks.KubernetesVersion.V1_19
+        # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
         self.cluster = eks.Cluster(
             self,
             "eks",
-            # cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
+            cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
             vpc=self.vpc,
-            vpc_subnets=[ec2.SubnetType.PRIVATE] if self.config["eks"]["private_api"] else None,
+            endpoint_access=eks.EndpointAccess.PRIVATE if self.config["eks"]["private_api"] else None,
+            vpc_subnets=[ec2.SubnetType.PRIVATE],
             version=eks_version,
             default_capacity=0,
         )
+
+        self.cluster.cluster_security_group.add_ingress_rule(
+            peer=self.bastion_sg,
+            connection=ec2.Port(
+                protocol=ec2.Protocol("TCP"),
+                string_representation="API Access",
+                from_port=443,
+                to_port=443,
+            ),
+        )
+
         cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(
             self,
@@ -225,7 +293,20 @@ class DominoEksStack(cdk.Stack):
             value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )
 
-        self.asg_group_statement = iam.PolicyStatement(
+        self.provision_eks_iam_policies()
+
+        max_nodegroup_azs = self.config["eks"]["max_nodegroup_azs"]
+
+        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+            self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
+
+        for name, cfg in self.config["eks"]["nodegroups"].items():
+            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+            self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
+
+    def provision_eks_iam_policies(self):
+        asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
                 "autoscaling:SetDesiredCapacity",
@@ -249,7 +330,7 @@ class DominoEksStack(cdk.Stack):
                     ],
                     resources=["*"],
                 ),
-                self.asg_group_statement,
+                asg_group_statement,
             ],
         )
 
@@ -306,6 +387,7 @@ class DominoEksStack(cdk.Stack):
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
+            iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'),
         ]
         if self.config["route53"]["zone_ids"]:
             managed_policies.append(self.route53_policy)
@@ -318,40 +400,38 @@ class DominoEksStack(cdk.Stack):
             managed_policies=managed_policies,
         )
 
+    def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
         # managed nodegroups
-        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            ami_id, user_data = self._get_machine_image(name, cfg)
-            machine_image: Optional[ec2.IMachineImage] = None
-            if ami_id:
-                machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
+        ami_id, user_data = self._get_machine_image(name, cfg)
+        machine_image: Optional[ec2.IMachineImage] = None
+        if ami_id:
+            machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
 
-            for i, az in enumerate(self.vpc.availability_zones):
-                disk_size = cfg.get("disk_size", None)
-                lts: Optional[eks.LaunchTemplateSpec] = None
-                if machine_image:
-                    lt = ec2.LaunchTemplate(
-                        self.cluster,
-                        f"LaunchTemplate{name}{i}",
-                        launch_template_name=f"{self.name}-{name}-{i}",
-                        block_devices=[
-                            ec2.BlockDevice(
-                                device_name="/dev/xvda",
-                                volume=ec2.BlockDeviceVolume.ebs(
-                                    cfg["disk_size"],
-                                    volume_type=ec2.EbsDeviceVolumeType.GP2,
-                                ),
-                            )
-                        ],
-                        machine_image=machine_image,
-                        user_data=ec2.UserData.custom(
-                            cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})
-                        ),
-                    )
-                    lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
-                    disk_size = None
+        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
+            disk_size = cfg.get("disk_size", None)
+            lts: Optional[eks.LaunchTemplateSpec] = None
+            if machine_image:
+                lt = ec2.LaunchTemplate(
+                    self.cluster,
+                    f"LaunchTemplate{name}{i}",
+                    launch_template_name=f"{self.name}-{name}-{i}",
+                    block_devices=[
+                        ec2.BlockDevice(
+                            device_name="/dev/xvda",
+                            volume=ec2.BlockDeviceVolume.ebs(
+                                cfg["disk_size"],
+                                volume_type=ec2.EbsDeviceVolumeType.GP2,
+                            ),
+                        )
+                    ],
+                    machine_image=machine_image,
+                    user_data=ec2.UserData.custom(cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})),
+                )
+                lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
+                disk_size = None
 
-            ng = self.cluster.add_nodegroup_capacity(
+            key_name = cfg.get("key_name", None)
+            self.cluster.add_nodegroup_capacity(
                 f"{name}-{i}",  # this might be dangerous
                 nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
                 capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
@@ -368,11 +448,8 @@ class DominoEksStack(cdk.Stack):
                 labels=cfg["labels"],
                 tags=cfg["tags"],
                 node_role=self.ng_role,
+                remote_access=eks.NodegroupRemoteAccess(ssh_key_name=key_name) if key_name else None,
             )
-
-        for name, cfg in self.config["eks"]["nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_unmanaged_nodegroup(name, cfg, eks_version)
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
@@ -388,7 +465,9 @@ class DominoEksStack(cdk.Stack):
 
         raise ValueError(f"{cfg_name}: ami_id and user_data must both be specified")
 
-    def provision_unmanaged_nodegroup(self, name: str, cfg: dict, eks_version: eks.KubernetesVersion) -> None:
+    def provision_unmanaged_nodegroup(
+        self, name: str, cfg: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
+    ) -> None:
         ami_id, user_data = self._get_machine_image(name, cfg)
 
         machine_image = (
@@ -406,8 +485,19 @@ class DominoEksStack(cdk.Stack):
                 self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG"
             )
 
+        if self.config["vpc"]["bastion"]["enabled"]:
+            self.unmanaged_sg.add_ingress_rule(
+                peer=self.bastion_sg,
+                connection=ec2.Port(
+                    protocol=ec2.Protocol("TCP"),
+                    string_representation="ssh",
+                    from_port=22,
+                    to_port=22,
+                ),
+            )
+
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
-        for i, az in enumerate(self.vpc.availability_zones):
+        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
 
             indexed_name = f"{self.name}-{name}-{i}"
             asg = aws_autoscaling.AutoScalingGroup(
@@ -433,6 +523,7 @@ class DominoEksStack(cdk.Stack):
                         f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
                         "k8s.io/cluster-autoscaler/enabled": "true",
                         "eks:cluster-name": self.cluster.cluster_name,
+                        "Name": indexed_name,
                     },
                 }
             ).items():
@@ -453,6 +544,7 @@ class DominoEksStack(cdk.Stack):
                 ],
                 role=self.ng_role,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                key_name=cfg.get("key_name", None),
                 machine_image=machine_image,
                 user_data=asg.user_data,
                 security_group=self.unmanaged_sg,
@@ -494,6 +586,17 @@ class DominoEksStack(cdk.Stack):
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
+
+                if cfg["ssm_agent"]:
+                    # We can only access this as an attribute of either the launch template or asg (both are the
+                    # same object)as we are getting it from the default user_data included in the standard EKS ami
+                    lt.user_data.add_on_exit_commands(
+                        "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm"
+                    )
+            elif cfg["ssm_agent"] or cfg.get("labels") or cfg.get("taints"):
+                raise ValueError(
+                    "ssm_agent, labels and taints will not be automatically confiugured when user_data is specified in the config. Please set this up accordingly in your user_data."
+                )
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
@@ -770,120 +873,6 @@ class DominoEksStack(cdk.Stack):
             }
         }
 
-        cfg = deep_merge(cfg, self.config["install"])
+        cfg = DominoCdkUtil.deep_merge(cfg, self.config["install"])
 
         return cfg
-
-    @classmethod
-    def generate_asset_parameters(cls, asset_dir: str, asset_bucket: str, stack_name: str, manifest_file: str = None):
-        with open(manifest_file or path_join(asset_dir, "manifest.json")) as f:
-            cfg = json_loads(f.read())['artifacts'][stack_name]['metadata'][f"/{stack_name}"]
-
-        parameters = {}
-
-        for c in cfg:
-            if c["type"] == "aws:cdk:asset":
-                d = c["data"]
-                path = d['path']
-                if ".zip" not in path and ".json" not in path and not isfile(path_join(asset_dir, f"path.zip")):
-                    shell_command = f"cd {asset_dir}/{path}/ && zip -9r {path}.zip ./* && mv {path}.zip ../"
-                    output = run(shell_command, shell=True, capture_output=True)
-                    if output.returncode:
-                        raise ExternalCommandException(
-                            f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}"
-                        )
-                    path = f"{path}.zip"
-                parameters[d['artifactHashParameter']] = d['sourceHash']
-                parameters[d['s3BucketParameter']] = asset_bucket
-                parameters[d['s3KeyParameter']] = f"||{path}"
-
-        return parameters
-
-    # disable_random_templates is a negative flag that's False by default to facilitate the naive cli access (ie any parameter given triggers it)
-    @classmethod
-    def generate_terraform_bootstrap(
-        cls,
-        module_path: str,
-        asset_bucket: str,
-        asset_dir: str,
-        aws_region: str,
-        name: str,
-        stack_name: str,
-        output_dir: str,
-        disable_random_templates: bool = False,
-        iam_role_arn: str = "",
-    ):
-        template_filename = path_join(asset_dir, f"{stack_name}.template.json")
-
-        if not disable_random_templates:
-            template_files = sorted(glob(f"{asset_dir}/{stack_name}-*.template.json"))
-            last_template_file = template_files[-1] if template_files else None
-
-            # Generate new timestamped template file?
-            if not last_template_file or not cmp(template_filename, last_template_file):
-                ts_template_filename = f"{stack_name}-{int(time())}.template.json"
-                shell_command = f"cp {template_filename} {asset_dir}/{ts_template_filename}"
-                output = run(shell_command, shell=True, capture_output=True)
-                if output.returncode:
-                    raise ExternalCommandException(
-                        f"Error running: {shell_command}\nretval: {output.returncode}\nstdout: {output.stdout.decode()}\nstderr: {output.stderr.decode()}"
-                    )
-                template_filename = ts_template_filename
-            else:
-                template_filename = last_template_file
-        return {
-            "module": {
-                "cdk": {
-                    "source": module_path,
-                    "asset_bucket": asset_bucket,
-                    "asset_dir": asset_dir,
-                    "aws_region": aws_region,
-                    "name": name,
-                    "iam_role_arn": iam_role_arn,
-                    "parameters": cls.generate_asset_parameters(asset_dir, asset_bucket, stack_name),
-                    "template_filename": basename(template_filename),
-                    "output_dir": output_dir,
-                },
-            },
-            "output": {
-                "cloudformation_outputs": {
-                    "value": "${module.cdk.cloudformation_outputs}",
-                }
-            },
-        }
-
-    @classmethod
-    def config_template(cls):
-        with open(path_join(dirname(__file__), "config_template.yaml")) as f:
-            return yaml_safe_load(f.read())
-
-
-def deep_merge(*dictionaries) -> dict:
-    """
-    Recursive dict merge.
-
-    Takes any number of dictionaries as arguments. Each subsequent dictionary will be overlaid on the previous ones
-    before. Therefore, the rightmost dictionary's value will take precedence. None values will be interpreted as
-    empty dictionaries, but otherwise arguments provided must be of the dict type.
-    """
-
-    def check_type(dx) -> dict:
-        if dx is None:
-            dx = {}
-        if not isinstance(dx, dict):
-            raise TypeError("Must provide only dictionaries!")
-        return dx
-
-    def merge(alpha, omega, key):
-        if isinstance(alpha.get(key), dict) and isinstance(omega[key], dict):
-            return deep_merge(alpha[key], omega[key])
-        else:
-            return omega[key]
-
-    def overlay(alpha: dict, omega: dict) -> dict:
-        return {**alpha, **{k: merge(alpha, omega, k) for k, _ in omega.items()}}
-
-    if 0 == len(dictionaries):
-        return {}
-    base_dict = check_type(dictionaries[0])
-    return base_dict if len(dictionaries) == 1 else overlay(base_dict, deep_merge(*dictionaries[1:]))
