@@ -430,26 +430,26 @@ class DominoEksStack(cdk.Stack):
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
 
-        key_name = cfg.get("key_name", None)
-        self.cluster.add_nodegroup_capacity(
-            f"{name}-{i}",  # this might be dangerous
-            nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
-            capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-            disk_size=disk_size,
-            min_size=cfg["min_size"],
-            max_size=cfg["max_size"],
-            desired_size=cfg["desired_size"],
-            subnets=ec2.SubnetSelection(
-                subnet_group_name=self.private_subnet_name,
-                availability_zones=[az],
-            ),
-            instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
-            launch_template_spec=lts,
-            labels=cfg["labels"],
-            tags=cfg["tags"],
-            node_role=self.ng_role,
-            remote_access=eks.NodegroupRemoteAccess(ssh_key_name=key_name) if key_name else None,
-        )
+            key_name = cfg.get("key_name", None)
+            self.cluster.add_nodegroup_capacity(
+                f"{name}-{i}",  # this might be dangerous
+                nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
+                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
+                disk_size=disk_size,
+                min_size=cfg["min_size"],
+                max_size=cfg["max_size"],
+                desired_size=cfg["desired_size"],
+                subnets=ec2.SubnetSelection(
+                    subnet_group_name=self.private_subnet_name,
+                    availability_zones=[az],
+                ),
+                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                launch_template_spec=lts,
+                labels=cfg["labels"],
+                tags=cfg["tags"],
+                node_role=self.ng_role,
+                remote_access=eks.NodegroupRemoteAccess(ssh_key_name=key_name) if key_name else None,
+            )
 
     def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
         image = cfg.get("machine_image", {})
