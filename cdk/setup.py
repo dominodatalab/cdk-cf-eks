@@ -36,6 +36,7 @@ setuptools.setup(
         "PyYAML~=5.4.1",
         "isort~=5.8.0",
         "flake8~=3.9.1",
+        "semantic_version~=2.8.5",
     ],
     python_requires=">=3.6",
     classifiers=[
