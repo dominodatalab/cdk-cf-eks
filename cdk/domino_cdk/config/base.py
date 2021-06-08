@@ -1,8 +1,13 @@
 from dataclasses import dataclass, is_dataclass
 from inspect import isclass
+from typing import Dict, List
 
 from domino_cdk import __version__
 from domino_cdk.config.vpc import VPC
+from domino_cdk.config.efs import EFS
+from domino_cdk.config.route53 import Route53
+from domino_cdk.config.eks import EKS
+from domino_cdk.config.s3 import S3
 
 
 def from_loader(name: str, cfg, c: dict):
@@ -19,16 +24,18 @@ class MachineImage:
 
 @dataclass
 class DominoCDKConfig:
+    name: str
     aws_region: str
     aws_account_id: str
-    tags: dict
+    availability_zones: List[str]
+    tags: Dict[str, str]
     install: dict
 
     vpc: VPC
-    #efs: EFS
-    #route53: Route53
-    #eks: EKS
-    #s3: S3
+    efs: EFS
+    route53: Route53
+    eks: EKS
+    s3: S3
 
     schema: str = __version__
 
@@ -37,11 +44,17 @@ class DominoCDKConfig:
         return from_loader(
             "config",
             DominoCDKConfig(
+            name=c.pop("name"),
             aws_region=c.pop("aws_region"),
             aws_account_id=c.pop("aws_account_id"),
+            availability_zones=c.pop("availability_zones", []),
             tags=c.pop("tags", {}),
             install=c.pop("install", {}),
-            vpc=VPC.from_0_0_0(c.pop("vpc"))
+            vpc=VPC.from_0_0_0(c.pop("vpc")),
+            efs=EFS.from_0_0_1(c.pop("efs")),
+            route53=Route53.from_0_0_1(c.pop("route53")),
+            eks=EKS.from_0_0_0(c.pop("eks")),
+            s3=S3.from_0_0_0(c.pop("s3")),
             ),
             c
         )
@@ -51,11 +64,17 @@ class DominoCDKConfig:
         return from_loader(
             "config",
             DominoCDKConfig(
+            name=c.pop("name"),
             aws_region=c.pop("aws_region"),
             aws_account_id=c.pop("aws_account_id"),
+            availability_zones=c.pop("availability_zones", []),
             tags=c.pop("tags", {}),
             install=c.pop("install", {}),
-            vpc=VPC.from_0_0_1(c.pop("vpc"))
+            vpc=VPC.from_0_0_1(c.pop("vpc")),
+            efs=EFS.from_0_0_1(c.pop("efs")),
+            route53=Route53.from_0_0_1(c.pop("route53")),
+            eks=EKS.from_0_0_1(c.pop("eks")),
+            s3=S3.from_0_0_0(c.pop("s3")),
             ),
             c
         )

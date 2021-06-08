@@ -35,7 +35,7 @@ def config_template():
                 },
             },
             "efs": {
-                "removal_policy_destroy": True,
+#                "removal_policy_destroy": True,
                 "backup": {
                     "enable": True,
                     "schedule": "0 12 * * ? *",
@@ -51,7 +51,7 @@ def config_template():
                 "max_nodegroup_azs": 1,
                 "global_node_labels": {"dominodatalab.com/domino-node": "true"},
                 "managed_nodegroups": {},
-                "nodegroups": {
+                "unmanaged_nodegroups": {
                     "platform": {
                         "gpu": False,
                         "ssm_agent": True,
