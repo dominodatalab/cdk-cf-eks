@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from domino_cdk.config.util import from_loader
 
+
 @dataclass
 class EFS:
     @dataclass
@@ -30,5 +31,5 @@ class EFS:
                 ),
                 removal_policy_destroy=c.pop("removal_policy_destroy", None),
             ),
-            c
+            c,
         )

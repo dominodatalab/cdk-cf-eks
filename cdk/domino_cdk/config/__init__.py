@@ -35,7 +35,7 @@ def config_template():
                 },
             },
             "efs": {
-#                "removal_policy_destroy": True,
+                #                "removal_policy_destroy": True,
                 "backup": {
                     "enable": True,
                     "schedule": "0 12 * * ? *",

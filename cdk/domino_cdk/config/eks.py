@@ -1,7 +1,8 @@
 from dataclasses import dataclass, is_dataclass
 from typing import Dict, List
 
-from domino_cdk.config.util import from_loader, IngressRule, MachineImage
+from domino_cdk.config.util import IngressRule, MachineImage, from_loader
+
 
 @dataclass
 class EKS:
@@ -24,13 +25,14 @@ class EKS:
                 "min_size": ng.pop("min_size"),
                 "max_size": ng.pop("max_size"),
                 "machine_image": MachineImage(
-                    ami_id=machine_image.pop("ami_id"),
-                    user_data=machine_image.pop("user_data")
-                ) if machine_image else None,
+                    ami_id=machine_image.pop("ami_id"), user_data=machine_image.pop("user_data")
+                )
+                if machine_image
+                else None,
                 "instance_types": ng.pop("instance_types"),
                 "labels": ng.pop("labels"),
-                "tags": ng.pop("tags")
-                }
+                "tags": ng.pop("tags"),
+            }
 
     @dataclass
     class ManagedNodegroup(NodegroupBase):
@@ -41,7 +43,6 @@ class EKS:
         def load(cls, ng):
             return cls(**cls.base_load(ng), spot=ng.pop("spot"), desired_size=ng.pop("desired_size"))
 
-
     @dataclass
     class UnmanagedNodegroup(NodegroupBase):
         gpu: bool
@@ -50,7 +51,9 @@ class EKS:
 
         @classmethod
         def load(cls, ng):
-            return cls(**cls.base_load(ng), gpu=ng.pop("gpu"), ssm_agent=ng.pop("ssm_agent"), taints=ng.pop("taints", {}))
+            return cls(
+                **cls.base_load(ng), gpu=ng.pop("gpu"), ssm_agent=ng.pop("ssm_agent"), taints=ng.pop("taints", {})
+            )
 
     version: str
     private_api: bool
@@ -68,10 +71,14 @@ class EKS:
                 private_api=c.pop("private_api"),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
-                managed_nodegroups={name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()},
-                unmanaged_nodegroups={name: EKS.UnmanagedNodegroup.load(ng) for name, ng in c.pop("nodegroups", {}).items()},
+                managed_nodegroups={
+                    name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
+                },
+                unmanaged_nodegroups={
+                    name: EKS.UnmanagedNodegroup.load(ng) for name, ng in c.pop("nodegroups", {}).items()
+                },
             ),
-            c
+            c,
         )
 
     @staticmethod
@@ -83,8 +90,12 @@ class EKS:
                 private_api=c.pop("private_api"),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
-                managed_nodegroups={name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()},
-                unmanaged_nodegroups={name: EKS.UnmanagedNodegroup.load(ng) for name, ng in c.pop("unmanaged_nodegroups", {}).items()},
+                managed_nodegroups={
+                    name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
+                },
+                unmanaged_nodegroups={
+                    name: EKS.UnmanagedNodegroup.load(ng) for name, ng in c.pop("unmanaged_nodegroups", {}).items()
+                },
             ),
-            c
+            c,
         )

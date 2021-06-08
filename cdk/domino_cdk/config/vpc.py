@@ -1,7 +1,8 @@
 from dataclasses import dataclass, is_dataclass
 from typing import List
 
-from domino_cdk.config.util import from_loader, IngressRule, MachineImage
+from domino_cdk.config.util import IngressRule, MachineImage, from_loader
+
 
 @dataclass
 class VPC:
@@ -36,7 +37,7 @@ class VPC:
                     machine_image=None,
                 ),
             ),
-            c
+            c,
         )
 
     @staticmethod
@@ -58,8 +59,10 @@ class VPC:
                     machine_image=MachineImage(
                         ami_id=machine_image.pop("ami_id"),
                         user_data=machine_image.pop("user_data"),
-                    ) if machine_image else None
-                )
+                    )
+                    if machine_image
+                    else None,
+                ),
             ),
-            c
+            c,
         )
