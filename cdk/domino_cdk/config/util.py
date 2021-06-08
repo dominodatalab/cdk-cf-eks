@@ -24,6 +24,8 @@ class IngressRule:
 
     @staticmethod
     def load_rules(name: str, rules: List[dict]):
+        if not rules:
+            return None
         output = [
             IngressRule(r.pop("name"), r.pop("from_port"), r.pop("to_port"), r.pop("protocol"), r.pop("ip_cidrs"))
             for r in rules
