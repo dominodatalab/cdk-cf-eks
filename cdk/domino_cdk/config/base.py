@@ -83,6 +83,10 @@ class DominoCDKConfig:
         def r_vars(c):
             if is_dataclass(c):
                 return {x: r_vars(y) for x, y in vars(c).items()}
+            elif type(c) == list:
+                return [r_vars(x) for x in c]
+            elif type(c) == dict:
+                return {x: r_vars(y) for x, y in c.items()}
             else:
                 return c
 
