@@ -42,7 +42,7 @@ if __name__ == "__main__":
         elif argv[1] == "generate_terraform_bootstrap":
             print(json_dumps(DominoCdkUtil.generate_terraform_bootstrap(*argv[2:]), indent=4))
         elif argv[1] == "generate_config_template":
-            print(yaml.safe_dump(config_template().render()))
+            print(yaml.safe_dump(config_template().render(), sort_keys=False))
         else:
             print(
                 "Valid utility commands are 'generate_asset_parameters', 'generate_terraform_bootstrap' and 'generate_config_template'. Otherwise, use cdk."

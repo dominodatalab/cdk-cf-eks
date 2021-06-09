@@ -24,6 +24,7 @@ class MachineImage:
 
 @dataclass
 class DominoCDKConfig:
+    schema: str
     name: str
     aws_region: str
     aws_account_id: str
@@ -37,13 +38,13 @@ class DominoCDKConfig:
     eks: EKS
     s3: S3
 
-    schema: str = __version__
 
     @staticmethod
     def from_0_0_0(c: dict):
         return from_loader(
             "config",
             DominoCDKConfig(
+                schema=__version__,
                 name=c.pop("name"),
                 aws_region=c.pop("aws_region"),
                 aws_account_id=c.pop("aws_account_id"),
@@ -64,6 +65,7 @@ class DominoCDKConfig:
         return from_loader(
             "config",
             DominoCDKConfig(
+                schema=__version__,
                 name=c.pop("name"),
                 aws_region=c.pop("aws_region"),
                 aws_account_id=c.pop("aws_account_id"),
