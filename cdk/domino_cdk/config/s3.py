@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from textwrap import dedent
 from typing import Dict
 
 from domino_cdk.config.util import from_loader
@@ -6,6 +7,15 @@ from domino_cdk.config.util import from_loader
 
 @dataclass
 class S3:
+    __doc__ = dedent(
+        """    Map of buckets to create and provide IAM access from the EKS cluster.
+    Bucket parameters:
+    auto_delete_objects: true/false - Delete entire contents of bucket when destroying the CloudFormation stack
+    removal_policy_destroy: true/false - Delete bucket when destroying stack. If auto_delete_objects is false,
+                                         destroys will fail unless buckets are emptied.
+    sse_kms_key_id: XXX - Specific KMS key ID to setup with bucket. Otherwise, defaults to AES256"""
+    )
+
     @dataclass
     class Bucket:
         auto_delete_objects: bool

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, is_dataclass
+from textwrap import dedent
 from typing import List
 
 from domino_cdk.config.util import IngressRule, MachineImage, from_loader
@@ -6,27 +7,62 @@ from domino_cdk.config.util import IngressRule, MachineImage, from_loader
 
 @dataclass
 class VPC:
+    __doc__ = dedent(
+        """    create: true/false - Either create a VPC, or use an existing one
+    id: vpc-abc123 - VPC id when using an existing VPC
+    cidr: 10.0.0.0/16 - Primary CIDR range for VPC
+                        NOTE: EKS needs _lots_ of IPs
+    max_azs: 3 - Maximum amount of availability zones to configure for the VPC
+                 MUST have at least two for the EKS control plane to provision
+    """
+    )
+
     @dataclass
     class Bastion:
+        __doc__ = dedent(
+            """        enabled: true/false - Provision a bastion. If config.eks.private_api is true,
+                              you may need this to access your cluster.
+        key_name: some-key-pair - Pre-existing AWS key pair to configure for the bastion
+                                  instance. [Optional]
+        instance_type: t2.micro, etc.
+        ingress_ports: list of ingress rules in the following format:
+                       - name: ssh
+                         from_port: 22
+                         to_port: 22
+                         protocol: TCP
+                         ip_cidrs:
+                         - 0.0.0.0/0
+                       (customizing cidrs aside, this would be the most common rule for this)
+        machine_image: AMI and/or user_data script for the bastion
+                       machine_image:
+                         ami_id: ami-123abc
+                         user_data: ..."""
+        )
         enabled: bool
         key_name: str
         instance_type: str
         ingress_ports: List[IngressRule]
         machine_image: MachineImage
 
-    id: str
     create: bool
+    id: str
     cidr: str
     max_azs: int
     bastion: Bastion
+
+    def __post_init__(self):
+        if not self.id and not self.create:
+            raise ValueError("Error: Cannot provision into a VPC. Must either create a vpc or provide an existing one")
+        if self.max_azs < 2:
+            raise ValueError("Error: Must use at least two availability zones with EKS")
 
     @staticmethod
     def from_0_0_0(c: dict):
         return from_loader(
             "config.vpc",
             VPC(
-                id=c.pop("id", None),
                 create=c.pop("create"),
+                id=c.pop("id", None),
                 cidr=c.pop("cidr"),
                 max_azs=c.pop("max_azs"),
                 bastion=VPC.Bastion(
@@ -47,8 +83,8 @@ class VPC:
         return from_loader(
             "config.vpc",
             VPC(
-                id=c.pop("id", None),
                 create=c.pop("create"),
+                id=c.pop("id", None),
                 cidr=c.pop("cidr"),
                 max_azs=c.pop("max_azs"),
                 bastion=VPC.Bastion(

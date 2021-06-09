@@ -1,4 +1,5 @@
 from dataclasses import dataclass, is_dataclass
+from textwrap import dedent
 from typing import Dict, List
 
 from domino_cdk.config.util import IngressRule, MachineImage, check_leavins, from_loader
@@ -6,8 +7,49 @@ from domino_cdk.config.util import IngressRule, MachineImage, check_leavins, fro
 
 @dataclass
 class EKS:
+    __doc__ = dedent(
+        """    version: "1.19" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+    private_api: true/false - Limits Kubernetes API access to the VPC. Access must be through a
+                              bastion, peered network, or other in-VPC resource.
+    max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
+    global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes"""
+    )
+
     @dataclass
     class NodegroupBase:
+        # Docs are combined since I haven't figured out a good way of placing them.
+        # I would kind of prefer ng docs before managed, managed docs right below the
+        # managed_nodegroups key, and the unmanaged similarly right below it. However,
+        # configuring it this way seemed to place the empty managed value in the template
+        # after the doc string for some bizarre reason. TODO. "..." is to prevent it from not
+        # starting the empty lines with comments. Just personally bugs me.
+        __doc__ = dedent(
+            """        Nodegroup Configuration:
+        disk_size: 1000 - Size in GB for disk on nodes in nodegroup
+        key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
+        min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
+        max_size: 10 - Maximum limit for node count in node gorup
+        machine_image: AMI and/or user_data script for nodes in nodegroup. When overriding AMI, you MUST
+                       setup your custom AMI or your user_data script _MANUALLY_ to join the cluster.
+                       Additionally, options that use user_data (ie ssm_agent) are no longer valid.
+                       machine_image:
+                         ami_id: ami-123abc
+                         user_data: ...
+        instance_types: ["m5.2xlarge", "m5.4xlarge"] - Instance types available to nodegroup
+        labels: some-label: "true" - Labels to apply to all nodes in nodegroup
+        tags: some-tag: "true" - Tags to apply to all nodes in nodegroup
+        ...
+        Managed nodegroup-specific options:
+        spot: true/false - Use spot instances, may affect reliability/availability of nodegroup
+        desired_size: 1 - Preferred size of nodegroup
+        ...
+        Unmanaged nodegroup-specific options:
+        gpu: true/false - Setup GPU instance support
+        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
+        taints: some-taint: "true" - Taints to apply to all nodes in nodegroup 
+                                     ie to taint gpu nodes, etc.)"""
+        )
+
         disk_size: int
         key_name: str
         min_size: int

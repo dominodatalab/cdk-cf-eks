@@ -2,6 +2,8 @@ from dataclasses import dataclass, fields, is_dataclass
 from inspect import isclass
 from typing import Dict, List
 
+from ruamel.yaml.comments import CommentedMap
+
 from domino_cdk import __version__
 from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS
@@ -30,13 +32,14 @@ class DominoCDKConfig:
     aws_account_id: str
     availability_zones: List[str]
     tags: Dict[str, str]
-    install: dict
 
     vpc: VPC
     efs: EFS
     route53: Route53
     eks: EKS
     s3: S3
+
+    install: dict
 
     @staticmethod
     def from_0_0_0(c: dict):
@@ -106,15 +109,30 @@ class DominoCDKConfig:
         if errors:
             raise ValueError("\n".join(errors))
 
-    def render(self):
-        def r_vars(c):
+    def render(self, disable_comments: bool = False):
+        def r_vars(c, indent: int):
+            indent += 2
             if is_dataclass(c):
-                return {x: r_vars(y) for x, y in vars(c).items()}
+                cm = CommentedMap({x: r_vars(y, indent) for x, y in vars(c).items()})
+                if not disable_comments:
+                    [
+                        cm.yaml_set_comment_before_after_key(k, after=v.__doc__, after_indent=indent)
+                        for k, v in vars(c).items()
+                        if is_dataclass(v) and getattr(v, "__doc__")
+                    ]
+                return cm
             elif type(c) == list:
-                return [r_vars(x) for x in c]
+                return [r_vars(x, indent) for x in c]
             elif type(c) == dict:
-                return {x: r_vars(y) for x, y in c.items()}
+                return CommentedMap({x: r_vars(y, indent) for x, y in c.items()})
             else:
                 return c
 
-        return r_vars(self)
+        rendered = r_vars(self, 0)
+
+        if not disable_comments:
+            rendered["eks"].yaml_set_comment_before_after_key(
+                "managed_nodegroups", before=EKS.NodegroupBase.__doc__, indent=2
+            )
+
+        return rendered
