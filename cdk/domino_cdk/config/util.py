@@ -26,7 +26,7 @@ class MachineImage:
 class IngressRule:
     name: str
     from_port: int
-    to_port: 22
+    to_port: int
     protocol: str
     ip_cidrs: List[str]
 

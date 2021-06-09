@@ -277,15 +277,16 @@ class DominoEksStack(cdk.Stack):
             default_capacity=0,
         )
 
-        self.cluster.cluster_security_group.add_ingress_rule(
-            peer=self.bastion_sg,
-            connection=ec2.Port(
-                protocol=ec2.Protocol("TCP"),
-                string_representation="API Access",
-                from_port=443,
-                to_port=443,
-            ),
-        )
+        if self.cfg.vpc.bastion.enabled:
+            self.cluster.cluster_security_group.add_ingress_rule(
+                peer=self.bastion_sg,
+                connection=ec2.Port(
+                    protocol=ec2.Protocol("TCP"),
+                    string_representation="API Access",
+                    from_port=443,
+                    to_port=443,
+                ),
+            )
 
         cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(
