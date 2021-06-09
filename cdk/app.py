@@ -6,7 +6,7 @@ import yaml
 from aws_cdk import core
 
 from domino_cdk.eks_stack import DominoEksStack
-from domino_cdk.config import config_loader
+from domino_cdk.config import config_loader, config_template
 from domino_cdk.util import DominoCdkUtil
 
 app = core.App()
@@ -41,9 +41,11 @@ if __name__ == "__main__":
             print(json_dumps(DominoCdkUtil.generate_asset_parameters(*argv[2:]), indent=4))
         elif argv[1] == "generate_terraform_bootstrap":
             print(json_dumps(DominoCdkUtil.generate_terraform_bootstrap(*argv[2:]), indent=4))
+        elif argv[1] == "generate_config_template":
+            print(yaml.safe_dump(config_template().render()))
         else:
             print(
-                "Valid utility commands are 'generate_asset_parameters' and 'generate_terraform_bootstrap'. Otherwise, use cdk."
+                "Valid utility commands are 'generate_asset_parameters', 'generate_terraform_bootstrap' and 'generate_config_template'. Otherwise, use cdk."
             )
             exit(1)
     app.synth()
