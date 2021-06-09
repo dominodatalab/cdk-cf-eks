@@ -640,13 +640,13 @@ class DominoEksStack(cdk.Stack):
             ),
         )
 
-        efs_backup = self.config["efs"]["backup"]
-        if efs_backup["enable"]:
+        efs_backup = self.cfg.efs.backup
+        if efs_backup.enable:
             vault = backup.BackupVault(
                 self,
                 "efs_backup",
                 backup_vault_name=f'{self.name}-efs',
-                removal_policy=cdk.RemovalPolicy[efs_backup.get("removal_policy", cdk.RemovalPolicy.RETAIN.value)],
+                removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
             )
             cdk.CfnOutput(self, "backup-vault", value=vault.backup_vault_name)
             plan = backup.BackupPlan(
@@ -656,12 +656,12 @@ class DominoEksStack(cdk.Stack):
                 backup_plan_rules=[
                     backup.BackupPlanRule(
                         backup_vault=vault,
-                        delete_after=cdk.Duration.days(d) if (d := efs_backup.get("delete_after")) else None,
+                        delete_after=cdk.Duration.days(d) if (d := efs_backup.delete_after) else None,
                         move_to_cold_storage_after=cdk.Duration.days(d)
-                        if (d := efs_backup.get("move_to_cold_storage_after"))
+                        if (d := efs_backup.move_to_cold_storage_after)
                         else None,
                         rule_name="efs-rule",
-                        schedule_expression=events.Schedule.expression(f"cron({efs_backup['schedule']})"),
+                        schedule_expression=events.Schedule.expression(f"cron({efs_backup.schedule})"),
                         start_window=cdk.Duration.hours(1),
                         completion_window=cdk.Duration.hours(3),
                     )
