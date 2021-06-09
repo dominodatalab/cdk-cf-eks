@@ -38,7 +38,6 @@ class DominoCDKConfig:
     eks: EKS
     s3: S3
 
-
     @staticmethod
     def from_0_0_0(c: dict):
         return from_loader(

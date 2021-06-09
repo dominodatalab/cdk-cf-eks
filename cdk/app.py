@@ -5,8 +5,8 @@ from sys import argv
 import yaml
 from aws_cdk import core
 
-from domino_cdk.eks_stack import DominoEksStack
 from domino_cdk.config import config_loader, config_template
+from domino_cdk.eks_stack import DominoEksStack
 from domino_cdk.util import DominoCdkUtil
 
 app = core.App()
@@ -31,7 +31,7 @@ DominoEksStack(
     # env=core.Environment(account='123456789012', region='us-east-1'),
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
     env=core.Environment(region=cfg.aws_region, account=cfg.aws_account_id),
-    cfg=cfg
+    cfg=cfg,
 )
 
 

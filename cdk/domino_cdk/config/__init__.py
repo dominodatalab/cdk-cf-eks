@@ -15,15 +15,15 @@ def config_loader(c: dict):
 def config_template(bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
     max_nodegroup_azs = 3
     destroy_on_destroy = False
-    disk_size=1000
-    platform_instance_type="m5.2xlarge"
-    platform_min_size=3
+    disk_size = 1000
+    platform_instance_type = "m5.2xlarge"
+    platform_min_size = 3
     if dev_defaults:
         max_nodegroup_azs = 1
         destroy_on_destroy = True
-        disk_size=100
-        platform_instance_type="m5.4xlarge"
-        platform_min_size=1
+        disk_size = 100
+        platform_instance_type = "m5.4xlarge"
+        platform_min_size = 1
     return config_loader(
         {
             "schema": __version__,
@@ -100,8 +100,14 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                 "buckets": {
                     "blobs": {"auto_delete_objects": destroy_on_destroy, "removal_policy_destroy": destroy_on_destroy},
                     "logs": {"auto_delete_objects": destroy_on_destroy, "removal_policy_destroy": destroy_on_destroy},
-                    "backups": {"auto_delete_objects": destroy_on_destroy, "removal_policy_destroy": destroy_on_destroy},
-                    "registry": {"auto_delete_objects": destroy_on_destroy, "removal_policy_destroy": destroy_on_destroy},
+                    "backups": {
+                        "auto_delete_objects": destroy_on_destroy,
+                        "removal_policy_destroy": destroy_on_destroy,
+                    },
+                    "registry": {
+                        "auto_delete_objects": destroy_on_destroy,
+                        "removal_policy_destroy": destroy_on_destroy,
+                    },
                 }
             },
             "install": {},

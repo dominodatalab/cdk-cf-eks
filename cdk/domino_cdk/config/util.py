@@ -1,13 +1,15 @@
 from dataclasses import dataclass
-from typing import List
 from logging import Logger
+from typing import List
 
 log = Logger("domino_cdk.config")
+
 
 def from_loader(name: str, cfg, c: dict):
     if c:
         log.warning(f"Warning: Unused/unsupported config entries in {name}: {c}")
     return cfg
+
 
 def check_leavins(thing, section, obj):
     if leavins := [x for x in obj if x]:

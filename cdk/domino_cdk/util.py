@@ -13,7 +13,7 @@ class ExternalCommandException(Exception):
     """Exception running spawned external commands"""
 
 
-class DominoCdkUtil():
+class DominoCdkUtil:
     @classmethod
     def generate_asset_parameters(cls, asset_dir: str, asset_bucket: str, stack_name: str, manifest_file: str = None):
         with open(manifest_file or path_join(asset_dir, "manifest.json")) as f:

@@ -350,9 +350,7 @@ class DominoEksStack(cdk.Stack):
                             "route53:ChangeResourceRecordSets",
                             "route53:ListResourceRecordSets",
                         ],
-                        resources=[
-                            f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.cfg.route53.zone_ids
-                        ],
+                        resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.cfg.route53.zone_ids],
                     ),
                 ],
             )
@@ -570,9 +568,7 @@ class DominoEksStack(cdk.Stack):
                         launch_template_id=cfn_lt.ref,
                         version=lt.version_number,
                     ),
-                    overrides=[
-                        cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in cfg.instance_types
-                    ],
+                    overrides=[cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in cfg.instance_types],
                 ),
             )
 
