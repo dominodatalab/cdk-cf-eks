@@ -41,7 +41,7 @@ def config_template():
                     "schedule": "0 12 * * ? *",
                     "move_to_cold_storage_after": 35,
                     "delete_after": 125,
-                    "removal_policy": "DESTROY",
+                    #"removal_policy": "DESTROY",
                 },
             },
             "route53": {"zone_ids": []},
