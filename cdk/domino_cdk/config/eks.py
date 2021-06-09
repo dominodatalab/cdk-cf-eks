@@ -46,7 +46,7 @@ class EKS:
         Unmanaged nodegroup-specific options:
         gpu: true/false - Setup GPU instance support
         ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
-        taints: some-taint: "true" - Taints to apply to all nodes in nodegroup 
+        taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)"""
         )
 
