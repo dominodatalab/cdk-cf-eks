@@ -25,9 +25,9 @@ class EFS:
                 backup=EFS.Backup(
                     enable=backup.pop("enable"),
                     schedule=backup.pop("schedule"),
-                    move_to_cold_storage_after=backup.pop("move_to_cold_storage_after"),
-                    delete_after=backup.pop("delete_after"),
-                    removal_policy=backup.pop("removal_policy"),
+                    move_to_cold_storage_after=backup.pop("move_to_cold_storage_after", None),
+                    delete_after=backup.pop("delete_after", None),
+                    removal_policy=backup.pop("removal_policy", None),
                 ),
                 removal_policy_destroy=c.pop("removal_policy_destroy", None),
             ),
