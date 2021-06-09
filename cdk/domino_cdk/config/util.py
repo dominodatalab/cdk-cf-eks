@@ -1,11 +1,17 @@
 from dataclasses import dataclass
 from typing import List
+from logging import Logger
 
+log = Logger("domino_cdk.config")
 
 def from_loader(name: str, cfg, c: dict):
     if c:
-        print(f"Warning: Unused/unsupported config entries in {name}: {c}")
+        log.warning(f"Warning: Unused/unsupported config entries in {name}: {c}")
     return cfg
+
+def check_leavins(thing, section, obj):
+    if leavins := [x for x in obj if x]:
+        log.warning(f"Warning: Unused/unsupported {thing} in {section}: {leavins}")
 
 
 @dataclass
@@ -30,6 +36,5 @@ class IngressRule:
             IngressRule(r.pop("name"), r.pop("from_port"), r.pop("to_port"), r.pop("protocol"), r.pop("ip_cidrs"))
             for r in rules
         ]
-        if rule_leavins := [r for r in rules if r]:
-            print(f"Warning: Unused/unsupported ingress rules in {name}: {rule_leavins}")
+        check_leavins("ingress rules", name, rules)
         return output

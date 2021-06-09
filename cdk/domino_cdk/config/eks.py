@@ -1,7 +1,7 @@
 from dataclasses import dataclass, is_dataclass
 from typing import Dict, List
 
-from domino_cdk.config.util import IngressRule, MachineImage, from_loader
+from domino_cdk.config.util import IngressRule, MachineImage, check_leavins, from_loader
 
 
 @dataclass
@@ -41,7 +41,9 @@ class EKS:
 
         @classmethod
         def load(cls, ng):
-            return cls(**cls.base_load(ng), spot=ng.pop("spot"), desired_size=ng.pop("desired_size"))
+            out = cls(**cls.base_load(ng), spot=ng.pop("spot"), desired_size=ng.pop("desired_size"))
+            check_leavins("managed nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
+            return out
 
     @dataclass
     class UnmanagedNodegroup(NodegroupBase):
@@ -51,9 +53,11 @@ class EKS:
 
         @classmethod
         def load(cls, ng):
-            return cls(
+            out = cls(
                 **cls.base_load(ng), gpu=ng.pop("gpu"), ssm_agent=ng.pop("ssm_agent"), taints=ng.pop("taints", {})
             )
+            check_leavins("unmanaged nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
+            return out
 
     version: str
     private_api: bool
