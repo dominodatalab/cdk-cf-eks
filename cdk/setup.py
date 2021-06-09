@@ -37,6 +37,7 @@ setuptools.setup(
         "isort~=5.8.0",
         "flake8~=3.9.1",
         "semantic_version~=2.8.5",
+        "pytest~=6.2.4",
     ],
     python_requires=">=3.6",
     classifiers=[
