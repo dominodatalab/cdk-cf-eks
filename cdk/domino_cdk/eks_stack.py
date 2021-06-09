@@ -21,6 +21,7 @@ from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
 from domino_cdk.config import config_loader
+from domino_cdk.config.util import MachineImage
 from domino_cdk.config.vpc import VPC
 from domino_cdk.util import DominoCdkUtil
 
@@ -298,12 +299,12 @@ class DominoEksStack(cdk.Stack):
 
         max_nodegroup_azs = self.cfg.eks.max_nodegroup_azs
 
-        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+        for name, cfg in self.cfg.eks.managed_nodegroups.items():
+            cfg.labels = {**cfg.labels, **self.cfg.eks.global_node_labels}
             self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
 
-        for name, cfg in self.config["eks"]["unmanaged_nodegroups"].items():
-            cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
+        for name, cfg in self.cfg.eks.unmanaged_nodegroups.items():
+            cfg.labels = {**cfg.labels, **self.cfg.eks.global_node_labels}
             self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
 
     def provision_eks_iam_policies(self):
@@ -403,13 +404,13 @@ class DominoEksStack(cdk.Stack):
 
     def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
         # managed nodegroups
-        ami_id, user_data = self._get_machine_image(name, cfg)
+        ami_id, user_data = self._get_machine_image(name, cfg.machine_image)
         machine_image: Optional[ec2.IMachineImage] = None
         if ami_id:
             machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
 
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
-            disk_size = cfg.get("disk_size", None)
+            disk_size = cfg.disk_size
             lts: Optional[eks.LaunchTemplateSpec] = None
             if machine_image:
                 lt = ec2.LaunchTemplate(
@@ -420,7 +421,7 @@ class DominoEksStack(cdk.Stack):
                         ec2.BlockDevice(
                             device_name="/dev/xvda",
                             volume=ec2.BlockDeviceVolume.ebs(
-                                cfg["disk_size"],
+                                disk_size,
                                 volume_type=ec2.EbsDeviceVolumeType.GP2,
                             ),
                         )
@@ -431,35 +432,32 @@ class DominoEksStack(cdk.Stack):
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
 
-            key_name = cfg.get("key_name", None)
             self.cluster.add_nodegroup_capacity(
                 f"{name}-{i}",  # this might be dangerous
                 nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
-                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
+                capacity_type=eks.CapacityType.SPOT if cfg.spot else eks.CapacityType.ON_DEMAND,
                 disk_size=disk_size,
-                min_size=cfg["min_size"],
-                max_size=cfg["max_size"],
-                desired_size=cfg["desired_size"],
+                min_size=cfg.min_size,
+                max_size=cfg.max_size,
+                desired_size=cfg.desired_size,
                 subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
                 ),
-                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                instance_types=[ec2.InstanceType(it) for it in cfg.instance_types],
                 launch_template_spec=lts,
-                labels=cfg["labels"],
-                tags=cfg["tags"],
+                labels=cfg.labels,
+                tags=cfg.tags,
                 node_role=self.ng_role,
-                remote_access=eks.NodegroupRemoteAccess(ssh_key_name=key_name) if key_name else None,
+                remote_access=eks.NodegroupRemoteAccess(ssh_key_name=cfg.key_name) if cfg.key_name else None,
             )
 
-    def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-        image = cfg.get("machine_image", {})
-
+    def _get_machine_image(self, cfg_name: str, image: MachineImage) -> Tuple[Optional[str], Optional[str]]:
         if not image:
             return None, None
 
-        ami_id = image.get("ami_id")
-        user_data = image.get("user_data")
+        ami_id = image.ami_id
+        user_data = image.user_data
 
         if ami_id and user_data:
             return ami_id, user_data
@@ -469,7 +467,7 @@ class DominoEksStack(cdk.Stack):
     def provision_unmanaged_nodegroup(
         self, name: str, cfg: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
     ) -> None:
-        ami_id, user_data = self._get_machine_image(name, cfg)
+        ami_id, user_data = self._get_machine_image(name, cfg.machine_image)
 
         machine_image = (
             ec2.MachineImage.generic_linux({self.region: ami_id}, user_data=ec2.UserData.custom(user_data))
@@ -477,7 +475,7 @@ class DominoEksStack(cdk.Stack):
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
                 kubernetes_version=eks_version.version,
-                node_type=eks.NodeType.GPU if cfg.get("gpu", False) else eks.NodeType.STANDARD,
+                node_type=eks.NodeType.GPU if cfg.gpu else eks.NodeType.STANDARD,
             )
         )
 
@@ -505,11 +503,11 @@ class DominoEksStack(cdk.Stack):
                 scope,
                 f"ASG{i}",
                 auto_scaling_group_name=indexed_name,
-                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                instance_type=ec2.InstanceType(cfg.instance_types[0]),
                 machine_image=machine_image,
                 vpc=self.cluster.vpc,
-                min_capacity=cfg["min_size"],
-                max_capacity=cfg["max_size"],
+                min_capacity=cfg.min_size,
+                max_capacity=cfg.max_size,
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -519,7 +517,7 @@ class DominoEksStack(cdk.Stack):
             )
             for k, v in (
                 {
-                    **cfg["tags"],
+                    **cfg.tags,
                     **{
                         f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
                         "k8s.io/cluster-autoscaler/enabled": "true",
@@ -538,14 +536,14 @@ class DominoEksStack(cdk.Stack):
                     ec2.BlockDevice(
                         device_name="/dev/xvda",
                         volume=ec2.BlockDeviceVolume.ebs(
-                            cfg["disk_size"],
+                            cfg.disk_size,
                             volume_type=ec2.EbsDeviceVolumeType.GP2,
                         ),
                     )
                 ],
                 role=self.ng_role,
-                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
-                key_name=cfg.get("key_name", None),
+                instance_type=ec2.InstanceType(cfg.instance_types[0]),
+                key_name=cfg.key_name,
                 machine_image=machine_image,
                 user_data=asg.user_data,
                 security_group=self.unmanaged_sg,
@@ -574,7 +572,7 @@ class DominoEksStack(cdk.Stack):
                         version=lt.version_number,
                     ),
                     overrides=[
-                        cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in cfg["instance_types"]
+                        cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in cfg.instance_types
                     ],
                 ),
             )
@@ -584,24 +582,24 @@ class DominoEksStack(cdk.Stack):
             }
             if not user_data:
                 extra_args: list[str] = []
-                if labels := cfg.get("labels"):
+                if labels := cfg.labels:
                     extra_args.append(
                         "--node-labels={}".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
                     )
 
-                if taints := cfg.get("taints"):
+                if taints := cfg.taints:
                     extra_args.append(
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
 
-                if cfg["ssm_agent"]:
+                if cfg.ssm_agent:
                     # We can only access this as an attribute of either the launch template or asg (both are the
                     # same object)as we are getting it from the default user_data included in the standard EKS ami
                     lt.user_data.add_on_exit_commands(
                         "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm"
                     )
-            elif cfg["ssm_agent"] or cfg.get("labels") or cfg.get("taints"):
+            elif cfg.ssm_agent or cfg.labels or cfg.taints:
                 raise ValueError(
                     "ssm_agent, labels and taints will not be automatically confiugured when user_data is specified in the config. Please set this up accordingly in your user_data."
                 )
