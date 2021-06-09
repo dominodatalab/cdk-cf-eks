@@ -206,14 +206,12 @@ class DominoEksStack(cdk.Stack):
             )
 
         if vpc.bastion.enabled:
-            self.provision_bastion(self.config["vpc"]["bastion"])
+            self.provision_bastion(vpc.bastion)
 
     def provision_bastion(self, cfg: dict) -> None:
-        ami_id, user_data = self._get_machine_image("bastion", cfg)
-
-        if ami_id:
+        if cfg.machine_image:
             bastion_machine_image = ec2.MachineImage.generic_linux(
-                {self.region: ami_id}, user_data=ec2.UserData.custom(user_data)
+                {self.region: cfg.machine_image.ami_id}, user_data=ec2.UserData.custom(cfg.machine_image.user_data)
             )
         else:
             if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?
@@ -232,15 +230,15 @@ class DominoEksStack(cdk.Stack):
             security_group_name=f"{self.name}-bastion",
         )
 
-        for rule in cfg["ingress_ports"]:
-            for ip_cidr in rule["ip_cidrs"]:
+        for rule in cfg.ingress_ports:
+            for ip_cidr in rule.ip_cidrs:
                 self.bastion_sg.add_ingress_rule(
                     peer=ec2.Peer.ipv4(ip_cidr),
                     connection=ec2.Port(
-                        protocol=ec2.Protocol(rule["protocol"]),
-                        string_representation=rule["name"],
-                        from_port=rule["from_port"],
-                        to_port=rule["to_port"],
+                        protocol=ec2.Protocol(rule.protocol),
+                        string_representation=rule.name,
+                        from_port=rule.from_port,
+                        to_port=rule.to_port,
                     ),
                 )
 
@@ -249,8 +247,8 @@ class DominoEksStack(cdk.Stack):
             "bastion",
             machine_image=bastion_machine_image,
             vpc=self.vpc,
-            instance_type=ec2.InstanceType(cfg["instance_type"]),
-            key_name=cfg.get("key_name", None),
+            instance_type=ec2.InstanceType(cfg.instance_type),
+            key_name=cfg.key_name,
             security_group=self.bastion_sg,
             vpc_subnets=ec2.SubnetSelection(
                 subnet_group_name=self.public_subnet_name,
