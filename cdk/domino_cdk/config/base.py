@@ -1,4 +1,4 @@
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from inspect import isclass
 from typing import Dict, List
 
@@ -79,6 +79,25 @@ class DominoCDKConfig:
             ),
             c,
         )
+
+    def __post_init__(self):
+        def v(obj):
+            for f in fields(obj):
+                value = getattr(obj, f.name)
+                if is_dataclass(value):
+                    v(value)
+                elif not value:
+                    continue
+                # TODO: Actually do the full check (ie List[str], etc.)
+                elif getattr(f.type, "_name", None) == "List":
+                    if type(value) is not list:
+                        raise ValueError(f"{f.name} is not a list")
+                elif getattr(f.type, "_name", None) == "Dict":
+                    if type(value) is not dict:
+                        raise ValueError(f"{f.name} is not a dict")
+                elif value and f.type != type(value):
+                    raise ValueError(f"{f} ({f.type}) does not match {type(value)}: {value}")
+        v(self)
 
     def render(self):
         def r_vars(c):
