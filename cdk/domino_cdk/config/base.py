@@ -81,23 +81,28 @@ class DominoCDKConfig:
         )
 
     def __post_init__(self):
-        def v(obj):
+        errors = []
+        def val(path: str, obj):
             for f in fields(obj):
                 value = getattr(obj, f.name)
                 if is_dataclass(value):
-                    v(value)
+                    val(f"{path}.{f.name}", value)
                 elif not value:
                     continue
                 # TODO: Actually do the full check (ie List[str], etc.)
                 elif getattr(f.type, "_name", None) == "List":
                     if type(value) is not list:
-                        raise ValueError(f"{f.name} is not a list")
+                        errors.append(f"{f.name} is not a list")
+                    [val(f"{path}.{f.name}.[{i}]", x) for i, x in enumerate(value) if is_dataclass(x)]
                 elif getattr(f.type, "_name", None) == "Dict":
                     if type(value) is not dict:
-                        raise ValueError(f"{f.name} is not a dict")
+                        errors.append(f"{f.name} is not a dict")
+                    [val(f"{path}.{f.name}.{k}", v) for k, v in value.items() if is_dataclass(v)]
                 elif value and f.type != type(value):
-                    raise ValueError(f"{f} ({f.type}) does not match {type(value)}: {value}")
-        v(self)
+                    errors.append(f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})")
+        val("config", self)
+        if errors:
+            raise ValueError("\n".join(errors))
 
     def render(self):
         def r_vars(c):
