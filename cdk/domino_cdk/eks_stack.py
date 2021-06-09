@@ -20,7 +20,7 @@ from requests import get as requests_get
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
-from domino_cdk.config import config_loader
+from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.config.util import MachineImage
 from domino_cdk.config.vpc import VPC
 from domino_cdk.util import DominoCdkUtil
@@ -38,13 +38,12 @@ class ExternalCommandException(Exception):
 
 
 class DominoEksStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, config: dict, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.outputs = {}
         # The code that defines your stack goes here
-        self.cfg = config_loader(config)
-        self.config = self.cfg.render()
+        self.cfg = cfg
         self.env = kwargs["env"]
         self.name = self.cfg.name
         cdk.CfnOutput(self, "deploy_name", value=self.name)

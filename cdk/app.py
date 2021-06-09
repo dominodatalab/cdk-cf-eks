@@ -6,19 +6,20 @@ import yaml
 from aws_cdk import core
 
 from domino_cdk.eks_stack import DominoEksStack
+from domino_cdk.config import config_loader
 from domino_cdk.util import DominoCdkUtil
 
 app = core.App()
 
 with open(app.node.try_get_context("config") or "config.yaml") as f:
     y = f.read()
-    cfg = yaml.safe_load(y)
+    cfg = config_loader(yaml.safe_load(y))
 
 env_vars = {}
 
 DominoEksStack(
     app,
-    f"{cfg['name']}-eks-stack",
+    f"{cfg.name}-eks-stack",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
@@ -29,8 +30,8 @@ DominoEksStack(
     # want to deploy the stack to. */
     # env=core.Environment(account='123456789012', region='us-east-1'),
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-    env=core.Environment(region=cfg.get("aws_region"), account=cfg.get("aws_account_id")),
-    config=cfg
+    env=core.Environment(region=cfg.aws_region, account=cfg.aws_account_id),
+    cfg=cfg
 )
 
 
