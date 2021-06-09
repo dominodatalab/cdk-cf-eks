@@ -57,7 +57,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
             },
             "route53": {"zone_ids": []},
             "eks": {
-                "version": 1.19,
+                "version": "1.19",
                 "private_api": private_api,
                 "max_nodegroup_azs": max_nodegroup_azs,
                 "global_node_labels": {"dominodatalab.com/domino-node": "true"},

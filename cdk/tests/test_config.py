@@ -42,7 +42,7 @@ default_config = DominoCDKConfig(
     ),
     route53=Route53(zone_ids=[]),
     eks=EKS(
-        version=1.19,
+        version="1.19",
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
@@ -130,7 +130,7 @@ legacy_template = {
     },
     "route53": {"zone_ids": []},
     "eks": {
-        "version": 1.19,
+        "version": "1.19",
         "private_api": True,
         "max_nodegroup_azs": 1,
         "global_node_labels": {"dominodatalab.com/domino-node": "true"},
@@ -206,7 +206,7 @@ legacy_config = DominoCDKConfig(
     ),
     route53=Route53(zone_ids=[]),
     eks=EKS(
-        version=1.19,
+        version="1.19",
         private_api=True,
         max_nodegroup_azs=1,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
