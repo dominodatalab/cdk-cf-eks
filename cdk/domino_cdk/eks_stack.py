@@ -211,7 +211,8 @@ class DominoEksStack(cdk.Stack):
     def provision_bastion(self, bastion: dict) -> None:
         if bastion.machine_image:
             bastion_machine_image = ec2.MachineImage.generic_linux(
-                {self.region: bastion.machine_image.ami_id}, user_data=ec2.UserData.custom(bastion.machine_image.user_data)
+                {self.region: bastion.machine_image.ami_id},
+                user_data=ec2.UserData.custom(bastion.machine_image.user_data),
             )
         else:
             if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?

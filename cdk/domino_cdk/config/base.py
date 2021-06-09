@@ -82,6 +82,7 @@ class DominoCDKConfig:
 
     def __post_init__(self):
         errors = []
+
         def val(path: str, obj):
             for f in fields(obj):
                 value = getattr(obj, f.name)
@@ -100,6 +101,7 @@ class DominoCDKConfig:
                     [val(f"{path}.{f.name}.{k}", v) for k, v in value.items() if is_dataclass(v)]
                 elif value and f.type != type(value):
                     errors.append(f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})")
+
         val("config", self)
         if errors:
             raise ValueError("\n".join(errors))
