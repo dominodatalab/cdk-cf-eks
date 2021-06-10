@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from textwrap import dedent
 from typing import List
 
 from domino_cdk.config.util import IngressRule, MachineImage, from_loader
@@ -7,20 +6,19 @@ from domino_cdk.config.util import IngressRule, MachineImage, from_loader
 
 @dataclass
 class VPC:
-    __doc__ = dedent(
-        """    create: true/false - Either create a VPC, or use an existing one
+    """
+    create: true/false - Either create a VPC, or use an existing one
     id: vpc-abc123 - VPC id when using an existing VPC
     cidr: 10.0.0.0/16 - Primary CIDR range for VPC
                         NOTE: EKS needs _lots_ of IPs
     max_azs: 3 - Maximum amount of availability zones to configure for the VPC
                  MUST have at least two for the EKS control plane to provision
     """
-    )
 
     @dataclass
     class Bastion:
-        __doc__ = dedent(
-            """        enabled: true/false - Provision a bastion. If config.eks.private_api is true,
+        """
+        enabled: true/false - Provision a bastion. If config.eks.private_api is true,
                               you may need this to access your cluster.
         key_name: some-key-pair - Pre-existing AWS key pair to configure for the bastion
                                   instance. [Optional]
@@ -36,8 +34,9 @@ class VPC:
         machine_image: AMI and/or user_data script for the bastion
                        machine_image:
                          ami_id: ami-123abc
-                         user_data: ..."""
-        )
+                         user_data: ...
+        """
+
         enabled: bool
         key_name: str
         instance_type: str

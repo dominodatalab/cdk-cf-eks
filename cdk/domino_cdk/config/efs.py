@@ -1,23 +1,25 @@
 from dataclasses import dataclass
-from textwrap import dedent
 
 from domino_cdk.config.util import from_loader
 
 
 @dataclass
 class EFS:
-    """removal_policy_destroy: true/false - Destroy EFS filesystem when destroying CloudFormation stack"""
+    """
+    removal_policy_destroy: true/false - Destroy EFS filesystem when destroying CloudFormation stack
+    """
 
     @dataclass
     class Backup:
-        __doc__ = dedent(
-            """        enable: true/false - Enable the EFS backup vault, default: true
+        """
+        enable: true/false - Enable the EFS backup vault, default: true
         schedule: "0 12 * * ? *" - Schedule for efs backups in cron-like format, see here for docs:
                                    https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions
         move_to_cold_storage_after: 35 - Numberof days (null to disable)
         delete_after: 125 - Number of days, must be 90 days after cold storage (null to disable)
-        removal_policy: RETAIN - DESTROY, RETAIN or SNAPSHOT"""
-        )
+        removal_policy: RETAIN - DESTROY, RETAIN or SNAPSHOT
+        """
+
         enable: bool
         schedule: str
         move_to_cold_storage_after: int

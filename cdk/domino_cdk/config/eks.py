@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from textwrap import dedent
 from typing import Dict, List
 
 from domino_cdk.config.util import MachineImage, check_leavins, from_loader
@@ -7,13 +6,13 @@ from domino_cdk.config.util import MachineImage, check_leavins, from_loader
 
 @dataclass
 class EKS:
-    __doc__ = dedent(
-        """    version: "1.19" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+    """
+    version: "1.19" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
     private_api: true/false - Limits Kubernetes API access to the VPC. Access must be through a
                               bastion, peered network, or other in-VPC resource.
     max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
-    global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes"""
-    )
+    global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes
+    """
 
     @dataclass
     class NodegroupBase:
@@ -23,8 +22,8 @@ class EKS:
         # configuring it this way seemed to place the empty managed value in the template
         # after the doc string for some bizarre reason. TODO. "..." is to prevent it from not
         # starting the empty lines with comments. Just personally bugs me.
-        __doc__ = dedent(
-            """        Nodegroup Configuration:
+        """
+        Nodegroup Configuration:
         disk_size: 1000 - Size in GB for disk on nodes in nodegroup
         key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
         min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
@@ -47,8 +46,8 @@ class EKS:
         gpu: true/false - Setup GPU instance support
         ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
-                                     ie to taint gpu nodes, etc.)"""
-        )
+                                     ie to taint gpu nodes, etc.)
+        """
 
         disk_size: int
         key_name: str

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, fields, is_dataclass
+from textwrap import dedent
 from typing import Dict, List
 
 from ruamel.yaml.comments import CommentedMap
@@ -121,7 +122,7 @@ class DominoCDKConfig:
                 cm = CommentedMap({x: r_vars(y, indent) for x, y in vars(c).items()})
                 if not disable_comments:
                     [
-                        cm.yaml_set_comment_before_after_key(k, after=v.__doc__, after_indent=indent)
+                        cm.yaml_set_comment_before_after_key(k, after=dedent(v.__doc__).strip(), after_indent=indent)
                         for k, v in vars(c).items()
                         if is_dataclass(v) and getattr(v, "__doc__")
                     ]
@@ -137,7 +138,7 @@ class DominoCDKConfig:
 
         if not disable_comments:
             rendered["eks"].yaml_set_comment_before_after_key(
-                "managed_nodegroups", before=EKS.NodegroupBase.__doc__, indent=2
+                "managed_nodegroups", before=dedent(EKS.NodegroupBase.__doc__).strip(), indent=2
             )
 
         return rendered
