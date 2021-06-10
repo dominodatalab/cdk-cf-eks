@@ -1,3 +1,4 @@
+schema: 0.0.1
 name: domino
 #aws_region: "__FILL__"
 #aws_account_id: "__FILL__"
@@ -23,7 +24,6 @@ vpc:
         protocol: "TCP"
         ip_cidrs:
           - "0.0.0.0/0"
-        protocol: "TCP"
     #machine_image:
     #  ami_id: xxx
     #  user_data: null
@@ -38,7 +38,7 @@ efs:
 route53:
   zone_ids: []
 eks:
-  version: 1.19
+  version: "1.19"
   private_api: true
   max_nodegroup_azs: 1
   global_node_labels:
@@ -64,7 +64,7 @@ eks:
     #   tags:
     #     dominodatalab.com/node-pool: default
     #     domino/build-node: "true"
-  nodegroups:
+  unmanaged_nodegroups:
     platform:
       gpu: false
       ssm_agent: true
