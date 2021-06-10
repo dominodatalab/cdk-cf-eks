@@ -147,3 +147,51 @@ class TestConfigEKS(unittest.TestCase):
         eks_cfg["managed_nodegroups"]["compute"]["min_size"] = 0
         with self.assertRaisesRegex(ValueError, "Managed nodegroup compute has min_size of 0."):
             eks = EKS.from_0_0_1(eks_cfg)
+
+    def test_managed_nodegroup(self):
+        test_group_cfg = deepcopy(eks_0_0_1_cfg["managed_nodegroups"]["compute"])
+
+        with patch("domino_cdk.config.util.log.warning") as warn:
+            ng = EKS.ManagedNodegroup.load(test_group_cfg)
+            warn.assert_not_called()
+            self.assertEqual(ng, managed_ngs["compute"])
+
+    def test_managed_nodegroup_extra_args(self):
+        test_group_cfg = deepcopy(eks_0_0_1_cfg["managed_nodegroups"]["compute"])
+        test_group_cfg["extra_arg"] = "boing"
+
+        with patch("domino_cdk.config.util.log.warning") as warn:
+            ng = EKS.ManagedNodegroup.load(test_group_cfg)
+            self.assertEqual(ng, managed_ngs["compute"])
+            warn.assert_called_with("Warning: Unused/unsupported managed nodegroup attribute in config.eks.unmanaged_nodegroups: ['extra_arg']")
+
+    def test_unmanaged_nodegroup(self):
+        test_group_cfg = deepcopy(eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"])
+
+        with patch("domino_cdk.config.util.log.warning") as warn:
+            ng = EKS.UnmanagedNodegroup.load(test_group_cfg)
+            warn.assert_not_called()
+            self.assertEqual(ng, unmanaged_ngs["platform"])
+
+    def test_managed_nodegroup_extra_args(self):
+        test_group_cfg = deepcopy(eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"])
+        test_group_cfg["extra_arg"] = "boing"
+
+        with patch("domino_cdk.config.util.log.warning") as warn:
+            ng = EKS.UnmanagedNodegroup.load(test_group_cfg)
+            self.assertEqual(ng, unmanaged_ngs["platform"])
+            warn.assert_called_with("Warning: Unused/unsupported unmanaged nodegroup attribute in config.eks.unmanaged_nodegroups: ['extra_arg']")
+
+    def test_nodegroup_base(self):
+        test_group_cfg = deepcopy(eks_0_0_1_cfg["managed_nodegroups"]["compute"])
+        test_group_cfg["key_name"] = None
+        test_group_cfg["machine_image"] = {"ami_id": "ami-1234", "user_data": "some-user-data"}
+
+        expected_base_result = deepcopy(test_group_cfg)
+        del expected_base_result["spot"]
+        del expected_base_result["desired_size"]
+        expected_base_result["machine_image"] = MachineImage(ami_id="ami-1234", user_data="some-user-data")
+
+        base_ng_dict = EKS.NodegroupBase.base_load(test_group_cfg)
+        self.assertEqual(base_ng_dict, expected_base_result)
+        self.assertEqual(test_group_cfg, {"spot": False, "desired_size": 1})
