@@ -39,7 +39,7 @@ route53:
   zone_ids: []
 eks:
   version: "1.19"
-  private_api: true
+  private_api: false
   max_nodegroup_azs: 1
   global_node_labels:
     dominodatalab.com/domino-node: "true"
