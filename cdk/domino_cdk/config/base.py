@@ -9,13 +9,8 @@ from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS
 from domino_cdk.config.route53 import Route53
 from domino_cdk.config.s3 import S3
+from domino_cdk.config.util import from_loader
 from domino_cdk.config.vpc import VPC
-
-
-def from_loader(name: str, cfg, c: dict):
-    if c:
-        print(f"Warning: Unused/unsupported config entries in {name}: {c}")
-    return cfg
 
 
 @dataclass

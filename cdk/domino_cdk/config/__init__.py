@@ -6,10 +6,10 @@ from domino_cdk.config.base import DominoCDKConfig
 
 def config_loader(c: dict):
     schema = Version(c.pop("schema", "0.0.0")).truncate()
-    if schema == Version("0.0.1"):
-        return DominoCDKConfig.from_0_0_1(c)
-    elif schema == Version("0.0.0"):
-        return DominoCDKConfig.from_0_0_0(c)
+    loader = getattr(DominoCDKConfig, f"from_{schema}".replace(".", "_"), None)
+    if not loader:
+        raise ValueError(f"Unsupported schema version: {schema}")
+    return loader(c)
 
 
 def config_template(bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
