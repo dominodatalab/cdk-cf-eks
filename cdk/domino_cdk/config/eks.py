@@ -108,6 +108,14 @@ class EKS:
     managed_nodegroups: Dict[str, ManagedNodegroup]
     unmanaged_nodegroups: Dict[str, UnmanagedNodegroup]
 
+    def __post_init__(self):
+        errors = []
+        for name, ng in self.managed_nodegroups.items():
+            if ng.min_size == 0:
+                errors.append(f"Error: Managed nodegroup {name} has min_size of 0. Only unmanaged nodegroups support min_size of 0.")
+        if errors:
+            raise ValueError(errors)
+
     @staticmethod
     def from_0_0_0(c: dict):
         return from_loader(

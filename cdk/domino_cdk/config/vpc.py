@@ -55,6 +55,9 @@ class VPC:
             raise ValueError("Error: Cannot provision into a VPC. Must either create a vpc or provide an existing one")
         if self.max_azs < 2:
             raise ValueError("Error: Must use at least two availability zones with EKS")
+        # The "or" is covering the case of user_data provided without ami_id
+        if self.bastion.enabled and self.bastion.machine_image and not self.bastion.machine_image.ami_id:
+            raise ValueError("Error: Bastion instance with user_data requires an ami_id!")
 
     @staticmethod
     def from_0_0_0(c: dict):
