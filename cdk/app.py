@@ -17,8 +17,6 @@ def main():
     with open(app.node.try_get_context("config") or "config.yaml") as f:
         cfg = config_loader(yaml_load(f, Loader=SafeLoader))
 
-    env_vars = {}
-
     DominoEksStack(
         app,
         f"{cfg.name}-eks-stack",

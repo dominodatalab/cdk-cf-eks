@@ -1,14 +1,12 @@
-from copy import deepcopy
-
 import unittest
-from unittest.mock import patch
+from copy import deepcopy
 
 from domino_cdk.config.s3 import S3
 
 sse_kms_key_id = "some-kms-key"
 
 s3_0_0_0_cfg = {
-	"buckets": {
+    "buckets": {
         "bucket1": {
             "auto_delete_objects": True,
             "removal_policy_destroy": True,
@@ -19,10 +17,13 @@ s3_0_0_0_cfg = {
             "removal_policy_destroy": True,
             "sse_kms_key_id": sse_kms_key_id,
         },
-	}
+    }
 }
 
-s3_obj = S3(buckets={"bucket1": S3.Bucket(True, True, sse_kms_key_id), "bucket2": S3.Bucket(True, True, sse_kms_key_id)})
+s3_obj = S3(
+    buckets={"bucket1": S3.Bucket(True, True, sse_kms_key_id), "bucket2": S3.Bucket(True, True, sse_kms_key_id)}
+)
+
 
 class TestConfigS3(unittest.TestCase):
     def test_from_0_0_0(self):
@@ -38,7 +39,4 @@ class TestConfigS3(unittest.TestCase):
         self.assertEqual(s3, s3_obj_defaults)
 
     def test_no_buckets(self):
-        self.assertEqual(
-            S3.from_0_0_0({"buckets": {}}),
-            S3(buckets={})
-        )
+        self.assertEqual(S3.from_0_0_0({"buckets": {}}), S3(buckets={}))

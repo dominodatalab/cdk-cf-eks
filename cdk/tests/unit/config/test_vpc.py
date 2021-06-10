@@ -1,17 +1,11 @@
-from copy import deepcopy
-
 import unittest
+from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config.vpc import VPC
 from domino_cdk.config.util import IngressRule, MachineImage
+from domino_cdk.config.vpc import VPC
 
-vpc_0_0_0_cfg = {
-    "create": True,
-    "id": None,
-    "cidr": "10.0.0.0/24",
-    "max_azs": 3
-}
+vpc_0_0_0_cfg = {"create": True, "id": None, "cidr": "10.0.0.0/24", "max_azs": 3}
 
 vpc_0_0_1_cfg = deepcopy(vpc_0_0_0_cfg)
 vpc_0_0_1_cfg["bastion"] = {
@@ -23,21 +17,36 @@ vpc_0_0_1_cfg["bastion"] = {
 bastion = {
     "enabled": True,
     "instance_type": "t2.micro",
-    "ingress_ports": [{
-        "name": "ssh",
-        "from_port": 22,
-        "to_port": 22,
-        "protocol": "TCP",
-        "ip_cidrs": ["0.0.0.0/0"],
-    }],
+    "ingress_ports": [
+        {
+            "name": "ssh",
+            "from_port": 22,
+            "to_port": 22,
+            "protocol": "TCP",
+            "ip_cidrs": ["0.0.0.0/0"],
+        }
+    ],
     "machine_image": {
         "ami_id": "ami-1234abcd",
         "user_data": "some-user-data",
-    }
+    },
 }
 
-vpc_object = VPC(create=True, id=None, cidr="10.0.0.0/24", max_azs=3, bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, machine_image=None))
-bastion_object = VPC.Bastion(enabled=True, key_name=None, instance_type="t2.micro", ingress_ports=[IngressRule("ssh", 22, 22, "TCP", ["0.0.0.0/0"])], machine_image=MachineImage("ami-1234abcd", "some-user-data"))
+vpc_object = VPC(
+    create=True,
+    id=None,
+    cidr="10.0.0.0/24",
+    max_azs=3,
+    bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, machine_image=None),
+)
+bastion_object = VPC.Bastion(
+    enabled=True,
+    key_name=None,
+    instance_type="t2.micro",
+    ingress_ports=[IngressRule("ssh", 22, 22, "TCP", ["0.0.0.0/0"])],
+    machine_image=MachineImage("ami-1234abcd", "some-user-data"),
+)
+
 
 class TestConfigVPC(unittest.TestCase):
     def test_from_0_0_0(self):
@@ -54,7 +63,7 @@ class TestConfigVPC(unittest.TestCase):
 
     def test_from_0_0_1_wrong_schema(self):
         with self.assertRaisesRegex(KeyError, "bastion"):
-            vpc = VPC.from_0_0_1(deepcopy(vpc_0_0_0_cfg))
+            VPC.from_0_0_1(deepcopy(vpc_0_0_0_cfg))
 
     def test_oldest_newest_loaders_identical_result(self):
         vpc_old = VPC.from_0_0_0(deepcopy(vpc_0_0_0_cfg))
@@ -65,7 +74,7 @@ class TestConfigVPC(unittest.TestCase):
         vpc_cfg = deepcopy(vpc_0_0_1_cfg)
         vpc_cfg["bastion"] = bastion
         vpc_obj_bastion = deepcopy(vpc_object)
-        vpc_obj_bastion.bastion=deepcopy(bastion_object)
+        vpc_obj_bastion.bastion = deepcopy(bastion_object)
         with patch("domino_cdk.config.util.log.warning") as warn:
             VPC.from_0_0_1(vpc_cfg)
             warn.assert_not_called()

@@ -1,5 +1,4 @@
 from dataclasses import dataclass, fields, is_dataclass
-from inspect import isclass
 from typing import Dict, List
 
 from ruamel.yaml.comments import CommentedMap
@@ -96,12 +95,16 @@ class DominoCDKConfig:
                 # TODO: Actually do the full check (ie List[str], etc.)
                 elif getattr(f.type, "_name", None) == "List":
                     if type(value) is not list:
-                        errors.append(f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})")
+                        errors.append(
+                            f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})"
+                        )
                     else:
                         [val(f"{path}.{f.name}.[{i}]", x) for i, x in enumerate(value) if is_dataclass(x)]
                 elif getattr(f.type, "_name", None) == "Dict":
-                    if type(value) not in  [dict, CommentedMap]:
-                        errors.append(f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})")
+                    if type(value) not in [dict, CommentedMap]:
+                        errors.append(
+                            f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})"
+                        )
                     else:
                         [val(f"{path}.{f.name}.{k}", v) for k, v in value.items() if is_dataclass(v)]
                 elif value and f.type != type(value):

@@ -2,7 +2,6 @@ import unittest
 from unittest.mock import patch
 
 from domino_cdk.config import config_loader, config_template
-from domino_cdk.config.util import IngressRule
 
 from . import default_config, legacy_config, legacy_template
 

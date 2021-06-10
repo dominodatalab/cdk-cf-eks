@@ -1,8 +1,8 @@
-from dataclasses import dataclass, is_dataclass
+from dataclasses import dataclass
 from textwrap import dedent
 from typing import Dict, List
 
-from domino_cdk.config.util import IngressRule, MachineImage, check_leavins, from_loader
+from domino_cdk.config.util import MachineImage, check_leavins, from_loader
 
 
 @dataclass
@@ -112,7 +112,9 @@ class EKS:
         errors = []
         for name, ng in self.managed_nodegroups.items():
             if ng.min_size == 0:
-                errors.append(f"Error: Managed nodegroup {name} has min_size of 0. Only unmanaged nodegroups support min_size of 0.")
+                errors.append(
+                    f"Error: Managed nodegroup {name} has min_size of 0. Only unmanaged nodegroups support min_size of 0."
+                )
         if errors:
             raise ValueError(errors)
 

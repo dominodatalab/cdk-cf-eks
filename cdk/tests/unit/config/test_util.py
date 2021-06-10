@@ -1,14 +1,10 @@
-from copy import deepcopy
-
 import unittest
+from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config.util import from_loader, check_leavins, MachineImage, IngressRule
+from domino_cdk.config.util import IngressRule, check_leavins, from_loader
 
-
-ingress_rules = [
-                {"name": "some_rule", "from_port": 22, "to_port": 22, "protocol": "TCP", "ip_cidrs": ["10.0.0.0/16"]}
-            ]
+ingress_rules = [{"name": "some_rule", "from_port": 22, "to_port": 22, "protocol": "TCP", "ip_cidrs": ["10.0.0.0/16"]}]
 
 ingress_rule_object = IngressRule("some_rule", 22, 22, "TCP", ["10.0.0.0/16"])
 

@@ -1,63 +1,108 @@
-from copy import deepcopy
-
 import unittest
+from copy import deepcopy
 from unittest.mock import patch
 
 from domino_cdk.config.eks import EKS
 from domino_cdk.config.util import MachineImage
 
-
 eks_0_0_0_cfg = {
-                "version": "1.19",
-                "private_api": True,
-                "max_nodegroup_azs": 1,
-                "global_node_labels": {"dominodatalab.com/domino-node": "true"},
-                "managed_nodegroups": {
-                    "compute": {
-                       "disk_size": 20,
-                        "min_size": 1,
-                        "max_size": 1,
-                        "instance_types": ["t2.micro"],
-                        "labels": {},
-                        "tags": {},
-                        "spot": False,
-                        "desired_size": 1,
-                    }
-                },
-                "nodegroups": {
-                    "platform": {
-                        "gpu": False,
-                        "ssm_agent": True,
-                        "disk_size": 100,
-                        "min_size": 1,
-                        "max_size": 10,
-                        "instance_types": ["m5.2xlarge"],
-                        "labels": {"dominodatalab.com/node-pool": "platform"},
-                        "tags": {"dominodatalab.com/node-pool": "platform"},
-                    },
-                    "nvidia": {
-                        "gpu": True,
-                        "ssm_agent": False,
-                        "disk_size": 100,
-                        "min_size": 0,
-                        "max_size": 10,
-                        "instance_types": ["p3.2xlarge"],
-                        "taints": {"nvidia.com/gpu": "true:NoSchedule"},
-                        "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
-                        "tags": {"dominodatalab.com/node-pool": "default-gpu"},
-                    },
-                },
-            }
+    "version": "1.19",
+    "private_api": True,
+    "max_nodegroup_azs": 1,
+    "global_node_labels": {"dominodatalab.com/domino-node": "true"},
+    "managed_nodegroups": {
+        "compute": {
+            "disk_size": 20,
+            "min_size": 1,
+            "max_size": 1,
+            "instance_types": ["t2.micro"],
+            "labels": {},
+            "tags": {},
+            "spot": False,
+            "desired_size": 1,
+        }
+    },
+    "nodegroups": {
+        "platform": {
+            "gpu": False,
+            "ssm_agent": True,
+            "disk_size": 100,
+            "min_size": 1,
+            "max_size": 10,
+            "instance_types": ["m5.2xlarge"],
+            "labels": {"dominodatalab.com/node-pool": "platform"},
+            "tags": {"dominodatalab.com/node-pool": "platform"},
+        },
+        "nvidia": {
+            "gpu": True,
+            "ssm_agent": False,
+            "disk_size": 100,
+            "min_size": 0,
+            "max_size": 10,
+            "instance_types": ["p3.2xlarge"],
+            "taints": {"nvidia.com/gpu": "true:NoSchedule"},
+            "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
+            "tags": {"dominodatalab.com/node-pool": "default-gpu"},
+        },
+    },
+}
 
 eks_0_0_1_cfg = deepcopy(eks_0_0_0_cfg)
 eks_0_0_1_cfg["unmanaged_nodegroups"] = eks_0_0_1_cfg["nodegroups"]
 del eks_0_0_1_cfg["nodegroups"]
 
-managed_ngs = {"compute": EKS.ManagedNodegroup(disk_size=20, key_name=None, min_size=1, max_size=1, machine_image=None, instance_types=["t2.micro"], labels={}, tags={}, spot=False, desired_size=1)}
-unmanaged_ngs = {"platform": EKS.UnmanagedNodegroup(disk_size=100, key_name=None, min_size=1, max_size=10, machine_image=None, instance_types=["m5.2xlarge"], labels={"dominodatalab.com/node-pool": "platform"}, tags={"dominodatalab.com/node-pool": "platform"}, gpu=False, ssm_agent=True, taints={}),
-        "nvidia": EKS.UnmanagedNodegroup(disk_size=100, key_name=None, min_size=0, max_size=10, machine_image=None, instance_types=["p3.2xlarge"], labels={"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"}, tags={"dominodatalab.com/node-pool": "default-gpu"}, gpu=True, ssm_agent=False, taints={"nvidia.com/gpu": "true:NoSchedule"})}
+managed_ngs = {
+    "compute": EKS.ManagedNodegroup(
+        disk_size=20,
+        key_name=None,
+        min_size=1,
+        max_size=1,
+        machine_image=None,
+        instance_types=["t2.micro"],
+        labels={},
+        tags={},
+        spot=False,
+        desired_size=1,
+    )
+}
+unmanaged_ngs = {
+    "platform": EKS.UnmanagedNodegroup(
+        disk_size=100,
+        key_name=None,
+        min_size=1,
+        max_size=10,
+        machine_image=None,
+        instance_types=["m5.2xlarge"],
+        labels={"dominodatalab.com/node-pool": "platform"},
+        tags={"dominodatalab.com/node-pool": "platform"},
+        gpu=False,
+        ssm_agent=True,
+        taints={},
+    ),
+    "nvidia": EKS.UnmanagedNodegroup(
+        disk_size=100,
+        key_name=None,
+        min_size=0,
+        max_size=10,
+        machine_image=None,
+        instance_types=["p3.2xlarge"],
+        labels={"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
+        tags={"dominodatalab.com/node-pool": "default-gpu"},
+        gpu=True,
+        ssm_agent=False,
+        taints={"nvidia.com/gpu": "true:NoSchedule"},
+    ),
+}
 
-eks_object = EKS(version="1.19", private_api=True, max_nodegroup_azs=1, global_node_labels={"dominodatalab.com/domino-node": "true"}, managed_nodegroups=managed_ngs, unmanaged_nodegroups=unmanaged_ngs)
+eks_object = EKS(
+    version="1.19",
+    private_api=True,
+    max_nodegroup_azs=1,
+    global_node_labels={"dominodatalab.com/domino-node": "true"},
+    managed_nodegroups=managed_ngs,
+    unmanaged_nodegroups=unmanaged_ngs,
+)
+
 
 class TestConfigEKS(unittest.TestCase):
     def test_from_0_0_0(self):
@@ -85,7 +130,9 @@ class TestConfigEKS(unittest.TestCase):
     def test_from_0_0_1_with_wrong_schema(self):
         with patch("domino_cdk.config.util.log.warning") as warn:
             eks = EKS.from_0_0_1(deepcopy(eks_0_0_0_cfg))
-            warn.assert_called_with(f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_0_cfg['nodegroups']}}}")
+            warn.assert_called_with(
+                f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_0_cfg['nodegroups']}}}"
+            )
             self.assertEqual(eks.managed_nodegroups, managed_ngs)
 
     def test_oldest_newest_loaders_identical_result(self):
@@ -146,7 +193,7 @@ class TestConfigEKS(unittest.TestCase):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
         eks_cfg["managed_nodegroups"]["compute"]["min_size"] = 0
         with self.assertRaisesRegex(ValueError, "Managed nodegroup compute has min_size of 0."):
-            eks = EKS.from_0_0_1(eks_cfg)
+            EKS.from_0_0_1(eks_cfg)
 
     def test_managed_nodegroup(self):
         test_group_cfg = deepcopy(eks_0_0_1_cfg["managed_nodegroups"]["compute"])
@@ -163,7 +210,9 @@ class TestConfigEKS(unittest.TestCase):
         with patch("domino_cdk.config.util.log.warning") as warn:
             ng = EKS.ManagedNodegroup.load(test_group_cfg)
             self.assertEqual(ng, managed_ngs["compute"])
-            warn.assert_called_with("Warning: Unused/unsupported managed nodegroup attribute in config.eks.unmanaged_nodegroups: ['extra_arg']")
+            warn.assert_called_with(
+                "Warning: Unused/unsupported managed nodegroup attribute in config.eks.unmanaged_nodegroups: ['extra_arg']"
+            )
 
     def test_unmanaged_nodegroup(self):
         test_group_cfg = deepcopy(eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"])
@@ -173,14 +222,16 @@ class TestConfigEKS(unittest.TestCase):
             warn.assert_not_called()
             self.assertEqual(ng, unmanaged_ngs["platform"])
 
-    def test_managed_nodegroup_extra_args(self):
+    def test_unmanaged_nodegroup_extra_args(self):
         test_group_cfg = deepcopy(eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"])
         test_group_cfg["extra_arg"] = "boing"
 
         with patch("domino_cdk.config.util.log.warning") as warn:
             ng = EKS.UnmanagedNodegroup.load(test_group_cfg)
             self.assertEqual(ng, unmanaged_ngs["platform"])
-            warn.assert_called_with("Warning: Unused/unsupported unmanaged nodegroup attribute in config.eks.unmanaged_nodegroups: ['extra_arg']")
+            warn.assert_called_with(
+                "Warning: Unused/unsupported unmanaged nodegroup attribute in config.eks.unmanaged_nodegroups: ['extra_arg']"
+            )
 
     def test_nodegroup_base(self):
         test_group_cfg = deepcopy(eks_0_0_1_cfg["managed_nodegroups"]["compute"])

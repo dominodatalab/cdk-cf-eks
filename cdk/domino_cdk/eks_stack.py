@@ -1,7 +1,7 @@
 from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
