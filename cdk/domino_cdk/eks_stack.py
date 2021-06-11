@@ -266,16 +266,22 @@ class DominoEksStack(cdk.Stack):
 
     def provision_eks_cluster(self):
         eks_version = eks.KubernetesVersion.V1_19
+
+        eks_sg = ec2.SecurityGroup(
+            self, "EKSSG", vpc=self.vpc, security_group_name=f"{self.name}-EKSSG", allow_all_outbound=False,
+        )
+
         # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
         self.cluster = eks.Cluster(
             self,
             "eks",
-            cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
+            cluster_name=self.name,
             vpc=self.vpc,
             endpoint_access=eks.EndpointAccess.PRIVATE if self.cfg.eks.private_api else None,
             vpc_subnets=[ec2.SubnetType.PRIVATE],
             version=eks_version,
             default_capacity=0,
+            security_group=eks_sg,
         )
 
         if self.cfg.vpc.bastion.enabled:
@@ -480,7 +486,7 @@ class DominoEksStack(cdk.Stack):
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(
-                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG"
+                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG", allow_all_outbound=False,
             )
 
         if self.cfg.vpc.bastion.enabled:
