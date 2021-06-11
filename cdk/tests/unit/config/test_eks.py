@@ -10,6 +10,7 @@ eks_0_0_0_cfg = {
     "private_api": True,
     "max_nodegroup_azs": 1,
     "global_node_labels": {"dominodatalab.com/domino-node": "true"},
+    "global_node_tags": {"k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"},
     "managed_nodegroups": {
         "compute": {
             "disk_size": 20,
@@ -99,6 +100,7 @@ eks_object = EKS(
     private_api=True,
     max_nodegroup_azs=1,
     global_node_labels={"dominodatalab.com/domino-node": "true"},
+    global_node_tags={"k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"},
     managed_nodegroups=managed_ngs,
     unmanaged_nodegroups=unmanaged_ngs,
 )

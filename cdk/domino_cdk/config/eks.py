@@ -12,6 +12,7 @@ class EKS:
                               bastion, peered network, or other in-VPC resource.
     max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
     global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes
+    global_node_tags: some-tags: "true"  - Labels to apply to all kubernetes nodes
     """
 
     @dataclass
@@ -104,6 +105,7 @@ class EKS:
     private_api: bool
     max_nodegroup_azs: int
     global_node_labels: Dict[str, str]
+    global_node_tags: Dict[str, str]
     managed_nodegroups: Dict[str, ManagedNodegroup]
     unmanaged_nodegroups: Dict[str, UnmanagedNodegroup]
 
@@ -126,6 +128,7 @@ class EKS:
                 private_api=c.pop("private_api"),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
+                global_node_tags=c.pop("global_node_tags"),
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
                 },
@@ -145,6 +148,7 @@ class EKS:
                 private_api=c.pop("private_api"),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
+                global_node_tags=c.pop("global_node_tags"),
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
                 },

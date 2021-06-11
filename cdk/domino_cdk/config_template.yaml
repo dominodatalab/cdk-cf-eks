@@ -43,6 +43,8 @@ eks:
   max_nodegroup_azs: 1
   global_node_labels:
     dominodatalab.com/domino-node: "true"
+  global_node_tags:
+    k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node: "true"
   # We support managed nodegroups, but recommend standard ones
   managed_nodegroups: {}
     # managed_nodegroup_example:
@@ -82,7 +84,7 @@ eks:
       labels:
         dominodatalab.com/node-pool: platform
       tags:
-        dominodatalab.com/node-pool: platform
+        k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool: platform
     compute:
       gpu: false
       ssm_agent: true
@@ -101,8 +103,8 @@ eks:
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
       tags:
-        dominodatalab.com/node-pool: default
-        domino/build-node: "true"
+        k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool: default
+        k8s.io/cluster-autoscaler/node-template/label/domino/build-node: "true"
     nvidia:
       gpu: true
       ssm_agent: true
@@ -123,7 +125,7 @@ eks:
         dominodatalab.com/node-pool: default-gpu
         nvidia.com/gpu: "true"
       tags:
-        dominodatalab.com/node-pool: default-gpu
+        k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool: default-gpu
 s3:
   buckets:
     blobs:

@@ -308,10 +308,12 @@ class DominoEksStack(cdk.Stack):
 
         for name, ng in self.cfg.eks.managed_nodegroups.items():
             ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
+            ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
             self.provision_managed_nodegroup(name, ng, max_nodegroup_azs)
 
         for name, ng in self.cfg.eks.unmanaged_nodegroups.items():
             ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
+            ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
             self.provision_unmanaged_nodegroup(name, ng, max_nodegroup_azs, eks_version)
 
     def provision_eks_iam_policies(self):
