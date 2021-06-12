@@ -417,7 +417,6 @@ class DominoEksStack(cdk.Stack):
     def _handle_user_data(
         self, name: str, custom_ami: bool, cfg: dict, user_data_list: List[Union[ec2.UserData, str]]
     ) -> Optional[ec2.UserData]:
-        proceed: bool = False
         mime_user_data = ec2.MultipartUserData()
 
         # If we are using default EKS image, tweak kubelet
@@ -430,16 +429,15 @@ class DominoEksStack(cdk.Stack):
                     )
                 ),
             )
-            proceed = True
-        if cfg.get("ssm_agent"):
-            mime_user_data.add_part(
-                ec2.MultipartBody.from_user_data(
-                    ec2.UserData.custom(
-                        "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm",
-                    )
-                ),
-            )
-            proceed = True
+            # if not custom AMI, we can install ssm agent. If requested.
+            if cfg.get("ssm_agent"):
+                mime_user_data.add_part(
+                    ec2.MultipartBody.from_user_data(
+                        ec2.UserData.custom(
+                            "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm",
+                        )
+                    ),
+                )
         for ud in user_data_list:
             if isinstance(ud, str):
                 mime_user_data.add_part(
@@ -458,10 +456,6 @@ class DominoEksStack(cdk.Stack):
                 )
             if isinstance(ud, ec2.UserData):
                 mime_user_data.add_part(ec2.MultipartBody.from_user_data(ud))
-            proceed = True
-
-        if not proceed:
-            return None
 
         return mime_user_data
 
@@ -496,10 +490,11 @@ class DominoEksStack(cdk.Stack):
                 disk_size = cfg["disk_size"]
                 lts = None
 
+            indexed_name = f"{self.name}-{name}-{az}"
             key_name = cfg.get("key_name", None)
             self.cluster.add_nodegroup_capacity(
-                f"{self.name}-{name}-{i}",  # this might be dangerous
-                nodegroup_name=f"{self.name}-{name}-{i}",
+                indexed_name,  # this might be dangerous
+                nodegroup_name=indexed_name,
                 capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                 min_size=cfg["min_size"],
                 max_size=cfg["max_size"],
@@ -550,10 +545,10 @@ class DominoEksStack(cdk.Stack):
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
-            indexed_name = f"{self.name}-{name}-{i}"
+            indexed_name = f"{self.name}-{name}-{az}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
-                f"ASG{i}",
+                indexed_name,
                 auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 machine_image=machine_image,
