@@ -491,9 +491,10 @@ class DominoEksStack(cdk.Stack):
                 lts = None
 
             indexed_name = f"{self.name}-{name}-{az}"
+            indexed_id = f"{self.name}-{name}-{i}"
             key_name = cfg.get("key_name", None)
             self.cluster.add_nodegroup_capacity(
-                indexed_name,  # this might be dangerous
+                indexed_id,  # this might be dangerous
                 nodegroup_name=indexed_name,
                 capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
                 min_size=cfg["min_size"],
@@ -546,9 +547,10 @@ class DominoEksStack(cdk.Stack):
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             indexed_name = f"{self.name}-{name}-{az}"
+            indexed_id = f"{self.name}-{name}-{i}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
-                indexed_name,
+                indexed_id,
                 auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(cfg["instance_types"][0]),
                 machine_image=machine_image,
