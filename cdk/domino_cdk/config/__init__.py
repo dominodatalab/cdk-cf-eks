@@ -61,9 +61,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                 "private_api": private_api,
                 "max_nodegroup_azs": max_nodegroup_azs,
                 "global_node_labels": {"dominodatalab.com/domino-node": "true"},
-                "global_node_tags": {
-                    "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"
-                },
+                "global_node_tags": {},
                 "managed_nodegroups": {},
                 "unmanaged_nodegroups": {
                     "platform": {
@@ -74,9 +72,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                         "max_size": 10,
                         "instance_types": [platform_instance_type],
                         "labels": {"dominodatalab.com/node-pool": "platform"},
-                        "tags": {
-                            "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool": "platform"
-                        },
+                        "tags": {},
                     },
                     "compute": {
                         "gpu": False,
@@ -86,10 +82,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                         "max_size": 10,
                         "instance_types": ["m5.2xlarge"],
                         "labels": {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"},
-                        "tags": {
-                            "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool": "default",
-                            "k8s.io/cluster-autoscaler/node-template/label/domino/build-node": "true",
-                        },
+                        "tags": {},
                     },
                     "nvidia": {
                         "gpu": True,
@@ -100,9 +93,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                         "instance_types": ["m5.2xlarge"],
                         "taints": {"nvidia.com/gpu": "true:NoSchedule"},
                         "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
-                        "tags": {
-                            "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool": "default-gpu"
-                        },
+                        "tags": {},
                     },
                 },
             },

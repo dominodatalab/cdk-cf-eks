@@ -46,7 +46,7 @@ default_config = DominoCDKConfig(
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
-        global_node_tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node': 'true'},
+        global_node_tags={},
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform': EKS.UnmanagedNodegroup(
@@ -57,7 +57,7 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'platform'},
-                tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'platform'},
+                tags={},
                 gpu=False,
                 ssm_agent=True,
                 taints={},
@@ -70,10 +70,7 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
-                tags={
-                    'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'default',
-                    'k8s.io/cluster-autoscaler/node-template/label/domino/build-node': 'true',
-                },
+                tags={},
                 gpu=False,
                 ssm_agent=True,
                 taints={},
@@ -86,7 +83,7 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default-gpu', 'nvidia.com/gpu': 'true'},
-                tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'default-gpu'},
+                tags={},
                 gpu=True,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
