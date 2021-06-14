@@ -473,42 +473,33 @@ class DominoEksStack(cdk.Stack):
         )
         mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ami_id, ng.ssm_agent, [user_data])
 
-        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
-            disk_size = ng.disk_size
-            if machine_image or mime_user_data:
-                lt = ec2.LaunchTemplate(
-                    self.cluster,
-                    f"LaunchTemplate{name}{i}",
-                    key_name=ng.key_name,
-                    launch_template_name=f"{self.name}-{name}-{i}",
-                    block_devices=[
-                        ec2.BlockDevice(
-                            device_name="/dev/xvda",
-                            volume=ec2.BlockDeviceVolume.ebs(
-                                disk_size,
-                                volume_type=ec2.EbsDeviceVolumeType.GP2,
-                            ),
-                        )
-                    ],
-                    machine_image=machine_image,
-                    user_data=mime_user_data,
+        lt = ec2.LaunchTemplate(
+            self.cluster,
+            f"LaunchTemplate{name}",
+            key_name=ng.key_name,
+            launch_template_name=f"{self.name}-{name}",
+            block_devices=[
+                ec2.BlockDevice(
+                    device_name="/dev/xvda",
+                    volume=ec2.BlockDeviceVolume.ebs(
+                        ng.disk_size,
+                        volume_type=ec2.EbsDeviceVolumeType.GP2,
+                    ),
                 )
-                lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
-                disk_size = None
-            else:
-                disk_size = cfg.disk_size
-                lts = None
+            ],
+            machine_image=machine_image,
+            user_data=mime_user_data,
+        )
+        lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
 
-            indexed_name = f"{self.name}-{name}-{az}"
-            indexed_id = f"{self.name}-{name}-{i}"
+        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             self.cluster.add_nodegroup_capacity(
-                indexed_id,  # this might be dangerous
-                nodegroup_name=indexed_name,
+                f"{self.name}-{name}-{i}",
+                nodegroup_name=f"{self.name}-{name}-{az}",
                 capacity_type=eks.CapacityType.SPOT if ng.spot else eks.CapacityType.ON_DEMAND,
                 min_size=ng.min_size,
                 max_size=ng.max_size,
                 desired_size=ng.desired_size,
-                disk_size=disk_size,
                 subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -558,10 +549,9 @@ class DominoEksStack(cdk.Stack):
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             indexed_name = f"{self.name}-{name}-{az}"
-            indexed_id = f"{self.name}-{name}-{i}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
-                indexed_id,
+                f"{self.name}-{name}-{i}",
                 auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(ng.instance_types[0]),
                 machine_image=machine_image,
