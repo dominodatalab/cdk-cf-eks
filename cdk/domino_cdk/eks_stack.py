@@ -479,6 +479,7 @@ class DominoEksStack(cdk.Stack):
                 lt = ec2.LaunchTemplate(
                     self.cluster,
                     f"LaunchTemplate{name}{i}",
+                    key_name=ng.key_name,
                     launch_template_name=f"{self.name}-{name}-{i}",
                     block_devices=[
                         ec2.BlockDevice(
@@ -517,7 +518,6 @@ class DominoEksStack(cdk.Stack):
                 labels=ng.labels,
                 tags=ng.tags,
                 node_role=self.ng_role,
-                remote_access=eks.NodegroupRemoteAccess(ssh_key_name=ng.key_name) if ng.key_name else None,
             )
 
     def provision_unmanaged_nodegroup(
