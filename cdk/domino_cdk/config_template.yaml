@@ -1,3 +1,4 @@
+schema: 0.0.1
 name: domino
 #aws_region: "__FILL__"
 #aws_account_id: "__FILL__"
@@ -23,7 +24,6 @@ vpc:
         protocol: "TCP"
         ip_cidrs:
           - "0.0.0.0/0"
-        protocol: "TCP"
     #machine_image:
     #  ami_id: xxx
     #  user_data: null
@@ -38,14 +38,17 @@ efs:
 route53:
   zone_ids: []
 eks:
-  version: 1.19
-  private_api: true
+  version: "1.19"
+  private_api: false
   max_nodegroup_azs: 1
   global_node_labels:
     dominodatalab.com/domino-node: "true"
+  global_node_tags:
+    k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node: "true"
   # We support managed nodegroups, but recommend standard ones
   managed_nodegroups: {}
     # managed_nodegroup_example:
+    #   ssm_agent: true
     #   spot: false
     #   disk_size: 100
     #   # key_name: some-aws-keypair
@@ -64,7 +67,7 @@ eks:
     #   tags:
     #     dominodatalab.com/node-pool: default
     #     domino/build-node: "true"
-  nodegroups:
+  unmanaged_nodegroups:
     platform:
       gpu: false
       ssm_agent: true
@@ -82,7 +85,7 @@ eks:
       labels:
         dominodatalab.com/node-pool: platform
       tags:
-        dominodatalab.com/node-pool: platform
+        k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool: platform
     compute:
       gpu: false
       ssm_agent: true
@@ -101,8 +104,8 @@ eks:
         dominodatalab.com/node-pool: default
         domino/build-node: "true"
       tags:
-        dominodatalab.com/node-pool: default
-        domino/build-node: "true"
+        k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool: default
+        k8s.io/cluster-autoscaler/node-template/label/domino/build-node: "true"
     nvidia:
       gpu: true
       ssm_agent: true
@@ -123,7 +126,7 @@ eks:
         dominodatalab.com/node-pool: default-gpu
         nvidia.com/gpu: "true"
       tags:
-        dominodatalab.com/node-pool: default-gpu
+        k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool: default-gpu
 s3:
   buckets:
     blobs:

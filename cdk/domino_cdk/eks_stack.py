@@ -1,7 +1,7 @@
 from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from typing import Any, Dict, Optional, Tuple, List, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -20,6 +20,10 @@ from requests import get as requests_get
 from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
+from domino_cdk.config.base import DominoCDKConfig
+from domino_cdk.config.eks import EKS
+from domino_cdk.config.util import MachineImage
+from domino_cdk.config.vpc import VPC
 from domino_cdk.util import DominoCdkUtil
 
 manifests = [
@@ -35,21 +39,21 @@ class ExternalCommandException(Exception):
 
 
 class DominoEksStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, config: dict, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.outputs = {}
         # The code that defines your stack goes here
-        self.config = config
+        self.cfg = cfg
         self.env = kwargs["env"]
-        self.name = self.config["name"]
+        self.name = self.cfg.name
         cdk.CfnOutput(self, "deploy_name", value=self.name)
         cdk.Tags.of(self).add("domino-deploy-id", self.name)
-        for k, v in self.config["tags"].items():
+        for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
         self.provision_buckets()
-        self.provision_vpc(self.config["vpc"])
+        self.provision_vpc(self.cfg.vpc)
         self.provision_eks_cluster()
         self.install_calico()
         self.provision_efs()
@@ -67,18 +71,18 @@ class DominoEksStack(cdk.Stack):
         )
 
         self.buckets = {}
-        for bucket, cfg in self.config["s3"]["buckets"].items():
+        for bucket, attrs in self.cfg.s3.buckets.items():
             use_sse_kms_key = False
-            if "sse_kms_key_id" in cfg:
+            if attrs.sse_kms_key_id:
                 use_sse_kms_key = True
-                sse_kms_key = Key.from_key_arn(self, f"{bucket}-kms-key", cfg["sse_kms_key_id"])
+                sse_kms_key = Key.from_key_arn(self, f"{bucket}-kms-key", attrs.sse_kms_key_id)
 
             self.buckets[bucket] = Bucket(
                 self,
                 bucket,
                 bucket_name=f"{self.name}-{bucket}",
-                auto_delete_objects=cfg["auto_delete_objects"] and cfg["removal_policy_destroy"],
-                removal_policy=cdk.RemovalPolicy.DESTROY if cfg["removal_policy_destroy"] else cdk.RemovalPolicy.RETAIN,
+                auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
+                removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
                 enforce_ssl=True,
                 bucket_key_enabled=use_sse_kms_key,
                 encryption_key=(sse_kms_key if use_sse_kms_key else None),
@@ -132,19 +136,19 @@ class DominoEksStack(cdk.Stack):
             ],
         )
 
-    def provision_vpc(self, vpc: dict):
+    def provision_vpc(self, vpc: VPC):
         self.public_subnet_name = f"{self.name}-public"
         self.private_subnet_name = f"{self.name}-private"
-        if not vpc["create"]:
-            self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc["id"])
+        if not vpc.create:
+            self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc.id)
             return
 
         self.nat_provider = ec2.NatProvider.gateway()
         self.vpc = ec2.Vpc(
             self,
             "VPC",
-            max_azs=vpc["max_azs"],
-            cidr=vpc["cidr"],
+            max_azs=vpc.max_azs,
+            cidr=vpc.cidr,
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     subnet_type=ec2.SubnetType.PUBLIC,
@@ -202,15 +206,14 @@ class DominoEksStack(cdk.Stack):
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
-        if self.config["vpc"]["bastion"]["enabled"]:
-            self.provision_bastion(self.config["vpc"]["bastion"])
+        if vpc.bastion.enabled:
+            self.provision_bastion(vpc.bastion)
 
-    def provision_bastion(self, cfg: dict) -> None:
-        ami_id, user_data = self._get_machine_image("bastion", cfg)
-
-        if ami_id:
+    def provision_bastion(self, bastion: dict) -> None:
+        if bastion.machine_image:
             bastion_machine_image = ec2.MachineImage.generic_linux(
-                {self.region: ami_id}, user_data=ec2.UserData.custom(user_data)
+                {self.region: bastion.machine_image.ami_id},
+                user_data=ec2.UserData.custom(bastion.machine_image.user_data),
             )
         else:
             if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?
@@ -229,15 +232,15 @@ class DominoEksStack(cdk.Stack):
             security_group_name=f"{self.name}-bastion",
         )
 
-        for rule in cfg["ingress_ports"]:
-            for ip_cidr in rule["ip_cidrs"]:
+        for rule in bastion.ingress_ports:
+            for ip_cidr in rule.ip_cidrs:
                 self.bastion_sg.add_ingress_rule(
                     peer=ec2.Peer.ipv4(ip_cidr),
                     connection=ec2.Port(
-                        protocol=ec2.Protocol(rule["protocol"]),
-                        string_representation=rule["name"],
-                        from_port=rule["from_port"],
-                        to_port=rule["to_port"],
+                        protocol=ec2.Protocol(rule.protocol),
+                        string_representation=rule.name,
+                        from_port=rule.from_port,
+                        to_port=rule.to_port,
                     ),
                 )
 
@@ -246,8 +249,8 @@ class DominoEksStack(cdk.Stack):
             "bastion",
             machine_image=bastion_machine_image,
             vpc=self.vpc,
-            instance_type=ec2.InstanceType(cfg["instance_type"]),
-            key_name=cfg.get("key_name", None),
+            instance_type=ec2.InstanceType(bastion.instance_type),
+            key_name=bastion.key_name,
             security_group=self.bastion_sg,
             vpc_subnets=ec2.SubnetSelection(
                 subnet_group_name=self.public_subnet_name,
@@ -264,27 +267,38 @@ class DominoEksStack(cdk.Stack):
 
     def provision_eks_cluster(self):
         eks_version = eks.KubernetesVersion.V1_19
+
+        eks_sg = ec2.SecurityGroup(
+            self,
+            "EKSSG",
+            vpc=self.vpc,
+            security_group_name=f"{self.name}-EKSSG",
+            allow_all_outbound=False,
+        )
+
         # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
         self.cluster = eks.Cluster(
             self,
             "eks",
-            cluster_name=self.name,  # TODO: Naming this causes mysterious IAM errors, may be related to the weird fleetcommand thing?
+            cluster_name=self.name,
             vpc=self.vpc,
-            endpoint_access=eks.EndpointAccess.PRIVATE if self.config["eks"]["private_api"] else None,
+            endpoint_access=eks.EndpointAccess.PRIVATE if self.cfg.eks.private_api else None,
             vpc_subnets=[ec2.SubnetType.PRIVATE],
             version=eks_version,
             default_capacity=0,
+            security_group=eks_sg,
         )
 
-        self.cluster.cluster_security_group.add_ingress_rule(
-            peer=self.bastion_sg,
-            connection=ec2.Port(
-                protocol=ec2.Protocol("TCP"),
-                string_representation="API Access",
-                from_port=443,
-                to_port=443,
-            ),
-        )
+        if self.cfg.vpc.bastion.enabled:
+            self.cluster.cluster_security_group.add_ingress_rule(
+                peer=self.bastion_sg,
+                connection=ec2.Port(
+                    protocol=ec2.Protocol("TCP"),
+                    string_representation="API Access",
+                    from_port=443,
+                    to_port=443,
+                ),
+            )
 
         cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(
@@ -295,17 +309,19 @@ class DominoEksStack(cdk.Stack):
 
         self.provision_eks_iam_policies()
 
-        max_nodegroup_azs = self.config["eks"]["max_nodegroup_azs"]
+        max_nodegroup_azs = self.cfg.eks.max_nodegroup_azs
 
-        for name, cfg in self.config["eks"]["managed_nodegroups"].items():
-            if not cfg.get("ami_id"):
-                cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_managed_nodegroup(name, cfg, max_nodegroup_azs)
+        for name, ng in self.cfg.eks.managed_nodegroups.items():
+            if not ng.machine_image or not ng.machine_image.ami_id:
+                ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
+                ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
+            self.provision_managed_nodegroup(name, ng, max_nodegroup_azs)
 
-        for name, cfg in self.config["eks"]["nodegroups"].items():
-            if not cfg.get("ami_id"):
-                cfg["labels"] = {**cfg["labels"], **self.config["eks"]["global_node_labels"]}
-            self.provision_unmanaged_nodegroup(name, cfg, max_nodegroup_azs, eks_version)
+        for name, ng in self.cfg.eks.unmanaged_nodegroups.items():
+            if not ng.machine_image or not ng.machine_image.ami_id:
+                ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
+                ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
+            self.provision_unmanaged_nodegroup(name, ng, max_nodegroup_azs, eks_version)
 
     def provision_eks_iam_policies(self):
         asg_group_statement = iam.PolicyStatement(
@@ -336,7 +352,7 @@ class DominoEksStack(cdk.Stack):
             ],
         )
 
-        if self.config["route53"]["zone_ids"]:
+        if self.cfg.route53.zone_ids:
             self.route53_policy = iam.ManagedPolicy(
                 self,
                 "route53",
@@ -351,16 +367,14 @@ class DominoEksStack(cdk.Stack):
                             "route53:ChangeResourceRecordSets",
                             "route53:ListResourceRecordSets",
                         ],
-                        resources=[
-                            f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.config["route53"]["zone_ids"]
-                        ],
+                        resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.cfg.route53.zone_ids],
                     ),
                 ],
             )
             cdk.CfnOutput(
                 self,
                 "route53-zone-id-output",
-                value=str(self.config["route53"]["zone_ids"]),
+                value=str(self.cfg.route53.zone_ids),
             )
             self.outputs["route53-txt-owner-id"] = cdk.CfnOutput(
                 self,
@@ -376,7 +390,7 @@ class DominoEksStack(cdk.Stack):
                 iam.PolicyStatement(
                     effect=iam.Effect.DENY,
                     actions=["ecr:*"],
-                    conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": self.config["name"]}},
+                    conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": self.name}},
                     resources=[f"arn:aws:ecr:*:{self.account}:*"],
                 ),
             ],
@@ -391,31 +405,24 @@ class DominoEksStack(cdk.Stack):
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'),
         ]
-        if self.config["route53"]["zone_ids"]:
+        if self.cfg.route53.zone_ids:
             managed_policies.append(self.route53_policy)
 
         self.ng_role = iam.Role(
             self,
-            f'{self.config["name"]}-NG',
+            f'{self.name}-NG',
             role_name=f"{self.name}-NG",
             assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
             managed_policies=managed_policies,
         )
 
-    def _get_machine_image(self, cfg_name: str, cfg: Dict[str, Any]) -> Tuple[Optional[str], Optional[str]]:
-        ami_id = cfg.get("ami_id")
-        user_data = cfg.get("user_data")
-        if ami_id and not user_data:
-            raise Exception("User data must be provided when specifying a custom AMI")
-        if ami_id and (cfg.get("ssm_agent") or cfg.get("labels") or cfg.get("taints")):
-            raise Exception(
-                "ssm_agent, labels and taints cannot be automatically configured when specifying a custom AMI. "
-                "You need to configure all of this using user_data."
-            )
-        return ami_id, user_data
+    def _get_machine_image(self, cfg_name: str, image: MachineImage) -> Tuple[Optional[str], Optional[str]]:
+        if image:
+            return image.ami_id, image.user_data
+        return None, None
 
     def _handle_user_data(
-        self, name: str, custom_ami: bool, cfg: dict, user_data_list: List[Union[ec2.UserData, str]]
+        self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]
     ) -> Optional[ec2.UserData]:
         mime_user_data = ec2.MultipartUserData()
 
@@ -430,7 +437,7 @@ class DominoEksStack(cdk.Stack):
                 ),
             )
             # if not custom AMI, we can install ssm agent. If requested.
-            if cfg.get("ssm_agent"):
+            if ssm_agent:
                 mime_user_data.add_part(
                     ec2.MultipartBody.from_user_data(
                         ec2.UserData.custom(
@@ -459,24 +466,26 @@ class DominoEksStack(cdk.Stack):
 
         return mime_user_data
 
-    def provision_managed_nodegroup(self, name: str, cfg: dict, max_nodegroup_azs: int) -> None:
-        ami_id, user_data = self._get_machine_image(name, cfg)
+    def provision_managed_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
+        ami_id, user_data = self._get_machine_image(name, ng.machine_image)
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({self.region: ami_id}) if ami_id else None
         )
-        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ami_id, cfg, [user_data])
+        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ami_id, ng.ssm_agent, [user_data])
 
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
+            disk_size = ng.disk_size
             if machine_image or mime_user_data:
                 lt = ec2.LaunchTemplate(
                     self.cluster,
                     f"LaunchTemplate{name}{i}",
+                    key_name=ng.key_name,
                     launch_template_name=f"{self.name}-{name}-{i}",
                     block_devices=[
                         ec2.BlockDevice(
                             device_name="/dev/xvda",
                             volume=ec2.BlockDeviceVolume.ebs(
-                                cfg["disk_size"],
+                                disk_size,
                                 volume_type=ec2.EbsDeviceVolumeType.GP2,
                             ),
                         )
@@ -487,36 +496,34 @@ class DominoEksStack(cdk.Stack):
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
             else:
-                disk_size = cfg["disk_size"]
+                disk_size = cfg.disk_size
                 lts = None
 
             indexed_name = f"{self.name}-{name}-{az}"
             indexed_id = f"{self.name}-{name}-{i}"
-            key_name = cfg.get("key_name", None)
             self.cluster.add_nodegroup_capacity(
                 indexed_id,  # this might be dangerous
                 nodegroup_name=indexed_name,
-                capacity_type=eks.CapacityType.SPOT if cfg["spot"] else eks.CapacityType.ON_DEMAND,
-                min_size=cfg["min_size"],
-                max_size=cfg["max_size"],
-                desired_size=cfg["desired_size"],
+                capacity_type=eks.CapacityType.SPOT if ng.spot else eks.CapacityType.ON_DEMAND,
+                min_size=ng.min_size,
+                max_size=ng.max_size,
+                desired_size=ng.desired_size,
                 disk_size=disk_size,
                 subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
                 ),
-                instance_types=[ec2.InstanceType(it) for it in cfg["instance_types"]],
+                instance_types=[ec2.InstanceType(it) for it in ng.instance_types],
                 launch_template_spec=lts,
-                labels=cfg["labels"],
-                tags=cfg["tags"],
+                labels=ng.labels,
+                tags=ng.tags,
                 node_role=self.ng_role,
-                remote_access=eks.NodegroupRemoteAccess(ssh_key_name=key_name) if key_name else None,
             )
 
     def provision_unmanaged_nodegroup(
-        self, name: str, cfg: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
+        self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
     ) -> None:
-        ami_id, user_data = self._get_machine_image(name, cfg)
+        ami_id, user_data = self._get_machine_image(name, ng.machine_image)
 
         machine_image = (
             ec2.MachineImage.generic_linux({self.region: ami_id})
@@ -524,16 +531,20 @@ class DominoEksStack(cdk.Stack):
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
                 kubernetes_version=eks_version.version,
-                node_type=eks.NodeType.GPU if cfg.get("gpu", False) else eks.NodeType.STANDARD,
+                node_type=eks.NodeType.GPU if ng.gpu else eks.NodeType.STANDARD,
             )
         )
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(
-                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG"
+                self,
+                "UnmanagedSG",
+                vpc=self.vpc,
+                security_group_name=f"{self.name}-sharedNodeSG",
+                allow_all_outbound=False,
             )
 
-        if self.config["vpc"]["bastion"]["enabled"]:
+        if self.cfg.vpc.bastion.enabled:
             self.unmanaged_sg.add_ingress_rule(
                 peer=self.bastion_sg,
                 connection=ec2.Port(
@@ -552,11 +563,11 @@ class DominoEksStack(cdk.Stack):
                 scope,
                 indexed_id,
                 auto_scaling_group_name=indexed_name,
-                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
+                instance_type=ec2.InstanceType(ng.instance_types[0]),
                 machine_image=machine_image,
                 vpc=self.cluster.vpc,
-                min_capacity=cfg["min_size"],
-                max_capacity=cfg["max_size"],
+                min_capacity=ng.min_size,
+                max_capacity=ng.max_size,
                 vpc_subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -566,7 +577,7 @@ class DominoEksStack(cdk.Stack):
             )
             for k, v in (
                 {
-                    **cfg["tags"],
+                    **ng.tags,
                     **{
                         f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
                         "k8s.io/cluster-autoscaler/enabled": "true",
@@ -577,7 +588,7 @@ class DominoEksStack(cdk.Stack):
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
-            mime_user_data = self._handle_user_data(name, ami_id, cfg, [asg.user_data, user_data])
+            mime_user_data = self._handle_user_data(name, ami_id, ng.ssm_agent, [asg.user_data, user_data])
 
             lt = ec2.LaunchTemplate(
                 scope,
@@ -587,14 +598,14 @@ class DominoEksStack(cdk.Stack):
                     ec2.BlockDevice(
                         device_name="/dev/xvda",
                         volume=ec2.BlockDeviceVolume.ebs(
-                            cfg["disk_size"],
+                            ng.disk_size,
                             volume_type=ec2.EbsDeviceVolumeType.GP2,
                         ),
                     )
                 ],
                 role=self.ng_role,
-                instance_type=ec2.InstanceType(cfg["instance_types"][0]),
-                key_name=cfg.get("key_name", None),
+                instance_type=ec2.InstanceType(ng.instance_types[0]),
+                key_name=ng.key_name,
                 machine_image=machine_image,
                 user_data=mime_user_data,
                 security_group=self.unmanaged_sg,
@@ -622,9 +633,7 @@ class DominoEksStack(cdk.Stack):
                         launch_template_id=cfn_lt.ref,
                         version=lt.version_number,
                     ),
-                    overrides=[
-                        cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in cfg["instance_types"]
-                    ],
+                    overrides=[cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in ng.instance_types],
                 ),
             )
 
@@ -633,12 +642,12 @@ class DominoEksStack(cdk.Stack):
             }
             if not ami_id:
                 extra_args: list[str] = []
-                if labels := cfg.get("labels"):
+                if labels := ng.labels:
                     extra_args.append(
                         "--node-labels={}".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
                     )
 
-                if taints := cfg.get("taints"):
+                if taints := ng.taints:
                     extra_args.append(
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
@@ -658,7 +667,7 @@ class DominoEksStack(cdk.Stack):
             performance_mode=efs.PerformanceMode.MAX_IO,
             provisioned_throughput_per_second=cdk.Size.mebibytes(100),  # TODO: dev/nondev sizing
             removal_policy=cdk.RemovalPolicy.DESTROY
-            if self.config["efs"]["removal_policy_destroy"]
+            if self.cfg.efs.removal_policy_destroy
             else cdk.RemovalPolicy.RETAIN,
             security_group=self.cluster.cluster_security_group,
             throughput_mode=efs.ThroughputMode.PROVISIONED,
@@ -680,13 +689,13 @@ class DominoEksStack(cdk.Stack):
             ),
         )
 
-        efs_backup = self.config["efs"]["backup"]
-        if efs_backup["enable"]:
+        efs_backup = self.cfg.efs.backup
+        if efs_backup.enable:
             vault = backup.BackupVault(
                 self,
                 "efs_backup",
                 backup_vault_name=f'{self.name}-efs',
-                removal_policy=cdk.RemovalPolicy[efs_backup.get("removal_policy", cdk.RemovalPolicy.RETAIN.value)],
+                removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
             )
             cdk.CfnOutput(self, "backup-vault", value=vault.backup_vault_name)
             plan = backup.BackupPlan(
@@ -696,12 +705,12 @@ class DominoEksStack(cdk.Stack):
                 backup_plan_rules=[
                     backup.BackupPlanRule(
                         backup_vault=vault,
-                        delete_after=cdk.Duration.days(d) if (d := efs_backup.get("delete_after")) else None,
+                        delete_after=cdk.Duration.days(d) if (d := efs_backup.delete_after) else None,
                         move_to_cold_storage_after=cdk.Duration.days(d)
-                        if (d := efs_backup.get("move_to_cold_storage_after"))
+                        if (d := efs_backup.move_to_cold_storage_after)
                         else None,
                         rule_name="efs-rule",
-                        schedule_expression=events.Schedule.expression(f"cron({efs_backup['schedule']})"),
+                        schedule_expression=events.Schedule.expression(f"cron({efs_backup.schedule})"),
                         start_window=cdk.Duration.hours(1),
                         completion_window=cdk.Duration.hours(3),
                     )
@@ -809,21 +818,21 @@ class DominoEksStack(cdk.Stack):
     # Override default max of 2 AZs, as well as allow configurability
     @property
     def availability_zones(self):
-        return self.config["availability_zones"] or [
+        return self.cfg.availability_zones or [
             cdk.Fn.select(0, cdk.Fn.get_azs(self.env.region)),
             cdk.Fn.select(1, cdk.Fn.get_azs(self.env.region)),
             cdk.Fn.select(2, cdk.Fn.get_azs(self.env.region)),
         ]
 
     def generate_install_config(self):
-        cfg = {
+        agent_cfg = {
             "name": self.name,
             "pod_cidr": self.vpc.vpc_cidr_block,
-            "global_node_selectors": self.config["eks"]["global_node_labels"],
+            "global_node_selectors": self.cfg.eks.global_node_labels,
             "storage_classes": {
                 "shared": {
                     "efs": {
-                        "region": self.config["aws_region"],
+                        "region": self.cfg.aws_region,
                         "filesystem_id": self.outputs["efs"].value,
                     }
                 },
@@ -831,25 +840,25 @@ class DominoEksStack(cdk.Stack):
             "blob_storage": {
                 "projects": {
                     "s3": {
-                        "region": self.config["aws_region"],
+                        "region": self.cfg.aws_region,
                         "bucket": self.buckets["blobs"].bucket_name,
                     },
                 },
                 "logs": {
                     "s3": {
-                        "region": self.config["aws_region"],
+                        "region": self.cfg.aws_region,
                         "bucket": self.buckets["logs"].bucket_name,
                     },
                 },
                 "backups": {
                     "s3": {
-                        "region": self.config["aws_region"],
+                        "region": self.cfg.aws_region,
                         "bucket": self.buckets["backups"].bucket_name,
                     },
                 },
                 "default": {
                     "s3": {
-                        "region": self.config["aws_region"],
+                        "region": self.cfg.aws_region,
                         "bucket": self.buckets["blobs"].bucket_name,
                     },
                 },
@@ -861,12 +870,12 @@ class DominoEksStack(cdk.Stack):
                 },
                 "groups": [],
                 "aws": {
-                    "region": self.config["aws_region"],
+                    "region": self.cfg.aws_region,
                 },
             },
             "internal_docker_registry": {
                 "s3_override": {
-                    "region": self.config["aws_region"],
+                    "region": self.cfg.aws_region,
                     "bucket": self.buckets["registry"].bucket_name,
                 }
             },
@@ -889,14 +898,14 @@ class DominoEksStack(cdk.Stack):
             },
         }
 
-        if self.config["route53"]["zone_ids"]:
-            cfg["external_dns"] = {
+        if self.cfg.route53.zone_ids:
+            agent_cfg["external_dns"] = {
                 "enabled": True,
-                "zone_id_filters": self.config["route53"]["zone_ids"],
+                "zone_id_filters": self.cfg.route53.zone_ids,
                 "txt_owner_id": self.outputs["route53-txt-owner-id"].value,
             }
 
-        cfg["services"]["nginx_ingress"]["chart_values"] = {
+        agent_cfg["services"]["nginx_ingress"]["chart_values"] = {
             "controller": {
                 "kind": "Deployment",
                 "hostNetwork": False,
@@ -919,6 +928,4 @@ class DominoEksStack(cdk.Stack):
             }
         }
 
-        cfg = DominoCdkUtil.deep_merge(cfg, self.config["install"])
-
-        return cfg
+        return DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install)
