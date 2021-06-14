@@ -314,13 +314,21 @@ class DominoEksStack(cdk.Stack):
         for name, ng in self.cfg.eks.managed_nodegroups.items():
             if not ng.machine_image or not ng.machine_image.ami_id:
                 ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
-                ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags, **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()}}
+                ng.tags = {
+                    **ng.tags,
+                    **self.cfg.eks.global_node_tags,
+                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
+                }
             self.provision_managed_nodegroup(name, ng, max_nodegroup_azs)
 
         for name, ng in self.cfg.eks.unmanaged_nodegroups.items():
             if not ng.machine_image or not ng.machine_image.ami_id:
                 ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
-                ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags, **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()}}
+                ng.tags = {
+                    **ng.tags,
+                    **self.cfg.eks.global_node_tags,
+                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
+                }
             self.provision_unmanaged_nodegroup(name, ng, max_nodegroup_azs, eks_version)
 
     def provision_eks_iam_policies(self):
