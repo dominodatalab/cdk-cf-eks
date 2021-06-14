@@ -555,6 +555,7 @@ class DominoEksStack(cdk.Stack):
             )
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
+        cfn_lt = None
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             indexed_name = f"{self.name}-{name}-{az}"
             asg = aws_autoscaling.AutoScalingGroup(
@@ -588,28 +589,37 @@ class DominoEksStack(cdk.Stack):
 
             mime_user_data = self._handle_user_data(name, ami_id, ng.ssm_agent, [asg.user_data, user_data])
 
-            lt = ec2.LaunchTemplate(
-                scope,
-                f"LaunchTemplate{i}",
-                launch_template_name=indexed_name,
-                block_devices=[
-                    ec2.BlockDevice(
-                        device_name="/dev/xvda",
-                        volume=ec2.BlockDeviceVolume.ebs(
-                            ng.disk_size,
-                            volume_type=ec2.EbsDeviceVolumeType.GP2,
-                        ),
-                    )
-                ],
-                role=self.ng_role,
-                instance_type=ec2.InstanceType(ng.instance_types[0]),
-                key_name=ng.key_name,
-                machine_image=machine_image,
-                user_data=mime_user_data,
-                security_group=self.unmanaged_sg,
-            )
-            # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
-            lt.connections.add_security_group(self.cluster.cluster_security_group)
+            if not cfn_lt:
+                lt = ec2.LaunchTemplate(
+                    scope,
+                    f"LaunchTemplate{i}",
+                    launch_template_name=indexed_name,
+                    block_devices=[
+                        ec2.BlockDevice(
+                            device_name="/dev/xvda",
+                            volume=ec2.BlockDeviceVolume.ebs(
+                                ng.disk_size,
+                                volume_type=ec2.EbsDeviceVolumeType.GP2,
+                            ),
+                        )
+                    ],
+                    role=self.ng_role,
+                    instance_type=ec2.InstanceType(ng.instance_types[0]),
+                    key_name=ng.key_name,
+                    machine_image=machine_image,
+                    user_data=mime_user_data,
+                    security_group=self.unmanaged_sg,
+                )
+                # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
+                lt.connections.add_security_group(self.cluster.cluster_security_group)
+                cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
+                lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
+                    **cfn_lt.launch_template_data._values,
+                    metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
+                        http_endpoint="enabled", http_tokens="required", http_put_response_hop_limit=2
+                    ),
+                )
+                cfn_lt.launch_template_data = lt_data
 
             # https://github.com/aws/aws-cdk/issues/6734
             cfn_asg: aws_autoscaling.CfnAutoScalingGroup = asg.node.default_child
@@ -617,14 +627,6 @@ class DominoEksStack(cdk.Stack):
             asg.node.try_remove_child("LaunchConfig")
             cfn_asg.launch_configuration_name = None
             # Attach the launch template to the auto scaling group
-            cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
-            lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
-                **cfn_lt.launch_template_data._values,
-                metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
-                    http_endpoint="enabled", http_tokens="required", http_put_response_hop_limit=2
-                ),
-            )
-            cfn_lt.launch_template_data = lt_data
             cfn_asg.mixed_instances_policy = cfn_asg.MixedInstancesPolicyProperty(
                 launch_template=cfn_asg.LaunchTemplateProperty(
                     launch_template_specification=cfn_asg.LaunchTemplateSpecificationProperty(
