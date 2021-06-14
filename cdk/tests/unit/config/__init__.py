@@ -70,7 +70,10 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
-                tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'default', 'k8s.io/cluster-autoscaler/node-template/label/domino/build-node': 'true'},
+                tags={
+                    'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'default',
+                    'k8s.io/cluster-autoscaler/node-template/label/domino/build-node': 'true',
+                },
                 gpu=False,
                 ssm_agent=True,
                 taints={},

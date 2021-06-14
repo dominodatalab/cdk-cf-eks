@@ -1,6 +1,7 @@
 import unittest
-from semantic_version import Version
 from unittest.mock import patch
+
+from semantic_version import Version
 
 from domino_cdk import __version__
 from domino_cdk.config import config_loader, config_template

@@ -1,7 +1,7 @@
 from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
@@ -21,6 +21,7 @@ from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
 from domino_cdk.config.base import DominoCDKConfig
+from domino_cdk.config.eks import EKS
 from domino_cdk.config.util import MachineImage
 from domino_cdk.config.vpc import VPC
 from domino_cdk.util import DominoCdkUtil
@@ -268,7 +269,11 @@ class DominoEksStack(cdk.Stack):
         eks_version = eks.KubernetesVersion.V1_19
 
         eks_sg = ec2.SecurityGroup(
-            self, "EKSSG", vpc=self.vpc, security_group_name=f"{self.name}-EKSSG", allow_all_outbound=False,
+            self,
+            "EKSSG",
+            vpc=self.vpc,
+            security_group_name=f"{self.name}-EKSSG",
+            allow_all_outbound=False,
         )
 
         # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
@@ -307,13 +312,15 @@ class DominoEksStack(cdk.Stack):
         max_nodegroup_azs = self.cfg.eks.max_nodegroup_azs
 
         for name, ng in self.cfg.eks.managed_nodegroups.items():
-            ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
-            ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
+            if not ng.machine_image or not ng.machine_image.ami_id:
+                ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
+                ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
             self.provision_managed_nodegroup(name, ng, max_nodegroup_azs)
 
         for name, ng in self.cfg.eks.unmanaged_nodegroups.items():
-            ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
-            ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
+            if not ng.machine_image or not ng.machine_image.ami_id:
+                ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
+                ng.tags = {**ng.tags, **self.cfg.eks.global_node_tags}
             self.provision_unmanaged_nodegroup(name, ng, max_nodegroup_azs, eks_version)
 
     def provision_eks_iam_policies(self):
@@ -409,17 +416,66 @@ class DominoEksStack(cdk.Stack):
             managed_policies=managed_policies,
         )
 
-    def provision_managed_nodegroup(self, name: str, ng: dict, max_nodegroup_azs: int) -> None:
-        # managed nodegroups
+    def _get_machine_image(self, cfg_name: str, image: MachineImage) -> Tuple[Optional[str], Optional[str]]:
+        if image:
+            return image.ami_id, image.user_data
+        return None, None
+
+    def _handle_user_data(
+        self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]
+    ) -> Optional[ec2.UserData]:
+        mime_user_data = ec2.MultipartUserData()
+
+        # If we are using default EKS image, tweak kubelet
+        if not custom_ami:
+            mime_user_data.add_part(
+                ec2.MultipartBody.from_user_data(
+                    ec2.UserData.custom(
+                        'KUBELET_CONFIG=/etc/kubernetes/kubelet/kubelet-config.json\n'
+                        'echo "$(jq \'.eventRecordQPS=0\' $KUBELET_CONFIG)" > $KUBELET_CONFIG'
+                    )
+                ),
+            )
+            # if not custom AMI, we can install ssm agent. If requested.
+            if ssm_agent:
+                mime_user_data.add_part(
+                    ec2.MultipartBody.from_user_data(
+                        ec2.UserData.custom(
+                            "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm",
+                        )
+                    ),
+                )
+        for ud in user_data_list:
+            if isinstance(ud, str):
+                mime_user_data.add_part(
+                    ec2.MultipartBody.from_user_data(
+                        ec2.UserData.custom(
+                            cdk.Fn.sub(
+                                ud,
+                                {
+                                    "NodegroupName": name,
+                                    "StackName": self.name,
+                                    "ClusterName": self.cluster.cluster_name,
+                                },
+                            ),
+                        ),
+                    ),
+                )
+            if isinstance(ud, ec2.UserData):
+                mime_user_data.add_part(ec2.MultipartBody.from_user_data(ud))
+
+        return mime_user_data
+
+    def provision_managed_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
         ami_id, user_data = self._get_machine_image(name, ng.machine_image)
-        machine_image: Optional[ec2.IMachineImage] = None
-        if ami_id:
-            machine_image = ec2.MachineImage.generic_linux({self.region: ami_id})
+        machine_image: Optional[ec2.IMachineImage] = (
+            ec2.MachineImage.generic_linux({self.region: ami_id}) if ami_id else None
+        )
+        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ami_id, ng.ssm_agent, [user_data])
 
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             disk_size = ng.disk_size
-            lts: Optional[eks.LaunchTemplateSpec] = None
-            if machine_image:
+            if machine_image or mime_user_data:
                 lt = ec2.LaunchTemplate(
                     self.cluster,
                     f"LaunchTemplate{name}{i}",
@@ -434,19 +490,24 @@ class DominoEksStack(cdk.Stack):
                         )
                     ],
                     machine_image=machine_image,
-                    user_data=ec2.UserData.custom(cdk.Fn.sub(user_data, {"ClusterName": self.cluster.cluster_name})),
+                    user_data=mime_user_data,
                 )
                 lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
                 disk_size = None
+            else:
+                disk_size = cfg.disk_size
+                lts = None
 
+            indexed_name = f"{self.name}-{name}-{az}"
+            indexed_id = f"{self.name}-{name}-{i}"
             self.cluster.add_nodegroup_capacity(
-                f"{name}-{i}",  # this might be dangerous
-                nodegroup_name=f"{self.name}-{name}-{az}",  # this might be dangerous
+                indexed_id,  # this might be dangerous
+                nodegroup_name=indexed_name,
                 capacity_type=eks.CapacityType.SPOT if ng.spot else eks.CapacityType.ON_DEMAND,
-                disk_size=disk_size,
                 min_size=ng.min_size,
                 max_size=ng.max_size,
                 desired_size=ng.desired_size,
+                disk_size=disk_size,
                 subnets=ec2.SubnetSelection(
                     subnet_group_name=self.private_subnet_name,
                     availability_zones=[az],
@@ -459,26 +520,14 @@ class DominoEksStack(cdk.Stack):
                 remote_access=eks.NodegroupRemoteAccess(ssh_key_name=ng.key_name) if ng.key_name else None,
             )
 
-    def _get_machine_image(self, cfg_name: str, image: MachineImage) -> Tuple[Optional[str], Optional[str]]:
-        if not image:
-            return None, None
-
-        ami_id = image.ami_id
-        user_data = image.user_data
-
-        if ami_id and user_data:
-            return ami_id, user_data
-
-        raise ValueError(f"{cfg_name}: ami_id and user_data must both be specified")
-
     def provision_unmanaged_nodegroup(
-        self, name: str, ng: dict, max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
+        self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
     ) -> None:
         ami_id, user_data = self._get_machine_image(name, ng.machine_image)
 
         machine_image = (
-            ec2.MachineImage.generic_linux({self.region: ami_id}, user_data=ec2.UserData.custom(user_data))
-            if ami_id and user_data
+            ec2.MachineImage.generic_linux({self.region: ami_id})
+            if ami_id
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
                 kubernetes_version=eks_version.version,
@@ -488,7 +537,11 @@ class DominoEksStack(cdk.Stack):
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(
-                self, "UnmanagedSG", vpc=self.vpc, security_group_name=f"{self.name}-sharedNodeSG", allow_all_outbound=False,
+                self,
+                "UnmanagedSG",
+                vpc=self.vpc,
+                security_group_name=f"{self.name}-sharedNodeSG",
+                allow_all_outbound=False,
             )
 
         if self.cfg.vpc.bastion.enabled:
@@ -504,11 +557,11 @@ class DominoEksStack(cdk.Stack):
 
         scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
-
-            indexed_name = f"{self.name}-{name}-{i}"
+            indexed_name = f"{self.name}-{name}-{az}"
+            indexed_id = f"{self.name}-{name}-{i}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
-                f"ASG{i}",
+                indexed_id,
                 auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(ng.instance_types[0]),
                 machine_image=machine_image,
@@ -535,6 +588,8 @@ class DominoEksStack(cdk.Stack):
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
+            mime_user_data = self._handle_user_data(name, ami_id, ng.ssm_agent, [asg.user_data, user_data])
+
             lt = ec2.LaunchTemplate(
                 scope,
                 f"LaunchTemplate{i}",
@@ -552,7 +607,7 @@ class DominoEksStack(cdk.Stack):
                 instance_type=ec2.InstanceType(ng.instance_types[0]),
                 key_name=ng.key_name,
                 machine_image=machine_image,
-                user_data=asg.user_data,
+                user_data=mime_user_data,
                 security_group=self.unmanaged_sg,
             )
             # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
@@ -583,9 +638,9 @@ class DominoEksStack(cdk.Stack):
             )
 
             options: dict[str, Any] = {
-                "bootstrap_enabled": user_data is None,
+                "bootstrap_enabled": ami_id is None,
             }
-            if not user_data:
+            if not ami_id:
                 extra_args: list[str] = []
                 if labels := ng.labels:
                     extra_args.append(
@@ -597,17 +652,6 @@ class DominoEksStack(cdk.Stack):
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
-
-                if ng.ssm_agent:
-                    # We can only access this as an attribute of either the launch template or asg (both are the
-                    # same object)as we are getting it from the default user_data included in the standard EKS ami
-                    lt.user_data.add_on_exit_commands(
-                        "yum install -y https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/linux_amd64/amazon-ssm-agent.rpm"
-                    )
-            elif ng.ssm_agent or ng.labels or ng.taints:
-                raise ValueError(
-                    "ssm_agent, labels and taints will not be automatically confiugured when user_data is specified in the config. Please set this up accordingly in your user_data."
-                )
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 

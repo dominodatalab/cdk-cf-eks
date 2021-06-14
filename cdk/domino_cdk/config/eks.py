@@ -50,6 +50,7 @@ class EKS:
                                      ie to taint gpu nodes, etc.)
         """
 
+        ssm_agent: bool
         disk_size: int
         key_name: str
         min_size: int
@@ -62,6 +63,7 @@ class EKS:
         def base_load(ng):
             machine_image = ng.pop("machine_image", None)
             return {
+                "ssm_agent": ng.pop("ssm_agent"),
                 "disk_size": ng.pop("disk_size"),
                 "key_name": ng.pop("key_name", None),
                 "min_size": ng.pop("min_size"),
@@ -90,14 +92,11 @@ class EKS:
     @dataclass
     class UnmanagedNodegroup(NodegroupBase):
         gpu: bool
-        ssm_agent: bool
         taints: Dict[str, str]
 
         @classmethod
         def load(cls, ng):
-            out = cls(
-                **cls.base_load(ng), gpu=ng.pop("gpu"), ssm_agent=ng.pop("ssm_agent"), taints=ng.pop("taints", {})
-            )
+            out = cls(**cls.base_load(ng), gpu=ng.pop("gpu"), taints=ng.pop("taints", {}))
             check_leavins("unmanaged nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
             return out
 
@@ -111,11 +110,29 @@ class EKS:
 
     def __post_init__(self):
         errors = []
+
+        def check_machine_image_exceptions(ng_name: str, mi: MachineImage, incompatible_options: bool = False):
+            if mi.ami_id and not mi.user_data:
+                errors.append(f"{ng_name}: User data must be provided when specifying a custom AMI")
+            if mi.ami_id and incompatible_options:
+                errors.append(
+                    f"{ng_name}: ssm_agent, labels and taints cannot be automatically configured when specifying a custom AMI. "
+                    "You need to configure all of this using user_data."
+                )
+
         for name, ng in self.managed_nodegroups.items():
+            error_name = f"Managed nodegroup [{name}]"
+            if ng.machine_image:
+                check_machine_image_exceptions(error_name, ng.machine_image, (ng.ssm_agent or ng.labels))
             if ng.min_size == 0:
                 errors.append(
-                    f"Error: Managed nodegroup {name} has min_size of 0. Only unmanaged nodegroups support min_size of 0."
+                    f"Error: {error_name} has min_size of 0. Only unmanaged nodegroups support min_size of 0."
                 )
+        for name, ng in self.unmanaged_nodegroups.items():
+            error_name = f"Unmanaged nodegroup [{name}]"
+            if ng.machine_image:
+                check_machine_image_exceptions(error_name, ng.machine_image, (ng.ssm_agent or ng.labels or ng.taints))
+
         if errors:
             raise ValueError(errors)
 

@@ -48,6 +48,7 @@ eks:
   # We support managed nodegroups, but recommend standard ones
   managed_nodegroups: {}
     # managed_nodegroup_example:
+    #   ssm_agent: true
     #   spot: false
     #   disk_size: 100
     #   # key_name: some-aws-keypair

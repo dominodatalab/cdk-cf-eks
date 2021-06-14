@@ -13,6 +13,7 @@ eks_0_0_0_cfg = {
     "global_node_tags": {"k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"},
     "managed_nodegroups": {
         "compute": {
+            "ssm_agent": True,
             "disk_size": 20,
             "min_size": 1,
             "max_size": 1,
@@ -54,6 +55,7 @@ del eks_0_0_1_cfg["nodegroups"]
 
 managed_ngs = {
     "compute": EKS.ManagedNodegroup(
+        ssm_agent=True,
         disk_size=20,
         key_name=None,
         min_size=1,
@@ -158,8 +160,10 @@ class TestConfigEKS(unittest.TestCase):
         machine_image_cfg = {"ami_id": ami_id, "user_data": user_data}
         machine_image = MachineImage(ami_id=ami_id, user_data=user_data)
         eks_cfg = deepcopy(eks_0_0_1_cfg)
-        eks_cfg["managed_nodegroups"]["compute"]["machine_image"] = deepcopy(machine_image_cfg)
-        eks_cfg["unmanaged_nodegroups"]["platform"]["machine_image"] = deepcopy(machine_image_cfg)
+        for ng_type, ng_name in [["managed_nodegroups", "compute"], ["unmanaged_nodegroups", "platform"]]:
+            eks_cfg[ng_type][ng_name]["machine_image"] = deepcopy(machine_image_cfg)
+            eks_cfg[ng_type][ng_name]["ssm_agent"] = False
+            eks_cfg[ng_type][ng_name]["labels"] = {}
         eks = EKS.from_0_0_1(eks_cfg)
         self.assertEqual(eks.managed_nodegroups["compute"].machine_image, machine_image)
         self.assertEqual(eks.unmanaged_nodegroups["platform"].machine_image, machine_image)
@@ -172,6 +176,36 @@ class TestConfigEKS(unittest.TestCase):
         eks = EKS.from_0_0_1(eks_cfg)
         self.assertEqual(eks.managed_nodegroups["compute"].machine_image, None)
         self.assertEqual(eks.unmanaged_nodegroups["platform"].machine_image, None)
+
+    def test_machine_image_ami_no_user_data(self):
+        eks_cfg = deepcopy(eks_0_0_1_cfg)
+        machine_image_cfg = {"ami_id": "some-ami-id", "user_data": None}
+        eks_cfg["managed_nodegroups"]["compute"]["machine_image"] = machine_image_cfg
+        eks_cfg["managed_nodegroups"]["compute"]["ssm_agent"] = None
+        eks_cfg["managed_nodegroups"]["compute"]["labels"] = {}
+        with self.assertRaisesRegex(
+            ValueError, "Managed nodegroup \\[compute\\]: User data must be provided when specifying a custom AMI"
+        ):
+            EKS.from_0_0_1(eks_cfg)
+
+    def test_machine_image_incompatible_options(self):
+        eks_cfg = deepcopy(eks_0_0_1_cfg)
+        machine_image_cfg = {"ami_id": "some-ami-id", "user_data": "some-user-data"}
+        eks_cfg["managed_nodegroups"]["compute"]["machine_image"] = machine_image_cfg
+        eks_cfg["managed_nodegroups"]["compute"]["ssm_agent"] = True
+        eks_cfg["managed_nodegroups"]["compute"]["labels"] = {}
+        with self.assertRaisesRegex(ValueError, "Managed nodegroup \\[compute\\]: ssm_agent, labels and taints"):
+            EKS.from_0_0_1(eks_cfg)
+
+    def test_machine_unmanaged_multiple_exceptions(self):
+        machine_image_cfg = {"ami_id": "some-ami-id", "user_data": None}
+        eks_cfg = deepcopy(eks_0_0_1_cfg)
+        eks_cfg["unmanaged_nodegroups"]["platform"]["machine_image"] = machine_image_cfg
+        with self.assertRaisesRegex(
+            ValueError,
+            "Unmanaged nodegroup \\[platform\\]: User data must be provided.*Unmanaged nodegroup \\[platform\\]: ssm_agent, labels and taints",
+        ):
+            EKS.from_0_0_1(eks_cfg)
 
     def test_key_name(self):
         key_name = "abcd1234-key-pair"
@@ -194,7 +228,7 @@ class TestConfigEKS(unittest.TestCase):
     def test_min_size_zero(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
         eks_cfg["managed_nodegroups"]["compute"]["min_size"] = 0
-        with self.assertRaisesRegex(ValueError, "Managed nodegroup compute has min_size of 0."):
+        with self.assertRaisesRegex(ValueError, "Managed nodegroup \\[compute\\] has min_size of 0."):
             EKS.from_0_0_1(eks_cfg)
 
     def test_managed_nodegroup(self):
