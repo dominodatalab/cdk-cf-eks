@@ -2,6 +2,7 @@ from semantic_version import Version
 
 from domino_cdk import __version__
 from domino_cdk.config.base import DominoCDKConfig
+from domino_cdk.config.eks import EKS
 
 
 def config_loader(c: dict):
@@ -12,7 +13,24 @@ def config_loader(c: dict):
     return loader(c)
 
 
-def config_template(bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
+def config_template(platform_nodegroups: int, compute_nodegroups: int, gpu_nodegroups: int, bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
+
+    unmanaged_nodegroups = []
+    for i in range(0, platform_nodegroups):
+        unmanaged_nodegroups.append(EKS.UnmanagedNodegroup(
+            gpu=False,
+            ssm_agent=True,
+            disk_size=100,
+            key_name=None,
+            min_size=1,
+            max_size=10,
+            machine_image=None,
+            instance_types=["m4.2xlarge"],
+            labels={"dominodatalab.com/node-pool": "platform"},
+            tags={},
+            taints={}
+        ))
+
     max_nodegroup_azs = 3
     destroy_on_destroy = False
     disk_size = 1000
