@@ -20,11 +20,33 @@ def config_loader(c: dict):
 
 
 def config_template(
+    platform_nodegroups: int = 1,
+    compute_nodegroups: int = 1,
+    gpu_nodegroups: int = 1,
     bastion: bool = False,
     private_api: bool = False,
     secrets_encryption_key_arn: Optional[str] = None,
     dev_defaults: bool = False,
 ):
+
+    unmanaged_nodegroups = []
+    for i in range(0, platform_nodegroups):
+        unmanaged_nodegroups.append(
+            EKS.UnmanagedNodegroup(
+                gpu=False,
+                ssm_agent=True,
+                disk_size=100,
+                key_name=None,
+                min_size=1,
+                max_size=10,
+                machine_image=None,
+                instance_types=["m4.2xlarge"],
+                labels={"dominodatalab.com/node-pool": "platform"},
+                tags={},
+                taints={},
+            )
+        )
+
     max_nodegroup_azs = 3
     destroy_on_destroy = False
     disk_size = 1000
