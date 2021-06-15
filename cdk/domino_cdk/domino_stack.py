@@ -2,8 +2,13 @@ from aws_cdk import core as cdk
 from yaml import dump as yaml_dump
 
 from domino_cdk.agent import generate_install_config
-from domino_cdk.config.base import DominoCDKConfig
-from domino_cdk.provisioners import DominoEfsProvisioner, DominoEksProvisioner, DominoS3Provisioner, DominoVpcProvisioner
+from domino_cdk.config import DominoCDKConfig
+from domino_cdk.provisioners import (
+    DominoEfsProvisioner,
+    DominoEksProvisioner,
+    DominoS3Provisioner,
+    DominoVpcProvisioner,
+)
 
 
 class DominoStack(cdk.Stack):

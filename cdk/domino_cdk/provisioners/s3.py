@@ -5,7 +5,7 @@ from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import Bucket, BucketEncryption
 
-from domino_cdk.config.s3 import S3
+from domino_cdk.config import S3
 
 
 class DominoS3Provisioner:

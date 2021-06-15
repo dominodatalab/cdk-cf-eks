@@ -5,7 +5,7 @@ import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 
-from domino_cdk.config.efs import EFS
+from domino_cdk.config import EFS
 
 _DominoEfsStack = None
 

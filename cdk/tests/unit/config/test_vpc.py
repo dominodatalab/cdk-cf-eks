@@ -2,8 +2,7 @@ import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config.util import IngressRule, MachineImage
-from domino_cdk.config.vpc import VPC
+from domino_cdk.config import IngressRule, MachineImage, VPC
 
 vpc_0_0_0_cfg = {"create": True, "id": None, "cidr": "10.0.0.0/24", "max_azs": 3}
 

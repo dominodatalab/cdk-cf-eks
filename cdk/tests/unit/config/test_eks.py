@@ -2,8 +2,8 @@ import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config.eks import EKS
-from domino_cdk.config.util import MachineImage
+from domino_cdk.config import EKS
+from domino_cdk.config import MachineImage
 
 eks_0_0_0_cfg = {
     "version": "1.19",

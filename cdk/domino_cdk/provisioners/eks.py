@@ -14,8 +14,7 @@ from aws_cdk.lambda_layer_kubectl import KubectlLayer
 from requests import get as requests_get
 from yaml import safe_load as yaml_safe_load
 
-from domino_cdk.config.eks import EKS
-from domino_cdk.config.util import MachineImage
+from domino_cdk.config import EKS, MachineImage
 
 manifests = [
     [

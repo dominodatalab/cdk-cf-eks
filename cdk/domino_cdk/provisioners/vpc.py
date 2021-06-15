@@ -1,7 +1,7 @@
 import aws_cdk.aws_ec2 as ec2
 from aws_cdk import core as cdk
 
-from domino_cdk.config.vpc import VPC
+from domino_cdk.config import VPC
 
 _DominoVpcStack = None
 
