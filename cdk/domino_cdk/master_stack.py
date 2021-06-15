@@ -5,7 +5,7 @@ from domino_cdk.agent import generate_install_config
 from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.efs_stack import DominoEfsStack
 from domino_cdk.eks_stack import DominoEksStack
-from domino_cdk.s3_stack import DominoS3Stack
+from domino_cdk.s3_stack import DominoS3Provisioner
 from domino_cdk.vpc_stack import DominoVpcStack
 
 
@@ -25,7 +25,7 @@ class DominoMasterStack(cdk.Stack):
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
-        self.s3_stack = DominoS3Stack(nest, self, "S3Stack", self.name, self.cfg.s3)
+        self.s3_stack = DominoS3Provisioner(self, "S3Stack", self.name, self.cfg.s3, nest)
         self.vpc_stack = DominoVpcStack(nest, self, "VpcStack", self.name, self.cfg.vpc)
         self.eks_stack = DominoEksStack(
             self,
