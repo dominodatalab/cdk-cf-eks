@@ -520,12 +520,3 @@ class DominoEksStack(cdk.NestedStack):
             lambda_function=k8s_lambda,
             timeout=cdk.Duration.seconds(120),
         )
-
-    # Override default max of 2 AZs, as well as allow configurability
-    @property
-    def availability_zones(self):
-        return self.cfg.availability_zones or [
-            cdk.Fn.select(0, cdk.Fn.get_azs(self.env.region)),
-            cdk.Fn.select(1, cdk.Fn.get_azs(self.env.region)),
-            cdk.Fn.select(2, cdk.Fn.get_azs(self.env.region)),
-        ]

@@ -11,6 +11,7 @@ class VPC:
     id: vpc-abc123 - VPC id when using an existing VPC
     cidr: 10.0.0.0/16 - Primary CIDR range for VPC
                         NOTE: EKS needs _lots_ of IPs
+    availability_zones: Specific availability zones to use with vpc (optional)
     max_azs: 3 - Maximum amount of availability zones to configure for the VPC
                  MUST have at least two for the EKS control plane to provision
     """
@@ -46,6 +47,7 @@ class VPC:
     create: bool
     id: str
     cidr: str
+    availability_zones: List[str]
     max_azs: int
     bastion: Bastion
 
@@ -66,6 +68,7 @@ class VPC:
                 create=c.pop("create"),
                 id=c.pop("id", None),
                 cidr=c.pop("cidr"),
+                availability_zones=c.pop("availability_zones"),
                 max_azs=c.pop("max_azs"),
                 bastion=VPC.Bastion(
                     enabled=False,
@@ -88,6 +91,7 @@ class VPC:
                 create=c.pop("create"),
                 id=c.pop("id", None),
                 cidr=c.pop("cidr"),
+                availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
                 bastion=VPC.Bastion(
                     enabled=bastion.pop("enabled"),

@@ -25,7 +25,6 @@ class DominoCDKConfig:
     name: str
     aws_region: str
     aws_account_id: str
-    availability_zones: List[str]
     tags: Dict[str, str]
 
     vpc: VPC
@@ -45,10 +44,9 @@ class DominoCDKConfig:
                 name=c.pop("name"),
                 aws_region=c.pop("aws_region"),
                 aws_account_id=c.pop("aws_account_id"),
-                availability_zones=c.pop("availability_zones", []),
                 tags=c.pop("tags", {}),
                 install=c.pop("install", {}),
-                vpc=VPC.from_0_0_0(c.pop("vpc")),
+                vpc=VPC.from_0_0_0({**c.pop("vpc"), **{"availability_zones": c.pop("availability_zones", [])}}),
                 efs=EFS.from_0_0_0(c.pop("efs")),
                 route53=Route53.from_0_0_0(c.pop("route53")),
                 eks=EKS.from_0_0_0(c.pop("eks")),
@@ -66,7 +64,6 @@ class DominoCDKConfig:
                 name=c.pop("name"),
                 aws_region=c.pop("aws_region"),
                 aws_account_id=c.pop("aws_account_id"),
-                availability_zones=c.pop("availability_zones", []),
                 tags=c.pop("tags", {}),
                 install=c.pop("install", {}),
                 vpc=VPC.from_0_0_1(c.pop("vpc")),

@@ -15,6 +15,8 @@ class DominoVpcStack(cdk.NestedStack):
     def __init__(self, scope: cdk.Construct, construct_id: str, name: str, vpc: VPC, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        self._availability_zones = vpc.availability_zones
+
         self.provision_vpc(name, vpc)
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
@@ -147,3 +149,12 @@ class DominoVpcStack(cdk.NestedStack):
         cdk.CfnOutput(self, "bastion_public_ip", value=bastion.instance_public_ip)
 
         return bastion_sg
+
+    # Override default max of 2 AZs, as well as allow configurability
+    @property
+    def availability_zones(self):
+        return self._availability_zones or [
+            cdk.Fn.select(0, cdk.Fn.get_azs(self.region)),
+            cdk.Fn.select(1, cdk.Fn.get_azs(self.region)),
+            cdk.Fn.select(2, cdk.Fn.get_azs(self.region)),
+        ]

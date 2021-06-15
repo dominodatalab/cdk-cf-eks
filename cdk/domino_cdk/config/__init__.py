@@ -48,13 +48,13 @@ def config_template(platform_nodegroups: int, compute_nodegroups: int, gpu_nodeg
             "name": "domino",
             "aws_region": "__FILL__",
             "aws_account_id": "__FILL__",
-            "availability_zones": [],
             "tags": {"domino-infrastructure": "true"},
             "vpc": {
                 "id": None,
                 "create": True,
                 "cidr": "10.0.0.0/16",
                 "max_azs": 3,
+                "availability_zones": [],
                 "bastion": {
                     "enabled": bastion,
                     "instance_type": "t2.micro",
