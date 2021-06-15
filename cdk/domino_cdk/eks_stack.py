@@ -24,6 +24,7 @@ from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.config.eks import EKS
 from domino_cdk.config.util import MachineImage
 from domino_cdk.config.vpc import VPC
+from domino_cdk.s3 import DominoS3Stack
 from domino_cdk.util import DominoCdkUtil
 
 manifests = [
@@ -52,89 +53,12 @@ class DominoEksStack(cdk.Stack):
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
-        self.provision_buckets()
+        self.s3 = DominoS3Stack(self, "S3Stack", self.name, self.cfg.s3)
         self.provision_vpc(self.cfg.vpc)
         self.provision_eks_cluster()
         self.install_calico()
         self.provision_efs()
         cdk.CfnOutput(self, "agent_config", value=yaml_dump(self.generate_install_config()))
-
-    def provision_buckets(self):
-        self.s3_api_statement = s3_bucket_statement = iam.PolicyStatement(
-            actions=[
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject",
-                "s3:ListMultipartUploadParts",
-                "s3:AbortMultipartUpload",
-            ]
-        )
-
-        self.buckets = {}
-        for bucket, attrs in self.cfg.s3.buckets.items():
-            use_sse_kms_key = False
-            if attrs.sse_kms_key_id:
-                use_sse_kms_key = True
-                sse_kms_key = Key.from_key_arn(self, f"{bucket}-kms-key", attrs.sse_kms_key_id)
-
-            self.buckets[bucket] = Bucket(
-                self,
-                bucket,
-                bucket_name=f"{self.name}-{bucket}",
-                auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
-                removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
-                enforce_ssl=True,
-                bucket_key_enabled=use_sse_kms_key,
-                encryption_key=(sse_kms_key if use_sse_kms_key else None),
-                encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED),
-            )
-            self.buckets[bucket].add_to_resource_policy(
-                iam.PolicyStatement(
-                    sid="DenyIncorrectEncryptionHeader",
-                    effect=iam.Effect.DENY,
-                    principals=[iam.ArnPrincipal("*")],
-                    actions=[
-                        "s3:PutObject",
-                    ],
-                    resources=[f"{self.buckets[bucket].bucket_arn}/*"],
-                    conditions={
-                        "StringNotEquals": {
-                            "s3:x-amz-server-side-encryption": "aws:kms" if use_sse_kms_key else "AES256"
-                        }
-                    },
-                )
-            )
-            self.buckets[bucket].add_to_resource_policy(
-                iam.PolicyStatement(
-                    sid="DenyUnEncryptedObjectUploads",
-                    effect=iam.Effect.DENY,
-                    principals=[iam.ArnPrincipal("*")],
-                    actions=[
-                        "s3:PutObject",
-                    ],
-                    resources=[f"{self.buckets[bucket].bucket_arn}/*"],
-                    conditions={"Null": {"s3:x-amz-server-side-encryption": "true"}},
-                )
-            )
-            s3_bucket_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            cdk.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
-
-        self.s3_policy = iam.ManagedPolicy(
-            self,
-            "S3",
-            managed_policy_name=f"{self.name}-S3",
-            statements=[
-                iam.PolicyStatement(
-                    actions=[
-                        "s3:ListBucket",
-                        "s3:GetBucketLocation",
-                        "s3:ListBucketMultipartUploads",
-                    ],
-                    resources=["*"],
-                ),
-                s3_bucket_statement,
-            ],
-        )
 
     def provision_vpc(self, vpc: VPC):
         self.public_subnet_name = f"{self.name}-public"
@@ -406,7 +330,7 @@ class DominoEksStack(cdk.Stack):
 
         managed_policies = [
             self.ecr_policy,
-            self.s3_policy,
+            self.s3.policy,
             self.autoscaler_policy,
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
@@ -841,25 +765,25 @@ class DominoEksStack(cdk.Stack):
                 "projects": {
                     "s3": {
                         "region": self.cfg.aws_region,
-                        "bucket": self.buckets["blobs"].bucket_name,
+                        "bucket": self.s3.buckets["blobs"].bucket_name,
                     },
                 },
                 "logs": {
                     "s3": {
                         "region": self.cfg.aws_region,
-                        "bucket": self.buckets["logs"].bucket_name,
+                        "bucket": self.s3.buckets["logs"].bucket_name,
                     },
                 },
                 "backups": {
                     "s3": {
                         "region": self.cfg.aws_region,
-                        "bucket": self.buckets["backups"].bucket_name,
+                        "bucket": self.s3.buckets["backups"].bucket_name,
                     },
                 },
                 "default": {
                     "s3": {
                         "region": self.cfg.aws_region,
-                        "bucket": self.buckets["blobs"].bucket_name,
+                        "bucket": self.s3.buckets["blobs"].bucket_name,
                     },
                 },
             },
@@ -876,7 +800,7 @@ class DominoEksStack(cdk.Stack):
             "internal_docker_registry": {
                 "s3_override": {
                     "region": self.cfg.aws_region,
-                    "bucket": self.buckets["registry"].bucket_name,
+                    "bucket": self.s3.buckets["registry"].bucket_name,
                 }
             },
             "services": {
