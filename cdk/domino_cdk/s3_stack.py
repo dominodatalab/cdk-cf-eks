@@ -7,22 +7,10 @@ from aws_cdk.aws_s3 import Bucket, BucketEncryption
 
 from domino_cdk.config.s3 import S3
 
-class DominoS3Stack(cdk.NestedStack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], **kwargs):
-        super().__init__(scope, construct_id, **kwargs)
-        self.scope = self
-
 class DominoS3Provisioner:
     def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], nest: bool, **kwargs):
-        print(nest)
-        if nest:
-            print("this")
-            self.scope = DominoS3Stack(scope, construct_id, name, s3, **kwargs)
-        else:
-            self.scope = scope
-        self.run(name, s3)
+        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
 
-    def run(self, name: str, s3: List[S3]):
         self.s3_api_statement = iam.PolicyStatement(
             actions=[
                 "s3:PutObject",

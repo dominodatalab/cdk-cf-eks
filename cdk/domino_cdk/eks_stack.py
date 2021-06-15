@@ -25,7 +25,7 @@ manifests = [
 ]
 
 
-class DominoEksStack(cdk.NestedStack):
+class DominoEksStack:
     def __init__(
         self,
         scope: cdk.Construct,
@@ -37,9 +37,10 @@ class DominoEksStack(cdk.NestedStack):
         bastion_sg: ec2.SecurityGroup,
         r53_zone_ids: List[str],
         s3_policy: iam.ManagedPolicy,
+        nest: bool,
         **kwargs,
     ) -> None:
-        super().__init__(scope, construct_id, **kwargs)
+        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
 
         # TODO: Don't forget to refactor/aggregate/something outputs too
         self.outputs = {}
@@ -80,7 +81,7 @@ class DominoEksStack(cdk.NestedStack):
 
     def provision_eks_cluster(self):
         eks_sg = ec2.SecurityGroup(
-            self,
+            self.scope,
             "EKSSG",
             vpc=self.vpc,
             security_group_name=f"{self.name}-EKSSG",
@@ -89,7 +90,7 @@ class DominoEksStack(cdk.NestedStack):
 
         # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
         self.cluster = eks.Cluster(
-            self,
+            self.scope,
             "eks",
             cluster_name=self.name,
             vpc=self.vpc,
@@ -111,11 +112,11 @@ class DominoEksStack(cdk.NestedStack):
                 ),
             )
 
-        cdk.CfnOutput(self, "eks_cluster_name", value=self.cluster.cluster_name)
+        cdk.CfnOutput(self.scope, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(
-            self,
+            self.scope,
             "eks_kubeconfig_cmd",
-            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}",
+            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.scope.region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )
 
     def provision_eks_iam_policies(self, s3_policy: iam.ManagedPolicy, r53_zone_ids: List[str]):
@@ -130,7 +131,7 @@ class DominoEksStack(cdk.NestedStack):
         )
 
         self.autoscaler_policy = iam.ManagedPolicy(
-            self,
+            self.scope,
             "autoscaler",
             managed_policy_name=f"{self.name}-autoscaler",
             statements=[
@@ -149,7 +150,7 @@ class DominoEksStack(cdk.NestedStack):
 
         if r53_zone_ids:
             self.route53_policy = iam.ManagedPolicy(
-                self,
+                self.scope,
                 "route53",
                 managed_policy_name=f"{self.name}-route53",
                 statements=[
@@ -167,18 +168,18 @@ class DominoEksStack(cdk.NestedStack):
                 ],
             )
             cdk.CfnOutput(
-                self,
+                self.scope,
                 "route53-zone-id-output",
                 value=str(r53_zone_ids),
             )
             self.outputs["route53-txt-owner-id"] = cdk.CfnOutput(
-                self,
+                self.scope,
                 "route53-txt-owner-id",
                 value=f"{self.name}CDK",
             )
 
         self.ecr_policy = iam.ManagedPolicy(
-            self,
+            self.scope,
             "DominoEcrReadOnly",
             managed_policy_name=f"{self.name}-DominoEcrRestricted",
             statements=[
@@ -186,7 +187,7 @@ class DominoEksStack(cdk.NestedStack):
                     effect=iam.Effect.DENY,
                     actions=["ecr:*"],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": self.name}},
-                    resources=[f"arn:aws:ecr:*:{self.account}:*"],
+                    resources=[f"arn:aws:ecr:*:{self.scope.account}:*"],
                 ),
             ],
         )
@@ -204,7 +205,7 @@ class DominoEksStack(cdk.NestedStack):
             managed_policies.append(self.route53_policy)
 
         self.ng_role = iam.Role(
-            self,
+            self.scope,
             f'{self.name}-NG',
             role_name=f"{self.name}-NG",
             assumed_by=iam.ServicePrincipal('ec2.amazonaws.com'),
@@ -264,7 +265,7 @@ class DominoEksStack(cdk.NestedStack):
     def provision_managed_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
         ami_id, user_data = self._get_machine_image(name, ng.machine_image)
         machine_image: Optional[ec2.IMachineImage] = (
-            ec2.MachineImage.generic_linux({self.region: ami_id}) if ami_id else None
+            ec2.MachineImage.generic_linux({self.scope.region: ami_id}) if ami_id else None
         )
         mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ami_id, ng.ssm_agent, [user_data])
 
@@ -310,7 +311,7 @@ class DominoEksStack(cdk.NestedStack):
         ami_id, user_data = self._get_machine_image(name, ng.machine_image)
 
         machine_image = (
-            ec2.MachineImage.generic_linux({self.region: ami_id})
+            ec2.MachineImage.generic_linux({self.scope.region: ami_id})
             if ami_id
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
@@ -321,7 +322,7 @@ class DominoEksStack(cdk.NestedStack):
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(
-                self,
+                self.scope,
                 "UnmanagedSG",
                 vpc=self.vpc,
                 security_group_name=f"{self.name}-sharedNodeSG",
@@ -339,7 +340,7 @@ class DominoEksStack(cdk.NestedStack):
                 ),
             )
 
-        scope = cdk.Construct(self, f"UnmanagedNodeGroup{name}")
+        scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             indexed_name = f"{self.name}-{name}-{az}"
@@ -461,13 +462,13 @@ class DominoEksStack(cdk.NestedStack):
                 manifest_text = requests_get(manifest[1]).text
             loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
             crds = eks.KubernetesManifest(
-                self,
+                self.scope,
                 "calico-crds",
                 cluster=self.cluster,
                 manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"],
             )
             non_crds = eks.KubernetesManifest(
-                self,
+                self.scope,
                 "calico",
                 cluster=self.cluster,
                 manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"],
@@ -477,7 +478,7 @@ class DominoEksStack(cdk.NestedStack):
     def _install_calico_lambda(self):
         # WIP
         k8s_lambda = aws_lambda.Function(
-            self,
+            self.scope,
             "k8s_lambda",
             handler="main",
             runtime=aws_lambda.Runtime.PROVIDED,
@@ -502,7 +503,7 @@ class DominoEksStack(cdk.NestedStack):
 
         # This got stuck, need to make a response object?
         # run_calico_lambda = core.CustomResource(
-        #    self,
+        #    self.scope,
         #    "run_calico_lambda",
         #    service_token=k8s_lambda.function_arn,
         # )
@@ -511,7 +512,7 @@ class DominoEksStack(cdk.NestedStack):
         from aws_cdk.aws_stepfunctions_tasks import LambdaInvoke
 
         LambdaInvoke(
-            self,
+            self.scope,
             "run_calico_lambda",
             lambda_function=k8s_lambda,
             timeout=cdk.Duration.seconds(120),
