@@ -9,6 +9,7 @@ from domino_cdk.config.s3 import S3
 
 _DominoS3Stack = None
 
+
 def DominoS3Stack(nest: bool, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], **kwargs):
     if nest:
         base = cdk.NestedStack
@@ -48,7 +49,9 @@ def DominoS3Stack(nest: bool, scope: cdk.Construct, construct_id: str, name: str
                     bucket,
                     bucket_name=f"{name}-{bucket}",
                     auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
-                    removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
+                    removal_policy=cdk.RemovalPolicy.DESTROY
+                    if attrs.removal_policy_destroy
+                    else cdk.RemovalPolicy.RETAIN,
                     enforce_ssl=True,
                     bucket_key_enabled=use_sse_kms_key,
                     encryption_key=(sse_kms_key if use_sse_kms_key else None),

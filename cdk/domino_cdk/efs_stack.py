@@ -9,13 +9,17 @@ from domino_cdk.config.efs import EFS
 
 _DominoEfsStack = None
 
-def DominoEfsStack(nest: bool, scope: cdk.Construct,
-            construct_id: str,
-            name: str,
-            cfg: EFS,
-            vpc: ec2.Vpc,
-            security_group: ec2.SecurityGroup,
-                   **kwargs):
+
+def DominoEfsStack(
+    nest: bool,
+    scope: cdk.Construct,
+    construct_id: str,
+    name: str,
+    cfg: EFS,
+    vpc: ec2.Vpc,
+    security_group: ec2.SecurityGroup,
+    **kwargs,
+):
     if nest:
         base = cdk.NestedStack
     else:

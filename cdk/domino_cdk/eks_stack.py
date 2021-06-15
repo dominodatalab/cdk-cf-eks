@@ -25,10 +25,6 @@ manifests = [
 ]
 
 
-class ExternalCommandException(Exception):
-    """Exception running spawned external commands"""
-
-
 class DominoEksStack(cdk.NestedStack):
     def __init__(
         self,

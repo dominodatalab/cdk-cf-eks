@@ -1,6 +1,6 @@
 from dataclasses import dataclass, fields, is_dataclass
 from textwrap import dedent
-from typing import Dict, List
+from typing import Dict
 
 from ruamel.yaml.comments import CommentedMap
 

@@ -6,23 +6,13 @@ from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.efs_stack import DominoEfsStack
 from domino_cdk.eks_stack import DominoEksStack
 from domino_cdk.s3_stack import DominoS3Stack
-from domino_cdk.util import DominoCdkUtil
 from domino_cdk.vpc_stack import DominoVpcStack
-
-manifests = [
-    [
-        "calico",
-        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
-    ]
-]
-
-
-class ExternalCommandException(Exception):
-    """Exception running spawned external commands"""
 
 
 class DominoMasterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = False,**kwargs) -> None:
+    def __init__(
+        self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = False, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.outputs = {}
@@ -49,6 +39,12 @@ class DominoMasterStack(cdk.Stack):
             s3_policy=self.s3_stack.policy,
         )
         self.efs_stack = DominoEfsStack(
-            nest, self, "EfsSTack", self.name, self.cfg.efs, self.vpc_stack.vpc, self.eks_stack.cluster.cluster_security_group
+            nest,
+            self,
+            "EfsSTack",
+            self.name,
+            self.cfg.efs,
+            self.vpc_stack.vpc,
+            self.eks_stack.cluster.cluster_security_group,
         )
         cdk.CfnOutput(self, "agent_config", value=yaml_dump(generate_install_config(self)))

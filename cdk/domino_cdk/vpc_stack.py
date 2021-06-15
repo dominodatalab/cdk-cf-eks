@@ -3,14 +3,8 @@ from aws_cdk import core as cdk
 
 from domino_cdk.config.vpc import VPC
 
-manifests = [
-    [
-        "calico",
-        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
-    ]
-]
-
 _DominoVpcStack = None
+
 
 def DominoVpcStack(nest: bool, scope: cdk.Construct, construct_id: str, name: str, vpc: VPC, **kwargs):
     if nest:
