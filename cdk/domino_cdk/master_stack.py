@@ -22,7 +22,7 @@ class ExternalCommandException(Exception):
 
 
 class DominoMasterStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = False,**kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         self.outputs = {}
@@ -35,8 +35,8 @@ class DominoMasterStack(cdk.Stack):
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
-        self.s3_stack = DominoS3Stack(self, "S3Stack", self.name, self.cfg.s3)
-        self.vpc_stack = DominoVpcStack(self, "VpcStack", self.name, self.cfg.vpc)
+        self.s3_stack = DominoS3Stack(nest, self, "S3Stack", self.name, self.cfg.s3)
+        self.vpc_stack = DominoVpcStack(nest, self, "VpcStack", self.name, self.cfg.vpc)
         self.eks_stack = DominoEksStack(
             self,
             "EksStack",
@@ -49,6 +49,6 @@ class DominoMasterStack(cdk.Stack):
             s3_policy=self.s3_stack.policy,
         )
         self.efs_stack = DominoEfsStack(
-            self, "EfsSTack", self.name, self.cfg.efs, self.vpc_stack.vpc, self.eks_stack.cluster.cluster_security_group
+            nest, self, "EfsSTack", self.name, self.cfg.efs, self.vpc_stack.vpc, self.eks_stack.cluster.cluster_security_group
         )
         cdk.CfnOutput(self, "agent_config", value=yaml_dump(generate_install_config(self)))

@@ -17,6 +17,8 @@ def main():
     with open(app.node.try_get_context("config") or "config.yaml") as f:
         cfg = config_loader(yaml_load(f, Loader=SafeLoader))
 
+    nest = app.node.try_get_context("nest") or False
+
     DominoMasterStack(
         app,
         f"{cfg.name}-eks-stack",
@@ -32,6 +34,7 @@ def main():
         # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
         env=core.Environment(region=cfg.aws_region, account=cfg.aws_account_id),
         cfg=cfg,
+        nest=nest,
     )
 
     app.synth()

@@ -7,87 +7,103 @@ from aws_cdk.aws_s3 import Bucket, BucketEncryption
 
 from domino_cdk.config.s3 import S3
 
+_DominoS3Stack = None
 
-class DominoS3Stack(cdk.NestedStack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], **kwargs):
-        super().__init__(scope, construct_id, **kwargs)
+def DominoS3Stack(nest: bool, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], **kwargs):
+    if nest:
+        base = cdk.NestedStack
+    else:
+        base = object
 
-        self.s3_api_statement = iam.PolicyStatement(
-            actions=[
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject",
-                "s3:ListMultipartUploadParts",
-                "s3:AbortMultipartUpload",
-            ]
-        )
-        self.provision_buckets(name, s3)
-        self.provision_iam_policy(name)
+    class _class(base):
+        def __init__(self, nest: bool, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], **kwargs):
+            if nest:
+                super().__init__(scope, construct_id, **kwargs)
+                self.scope = self
+            else:
+                self.scope = scope
 
-    def provision_buckets(self, name: str, s3: List[S3]):
-        self.buckets = {}
-        for bucket, attrs in s3.buckets.items():
-            use_sse_kms_key = False
-            if attrs.sse_kms_key_id:
-                use_sse_kms_key = True
-                sse_kms_key = Key.from_key_arn(self, f"{bucket}-kms-key", attrs.sse_kms_key_id)
-
-            self.buckets[bucket] = Bucket(
-                self,
-                bucket,
-                bucket_name=f"{name}-{bucket}",
-                auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
-                removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
-                enforce_ssl=True,
-                bucket_key_enabled=use_sse_kms_key,
-                encryption_key=(sse_kms_key if use_sse_kms_key else None),
-                encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED),
+            self.s3_api_statement = iam.PolicyStatement(
+                actions=[
+                    "s3:PutObject",
+                    "s3:GetObject",
+                    "s3:DeleteObject",
+                    "s3:ListMultipartUploadParts",
+                    "s3:AbortMultipartUpload",
+                ]
             )
-            self.buckets[bucket].add_to_resource_policy(
-                iam.PolicyStatement(
-                    sid="DenyIncorrectEncryptionHeader",
-                    effect=iam.Effect.DENY,
-                    principals=[iam.ArnPrincipal("*")],
-                    actions=[
-                        "s3:PutObject",
-                    ],
-                    resources=[f"{self.buckets[bucket].bucket_arn}/*"],
-                    conditions={
-                        "StringNotEquals": {
-                            "s3:x-amz-server-side-encryption": "aws:kms" if use_sse_kms_key else "AES256"
-                        }
-                    },
+            self.provision_buckets(name, s3)
+            self.provision_iam_policy(name)
+
+        def provision_buckets(self, name: str, s3: List[S3]):
+            self.buckets = {}
+            for bucket, attrs in s3.buckets.items():
+                use_sse_kms_key = False
+                if attrs.sse_kms_key_id:
+                    use_sse_kms_key = True
+                    sse_kms_key = Key.from_key_arn(self, f"{bucket}-kms-key", attrs.sse_kms_key_id)
+
+                self.buckets[bucket] = Bucket(
+                    self.scope,
+                    bucket,
+                    bucket_name=f"{name}-{bucket}",
+                    auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
+                    removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
+                    enforce_ssl=True,
+                    bucket_key_enabled=use_sse_kms_key,
+                    encryption_key=(sse_kms_key if use_sse_kms_key else None),
+                    encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED),
                 )
-            )
-            self.buckets[bucket].add_to_resource_policy(
-                iam.PolicyStatement(
-                    sid="DenyUnEncryptedObjectUploads",
-                    effect=iam.Effect.DENY,
-                    principals=[iam.ArnPrincipal("*")],
-                    actions=[
-                        "s3:PutObject",
-                    ],
-                    resources=[f"{self.buckets[bucket].bucket_arn}/*"],
-                    conditions={"Null": {"s3:x-amz-server-side-encryption": "true"}},
+                self.buckets[bucket].add_to_resource_policy(
+                    iam.PolicyStatement(
+                        sid="DenyIncorrectEncryptionHeader",
+                        effect=iam.Effect.DENY,
+                        principals=[iam.ArnPrincipal("*")],
+                        actions=[
+                            "s3:PutObject",
+                        ],
+                        resources=[f"{self.buckets[bucket].bucket_arn}/*"],
+                        conditions={
+                            "StringNotEquals": {
+                                "s3:x-amz-server-side-encryption": "aws:kms" if use_sse_kms_key else "AES256"
+                            }
+                        },
+                    )
                 )
-            )
-            self.s3_api_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            cdk.CfnOutput(self, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
+                self.buckets[bucket].add_to_resource_policy(
+                    iam.PolicyStatement(
+                        sid="DenyUnEncryptedObjectUploads",
+                        effect=iam.Effect.DENY,
+                        principals=[iam.ArnPrincipal("*")],
+                        actions=[
+                            "s3:PutObject",
+                        ],
+                        resources=[f"{self.buckets[bucket].bucket_arn}/*"],
+                        conditions={"Null": {"s3:x-amz-server-side-encryption": "true"}},
+                    )
+                )
+                self.s3_api_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
+                cdk.CfnOutput(self.scope, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
-    def provision_iam_policy(self, name: str):
-        self.policy = iam.ManagedPolicy(
-            self,
-            "S3",
-            managed_policy_name=f"{name}-S3",
-            statements=[
-                iam.PolicyStatement(
-                    actions=[
-                        "s3:ListBucket",
-                        "s3:GetBucketLocation",
-                        "s3:ListBucketMultipartUploads",
-                    ],
-                    resources=["*"],
-                ),
-                self.s3_api_statement,
-            ],
-        )
+        def provision_iam_policy(self, name: str):
+            self.policy = iam.ManagedPolicy(
+                self.scope,
+                "S3",
+                managed_policy_name=f"{name}-S3",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=[
+                            "s3:ListBucket",
+                            "s3:GetBucketLocation",
+                            "s3:ListBucketMultipartUploads",
+                        ],
+                        resources=["*"],
+                    ),
+                    self.s3_api_statement,
+                ],
+            )
+
+    global _DominoS3Stack
+    if not _DominoS3Stack:
+        _DominoS3Stack = _class
+    return _DominoS3Stack(nest, scope, construct_id, name, s3, **kwargs)

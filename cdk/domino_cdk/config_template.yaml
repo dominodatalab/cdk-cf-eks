@@ -2,16 +2,16 @@ schema: 0.0.1
 name: domino
 #aws_region: "__FILL__"
 #aws_account_id: "__FILL__"
-availability_zones: []
-#  - "us-west-2a"
-#  - "us-west-2b"
-#  - "us-west-2c"
 tags:
   domino-infrastructure: "true"
 vpc:
   id: null # ignored if create=true
   create: true
   cidr: "10.0.0.0/16"
+  availability_zones: []
+  #  - "us-west-2a"
+  #  - "us-west-2b"
+  #  - "us-west-2c"
   max_azs: 3 # Must be 2+, as EKS control plane can't provision in a single AZ
   bastion:
     enabled: true
