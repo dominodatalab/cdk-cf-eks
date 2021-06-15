@@ -68,7 +68,7 @@ class VPC:
                 create=c.pop("create"),
                 id=c.pop("id", None),
                 cidr=c.pop("cidr"),
-                availability_zones=c.pop("availability_zones"),
+                availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
                 bastion=VPC.Bastion(
                     enabled=False,

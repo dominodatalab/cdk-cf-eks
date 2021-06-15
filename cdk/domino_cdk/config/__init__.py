@@ -13,7 +13,7 @@ def config_loader(c: dict):
     return loader(c)
 
 
-def config_template(platform_nodegroups: int, compute_nodegroups: int, gpu_nodegroups: int, bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
+def config_template(platform_nodegroups: int = 1, compute_nodegroups: int = 1, gpu_nodegroups: int = 1, bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
 
     unmanaged_nodegroups = []
     for i in range(0, platform_nodegroups):
