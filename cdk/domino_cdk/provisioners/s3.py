@@ -7,6 +7,7 @@ from aws_cdk.aws_s3 import Bucket, BucketEncryption
 
 from domino_cdk.config.s3 import S3
 
+
 class DominoS3Provisioner:
     def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], nest: bool, **kwargs):
         self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
@@ -36,9 +37,7 @@ class DominoS3Provisioner:
                 bucket,
                 bucket_name=f"{name}-{bucket}",
                 auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
-                removal_policy=cdk.RemovalPolicy.DESTROY
-                if attrs.removal_policy_destroy
-                else cdk.RemovalPolicy.RETAIN,
+                removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
                 enforce_ssl=True,
                 bucket_key_enabled=use_sse_kms_key,
                 encryption_key=(sse_kms_key if use_sse_kms_key else None),

@@ -7,7 +7,7 @@ _DominoVpcStack = None
 
 
 class DominoVpcProvisioner:
-    def __init__(self,scope: cdk.Construct, construct_id: str, name: str, vpc: VPC, nest: bool, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, vpc: VPC, nest: bool, **kwargs) -> None:
         self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
 
         self._availability_zones = vpc.availability_zones

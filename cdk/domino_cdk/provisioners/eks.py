@@ -25,7 +25,7 @@ manifests = [
 ]
 
 
-class DominoEksStack:
+class DominoEksProvisioner:
     def __init__(
         self,
         scope: cdk.Construct,
