@@ -7,7 +7,7 @@ from ruamel.yaml import YAML, SafeLoader
 from ruamel.yaml import load as yaml_load
 
 from domino_cdk.config import config_loader, config_template
-from domino_cdk.eks_stack import DominoEksStack
+from domino_cdk.master_stack import DominoMasterStack
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -17,7 +17,7 @@ def main():
     with open(app.node.try_get_context("config") or "config.yaml") as f:
         cfg = config_loader(yaml_load(f, Loader=SafeLoader))
 
-    DominoEksStack(
+    DominoMasterStack(
         app,
         f"{cfg.name}-eks-stack",
         # If you don't specify 'env', this stack will be environment-agnostic.

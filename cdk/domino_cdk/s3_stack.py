@@ -1,14 +1,16 @@
-from aws_cdk import core as cdk
-from aws_cdk.aws_kms import Key
-import aws_cdk.aws_iam as iam
-from aws_cdk.aws_s3 import Bucket, BucketEncryption
-from domino_cdk.config.base import DominoCDKConfig
-from domino_cdk.config.s3 import S3
 from typing import List
 
+import aws_cdk.aws_iam as iam
+from aws_cdk import core as cdk
+from aws_cdk.aws_kms import Key
+from aws_cdk.aws_s3 import Bucket, BucketEncryption
+
+from domino_cdk.config.s3 import S3
+
+
 class DominoS3Stack(cdk.NestedStack):
-    def __init__(self, scope: cdk.Construct, id: str, name: str, s3: List[S3]):
-        super().__init__(scope, id)
+    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], **kwargs):
+        super().__init__(scope, construct_id, **kwargs)
 
         self.s3_api_statement = iam.PolicyStatement(
             actions=[

@@ -1,31 +1,21 @@
 from os.path import isfile
 from re import MULTILINE
 from re import split as re_split
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Type, Union
 
-import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
-import aws_cdk.aws_efs as efs
 import aws_cdk.aws_eks as eks
-import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as aws_lambda
 from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
-from aws_cdk.aws_kms import Key
-from aws_cdk.aws_s3 import Bucket, BucketEncryption
 from aws_cdk.lambda_layer_awscli import AwsCliLayer
 from aws_cdk.lambda_layer_kubectl import KubectlLayer
 from requests import get as requests_get
-from yaml import dump as yaml_dump
 from yaml import safe_load as yaml_safe_load
 
-from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.config.eks import EKS
 from domino_cdk.config.util import MachineImage
-from domino_cdk.config.vpc import VPC
-from domino_cdk.s3 import DominoS3Stack
-from domino_cdk.util import DominoCdkUtil
 
 manifests = [
     [
@@ -39,159 +29,60 @@ class ExternalCommandException(Exception):
     """Exception running spawned external commands"""
 
 
-class DominoEksStack(cdk.Stack):
-    def __init__(self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, **kwargs) -> None:
+class DominoEksStack(cdk.NestedStack):
+    def __init__(
+        self,
+        scope: cdk.Construct,
+        construct_id: str,
+        name: str,
+        eks_cfg: EKS,
+        vpc: ec2.Vpc,
+        private_subnet_name: str,
+        bastion_sg: ec2.SecurityGroup,
+        r53_zone_ids: List[str],
+        s3_policy: iam.ManagedPolicy,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # TODO: Don't forget to refactor/aggregate/something outputs too
         self.outputs = {}
-        # The code that defines your stack goes here
-        self.cfg = cfg
-        self.env = kwargs["env"]
-        self.name = self.cfg.name
-        cdk.CfnOutput(self, "deploy_name", value=self.name)
-        cdk.Tags.of(self).add("domino-deploy-id", self.name)
-        for k, v in self.cfg.tags.items():
-            cdk.Tags.of(self).add(str(k), str(v))
+        self.name = name
+        self.eks_cfg = eks_cfg
+        self.vpc = vpc
+        self.private_subnet_name = private_subnet_name
+        self.bastion_sg = bastion_sg
 
-        self.s3 = DominoS3Stack(self, "S3Stack", self.name, self.cfg.s3)
-        self.provision_vpc(self.cfg.vpc)
+        self.eks_version = eks.KubernetesVersion.V1_19
+
         self.provision_eks_cluster()
+        self.provision_eks_iam_policies(s3_policy, r53_zone_ids)
+
+        max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
+
+        for name, ng in self.eks_cfg.managed_nodegroups.items():
+            if not ng.machine_image or not ng.machine_image.ami_id:
+                ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
+                ng.tags = {
+                    **ng.tags,
+                    **self.eks_cfg.global_node_tags,
+                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
+                }
+            self.provision_managed_nodegroup(name, ng, max_nodegroup_azs)
+
+        for name, ng in self.eks_cfg.unmanaged_nodegroups.items():
+            if not ng.machine_image or not ng.machine_image.ami_id:
+                ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
+                ng.tags = {
+                    **ng.tags,
+                    **self.eks_cfg.global_node_tags,
+                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
+                }
+            self.provision_unmanaged_nodegroup(name, ng, max_nodegroup_azs)
+
         self.install_calico()
-        self.provision_efs()
-        cdk.CfnOutput(self, "agent_config", value=yaml_dump(self.generate_install_config()))
-
-    def provision_vpc(self, vpc: VPC):
-        self.public_subnet_name = f"{self.name}-public"
-        self.private_subnet_name = f"{self.name}-private"
-        if not vpc.create:
-            self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc.id)
-            return
-
-        self.nat_provider = ec2.NatProvider.gateway()
-        self.vpc = ec2.Vpc(
-            self,
-            "VPC",
-            max_azs=vpc.max_azs,
-            cidr=vpc.cidr,
-            subnet_configuration=[
-                ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PUBLIC,
-                    name=self.public_subnet_name,
-                    cidr_mask=24,  # can't use token ids
-                ),
-                ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PRIVATE,
-                    name=self.private_subnet_name,
-                    cidr_mask=24,  # can't use token ids
-                ),
-            ],
-            gateway_endpoints={
-                "S3": ec2.GatewayVpcEndpointOptions(service=ec2.GatewayVpcEndpointAwsService.S3),
-            },
-            nat_gateway_provider=self.nat_provider,
-        )
-        cdk.Tags.of(self.vpc).add("Name", self.name)
-        cdk.CfnOutput(self, "vpc-output", value=self.vpc.vpc_cidr_block)
-
-        # ripped off this: https://github.com/aws/aws-cdk/issues/9573
-        pod_cidr = ec2.CfnVPCCidrBlock(self, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
-        c = 0
-        for az in self.vpc.availability_zones:
-            pod_subnet = ec2.PrivateSubnet(
-                self,
-                # this can't be okay
-                f"{self.name}-pod-{c}",  # Can't use parameter/token in this name
-                vpc_id=self.vpc.vpc_id,
-                availability_zone=az,
-                cidr_block=f"100.64.{c}.0/18",
-            )
-
-            pod_subnet.add_default_nat_route(
-                [gw for gw in self.nat_provider.configured_gateways if gw.az == az][0].gateway_id
-            )
-            pod_subnet.node.add_dependency(pod_cidr)
-            # TODO: need to tag
-
-            c += 64
-
-        for endpoint in [
-            "ec2",  # Only these first three have predefined consts
-            "sts",
-            "ecr.api",
-            "autoscaling",
-            "ecr.dkr",
-        ]:  # TODO: Do we need an s3 interface as well? or just the gateway?
-            self.vpc_endpoint = ec2.InterfaceVpcEndpoint(
-                self,
-                f"{endpoint}-ENDPOINT",
-                vpc=self.vpc,
-                service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
-                # private_dns_enabled=True,
-                subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
-            )
-
-        if vpc.bastion.enabled:
-            self.provision_bastion(vpc.bastion)
-
-    def provision_bastion(self, bastion: dict) -> None:
-        if bastion.machine_image:
-            bastion_machine_image = ec2.MachineImage.generic_linux(
-                {self.region: bastion.machine_image.ami_id},
-                user_data=ec2.UserData.custom(bastion.machine_image.user_data),
-            )
-        else:
-            if not self.account.isnumeric():  # TODO: Can we get rid of this requirement?
-                raise ValueError(
-                    "Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
-                )
-
-            bastion_machine_image = ec2.LookupMachineImage(
-                name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"]
-            )
-
-        self.bastion_sg = ec2.SecurityGroup(
-            self,
-            "bastion_sg",
-            vpc=self.vpc,
-            security_group_name=f"{self.name}-bastion",
-        )
-
-        for rule in bastion.ingress_ports:
-            for ip_cidr in rule.ip_cidrs:
-                self.bastion_sg.add_ingress_rule(
-                    peer=ec2.Peer.ipv4(ip_cidr),
-                    connection=ec2.Port(
-                        protocol=ec2.Protocol(rule.protocol),
-                        string_representation=rule.name,
-                        from_port=rule.from_port,
-                        to_port=rule.to_port,
-                    ),
-                )
-
-        bastion = ec2.Instance(
-            self,
-            "bastion",
-            machine_image=bastion_machine_image,
-            vpc=self.vpc,
-            instance_type=ec2.InstanceType(bastion.instance_type),
-            key_name=bastion.key_name,
-            security_group=self.bastion_sg,
-            vpc_subnets=ec2.SubnetSelection(
-                subnet_group_name=self.public_subnet_name,
-            ),
-        )
-
-        ec2.CfnEIP(
-            self,
-            "bastion_eip",
-            instance_id=bastion.instance_id,
-        )
-
-        cdk.CfnOutput(self, "bastion_public_ip", value=bastion.instance_public_ip)
 
     def provision_eks_cluster(self):
-        eks_version = eks.KubernetesVersion.V1_19
-
         eks_sg = ec2.SecurityGroup(
             self,
             "EKSSG",
@@ -206,14 +97,14 @@ class DominoEksStack(cdk.Stack):
             "eks",
             cluster_name=self.name,
             vpc=self.vpc,
-            endpoint_access=eks.EndpointAccess.PRIVATE if self.cfg.eks.private_api else None,
+            endpoint_access=eks.EndpointAccess.PRIVATE if self.eks_cfg.private_api else None,
             vpc_subnets=[ec2.SubnetType.PRIVATE],
-            version=eks_version,
+            version=self.eks_version,
             default_capacity=0,
             security_group=eks_sg,
         )
 
-        if self.cfg.vpc.bastion.enabled:
+        if self.bastion_sg:
             self.cluster.cluster_security_group.add_ingress_rule(
                 peer=self.bastion_sg,
                 connection=ec2.Port(
@@ -231,31 +122,7 @@ class DominoEksStack(cdk.Stack):
             value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )
 
-        self.provision_eks_iam_policies()
-
-        max_nodegroup_azs = self.cfg.eks.max_nodegroup_azs
-
-        for name, ng in self.cfg.eks.managed_nodegroups.items():
-            if not ng.machine_image or not ng.machine_image.ami_id:
-                ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
-                ng.tags = {
-                    **ng.tags,
-                    **self.cfg.eks.global_node_tags,
-                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
-                }
-            self.provision_managed_nodegroup(name, ng, max_nodegroup_azs)
-
-        for name, ng in self.cfg.eks.unmanaged_nodegroups.items():
-            if not ng.machine_image or not ng.machine_image.ami_id:
-                ng.labels = {**ng.labels, **self.cfg.eks.global_node_labels}
-                ng.tags = {
-                    **ng.tags,
-                    **self.cfg.eks.global_node_tags,
-                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
-                }
-            self.provision_unmanaged_nodegroup(name, ng, max_nodegroup_azs, eks_version)
-
-    def provision_eks_iam_policies(self):
+    def provision_eks_iam_policies(self, s3_policy: iam.ManagedPolicy, r53_zone_ids: List[str]):
         asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
@@ -284,7 +151,7 @@ class DominoEksStack(cdk.Stack):
             ],
         )
 
-        if self.cfg.route53.zone_ids:
+        if r53_zone_ids:
             self.route53_policy = iam.ManagedPolicy(
                 self,
                 "route53",
@@ -299,14 +166,14 @@ class DominoEksStack(cdk.Stack):
                             "route53:ChangeResourceRecordSets",
                             "route53:ListResourceRecordSets",
                         ],
-                        resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in self.cfg.route53.zone_ids],
+                        resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
                     ),
                 ],
             )
             cdk.CfnOutput(
                 self,
                 "route53-zone-id-output",
-                value=str(self.cfg.route53.zone_ids),
+                value=str(r53_zone_ids),
             )
             self.outputs["route53-txt-owner-id"] = cdk.CfnOutput(
                 self,
@@ -329,15 +196,15 @@ class DominoEksStack(cdk.Stack):
         )
 
         managed_policies = [
+            s3_policy,
             self.ecr_policy,
-            self.s3.policy,
             self.autoscaler_policy,
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'),
         ]
-        if self.cfg.route53.zone_ids:
+        if r53_zone_ids:
             managed_policies.append(self.route53_policy)
 
         self.ng_role = iam.Role(
@@ -443,9 +310,7 @@ class DominoEksStack(cdk.Stack):
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(
-        self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int, eks_version: eks.KubernetesVersion
-    ) -> None:
+    def provision_unmanaged_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
         ami_id, user_data = self._get_machine_image(name, ng.machine_image)
 
         machine_image = (
@@ -453,7 +318,7 @@ class DominoEksStack(cdk.Stack):
             if ami_id
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
-                kubernetes_version=eks_version.version,
+                kubernetes_version=self.eks_version.version,
                 node_type=eks.NodeType.GPU if ng.gpu else eks.NodeType.STANDARD,
             )
         )
@@ -467,7 +332,7 @@ class DominoEksStack(cdk.Stack):
                 allow_all_outbound=False,
             )
 
-        if self.cfg.vpc.bastion.enabled:
+        if self.bastion_sg:
             self.unmanaged_sg.add_ingress_rule(
                 peer=self.bastion_sg,
                 connection=ec2.Port(
@@ -579,89 +444,6 @@ class DominoEksStack(cdk.Stack):
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
-    def provision_efs(self):
-        self.efs = efs.FileSystem(
-            self,
-            "Efs",
-            vpc=self.vpc,
-            # encrypted=True,
-            file_system_name=self.name,
-            # kms_key,
-            # lifecycle_policy,
-            performance_mode=efs.PerformanceMode.MAX_IO,
-            provisioned_throughput_per_second=cdk.Size.mebibytes(100),  # TODO: dev/nondev sizing
-            removal_policy=cdk.RemovalPolicy.DESTROY
-            if self.cfg.efs.removal_policy_destroy
-            else cdk.RemovalPolicy.RETAIN,
-            security_group=self.cluster.cluster_security_group,
-            throughput_mode=efs.ThroughputMode.PROVISIONED,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
-        )
-
-        self.efs_access_point = self.efs.add_access_point(
-            "access_point",
-            create_acl=efs.Acl(
-                owner_uid="0",
-                owner_gid="0",
-                permissions="777",
-            ),
-            path="/domino",
-            posix_user=efs.PosixUser(
-                uid="0",
-                gid="0",
-                # secondary_gids
-            ),
-        )
-
-        efs_backup = self.cfg.efs.backup
-        if efs_backup.enable:
-            vault = backup.BackupVault(
-                self,
-                "efs_backup",
-                backup_vault_name=f'{self.name}-efs',
-                removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
-            )
-            cdk.CfnOutput(self, "backup-vault", value=vault.backup_vault_name)
-            plan = backup.BackupPlan(
-                self,
-                "efs_backup_plan",
-                backup_plan_name=f"{self.name}-efs",
-                backup_plan_rules=[
-                    backup.BackupPlanRule(
-                        backup_vault=vault,
-                        delete_after=cdk.Duration.days(d) if (d := efs_backup.delete_after) else None,
-                        move_to_cold_storage_after=cdk.Duration.days(d)
-                        if (d := efs_backup.move_to_cold_storage_after)
-                        else None,
-                        rule_name="efs-rule",
-                        schedule_expression=events.Schedule.expression(f"cron({efs_backup.schedule})"),
-                        start_window=cdk.Duration.hours(1),
-                        completion_window=cdk.Duration.hours(3),
-                    )
-                ],
-            )
-            backupRole = iam.Role(
-                self,
-                "efs_backup_role",
-                assumed_by=iam.ServicePrincipal("backup.amazonaws.com"),
-                role_name=f"{self.name}-efs-backup",
-            )
-            backup.BackupSelection(
-                self,
-                "efs_backup_selection",
-                backup_plan=plan,
-                resources=[backup.BackupResource.from_efs_file_system(self.efs)],
-                allow_restores=False,
-                backup_selection_name=f"{self.name}-efs",
-                role=backupRole,
-            )
-
-        self.outputs["efs"] = cdk.CfnOutput(
-            self,
-            "efs-output",
-            value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}",
-        )
-
     def install_calico(self):
         self._install_calico_manifest()
 
@@ -714,7 +496,7 @@ class DominoEksStack(cdk.Stack):
             security_groups=self.cluster.connections.security_groups,
         )
         self.cluster.connections.allow_default_port_from(self.cluster.connections)
-        k8s_lambda.add_to_role_policy(self.s3_api_statement)
+        k8s_lambda.add_to_role_policy(self.s3_stack.s3_api_statement)
         # k8s_lambda.add_to_role_policy(iam.PolicyStatement(
         #    actions=["eks:*"],
         #    resources=[self.cluster.cluster_arn],
@@ -747,109 +529,3 @@ class DominoEksStack(cdk.Stack):
             cdk.Fn.select(1, cdk.Fn.get_azs(self.env.region)),
             cdk.Fn.select(2, cdk.Fn.get_azs(self.env.region)),
         ]
-
-    def generate_install_config(self):
-        agent_cfg = {
-            "name": self.name,
-            "pod_cidr": self.vpc.vpc_cidr_block,
-            "global_node_selectors": self.cfg.eks.global_node_labels,
-            "storage_classes": {
-                "shared": {
-                    "efs": {
-                        "region": self.cfg.aws_region,
-                        "filesystem_id": self.outputs["efs"].value,
-                    }
-                },
-            },
-            "blob_storage": {
-                "projects": {
-                    "s3": {
-                        "region": self.cfg.aws_region,
-                        "bucket": self.s3.buckets["blobs"].bucket_name,
-                    },
-                },
-                "logs": {
-                    "s3": {
-                        "region": self.cfg.aws_region,
-                        "bucket": self.s3.buckets["logs"].bucket_name,
-                    },
-                },
-                "backups": {
-                    "s3": {
-                        "region": self.cfg.aws_region,
-                        "bucket": self.s3.buckets["backups"].bucket_name,
-                    },
-                },
-                "default": {
-                    "s3": {
-                        "region": self.cfg.aws_region,
-                        "bucket": self.s3.buckets["blobs"].bucket_name,
-                    },
-                },
-            },
-            "autoscaler": {
-                "enabled": True,
-                "auto_discovery": {
-                    "cluster_name": self.cluster.cluster_name,
-                },
-                "groups": [],
-                "aws": {
-                    "region": self.cfg.aws_region,
-                },
-            },
-            "internal_docker_registry": {
-                "s3_override": {
-                    "region": self.cfg.aws_region,
-                    "bucket": self.s3.buckets["registry"].bucket_name,
-                }
-            },
-            "services": {
-                "nginx_ingress": {},
-                "nucleus": {
-                    "chart_values": {
-                        "keycloak": {
-                            "createIntegrationTestUser": True,
-                        }
-                    }
-                },
-                "forge": {
-                    "chart_values": {
-                        "config": {
-                            "fullPrivilege": True,
-                        },
-                    }
-                },
-            },
-        }
-
-        if self.cfg.route53.zone_ids:
-            agent_cfg["external_dns"] = {
-                "enabled": True,
-                "zone_id_filters": self.cfg.route53.zone_ids,
-                "txt_owner_id": self.outputs["route53-txt-owner-id"].value,
-            }
-
-        agent_cfg["services"]["nginx_ingress"]["chart_values"] = {
-            "controller": {
-                "kind": "Deployment",
-                "hostNetwork": False,
-                "config": {"use-proxy-protocol": "true"},
-                "service": {
-                    "enabled": True,
-                    "type": "LoadBalancer",
-                    "annotations": {
-                        "service.beta.kubernetes.io/aws-load-balancer-internal": False,
-                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
-                        "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
-                        "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",  # noqa
-                        "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
-                        # "service.beta.kubernetes.io/aws-load-balancer-security-groups":
-                        #     "could-propagate-this-instead-of-create"
-                    },
-                    "targetPorts": {"http": "http", "https": "http"},
-                    "loadBalancerSourceRanges": ["0.0.0.0/0"],  # TODO AF
-                },
-            }
-        }
-
-        return DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install)
