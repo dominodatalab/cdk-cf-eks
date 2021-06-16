@@ -5,7 +5,7 @@ from sys import stdout
 
 from ruamel.yaml import YAML
 
-from domino_cdk.config import config_template
+from domino_cdk.config.template import config_template
 
 def parse_args():
     parser = argparse.ArgumentParser(description="domino_cdk utility")
