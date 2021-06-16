@@ -1,61 +1,71 @@
-from aws_cdk import core as cdk
+from typing import Dict, List
 
-from domino_cdk.util import DominoCdkUtil
+from domino_cdk.config.s3 import S3
 
 
-def generate_install_config(stack: cdk.Stack):
+def generate_install_config(
+    name: str,
+    aws_region: str,
+    eks_cluster_name: str,
+    pod_cidr: str,
+    global_node_selectors: Dict[str, str],
+    buckets: List[S3.Bucket],
+    efs_fs_ap_id: str,
+    r53_zone_ids: str,
+    r53_owner_id: str,
+):
     agent_cfg = {
-        "name": stack.name,
-        "pod_cidr": stack.vpc_stack.vpc.vpc_cidr_block,
-        "global_node_selectors": stack.cfg.eks.global_node_labels,
+        "name": name,
+        "pod_cidr": pod_cidr,
+        "global_node_selectors": global_node_selectors,
         "storage_classes": {
             "shared": {
                 "efs": {
-                    "region": stack.cfg.aws_region,
-                    "filesystem_id": stack.efs_stack.outputs["efs"].value,
+                    "region": aws_region,
+                    "filesystem_id": efs_fs_ap_id,
                 }
             },
         },
         "blob_storage": {
             "projects": {
                 "s3": {
-                    "region": stack.cfg.aws_region,
-                    "bucket": stack.s3_stack.buckets["blobs"].bucket_name,
+                    "region": aws_region,
+                    "bucket": buckets["blobs"].bucket_name,
                 },
             },
             "logs": {
                 "s3": {
-                    "region": stack.cfg.aws_region,
-                    "bucket": stack.s3_stack.buckets["logs"].bucket_name,
+                    "region": aws_region,
+                    "bucket": buckets["logs"].bucket_name,
                 },
             },
             "backups": {
                 "s3": {
-                    "region": stack.cfg.aws_region,
-                    "bucket": stack.s3_stack.buckets["backups"].bucket_name,
+                    "region": aws_region,
+                    "bucket": buckets["backups"].bucket_name,
                 },
             },
             "default": {
                 "s3": {
-                    "region": stack.cfg.aws_region,
-                    "bucket": stack.s3_stack.buckets["blobs"].bucket_name,
+                    "region": aws_region,
+                    "bucket": buckets["blobs"].bucket_name,
                 },
             },
         },
         "autoscaler": {
             "enabled": True,
             "auto_discovery": {
-                "cluster_name": stack.eks_stack.cluster.cluster_name,
+                "cluster_name": eks_cluster_name,
             },
             "groups": [],
             "aws": {
-                "region": stack.cfg.aws_region,
+                "region": aws_region,
             },
         },
         "internal_docker_registry": {
             "s3_override": {
-                "region": stack.cfg.aws_region,
-                "bucket": stack.s3_stack.buckets["registry"].bucket_name,
+                "region": aws_region,
+                "bucket": buckets["registry"].bucket_name,
             }
         },
         "services": {
@@ -77,11 +87,11 @@ def generate_install_config(stack: cdk.Stack):
         },
     }
 
-    if stack.cfg.route53.zone_ids:
+    if r53_zone_ids:
         agent_cfg["external_dns"] = {
             "enabled": True,
-            "zone_id_filters": stack.cfg.route53.zone_ids,
-            "txt_owner_id": stack.eks_stack.outputs["route53-txt-owner-id"].value,
+            "zone_id_filters": r53_zone_ids,
+            "txt_owner_id": r53_owner_id,
         }
 
     agent_cfg["services"]["nginx_ingress"]["chart_values"] = {
@@ -107,4 +117,4 @@ def generate_install_config(stack: cdk.Stack):
         }
     }
 
-    return DominoCdkUtil.deep_merge(agent_cfg, stack.cfg.install)
+    return agent_cfg

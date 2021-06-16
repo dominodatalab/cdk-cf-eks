@@ -24,7 +24,6 @@ class DominoEfsProvisioner:
     ):
         self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
 
-        self.outputs = {}
         self.provision_efs(name, cfg, vpc, security_group)
         if cfg.backup.enable:
             self.provision_backup_vault(name, cfg.backup)
@@ -59,12 +58,6 @@ class DominoEfsProvisioner:
                 gid="0",
                 # secondary_gids
             ),
-        )
-
-        self.outputs["efs"] = cdk.CfnOutput(
-            self.scope,
-            "efs-output",
-            value=f"{self.efs.file_system_id}::{self.efs_access_point.access_point_id}",
         )
 
     def provision_backup_vault(self, name: str, efs_backup: EFS.Backup):

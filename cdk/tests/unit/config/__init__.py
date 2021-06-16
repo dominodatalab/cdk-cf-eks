@@ -1,7 +1,17 @@
 import unittest
 from unittest.mock import patch
 
-from domino_cdk.config import config_loader, config_template, DominoCDKConfig, EFS, EKS, Route53, S3, IngressRule, VPC
+from domino_cdk.config import (
+    EFS,
+    EKS,
+    S3,
+    VPC,
+    DominoCDKConfig,
+    IngressRule,
+    Route53,
+    config_loader,
+    config_template,
+)
 
 default_config = DominoCDKConfig(
     name='domino',
