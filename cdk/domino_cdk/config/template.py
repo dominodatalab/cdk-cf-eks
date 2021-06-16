@@ -5,6 +5,7 @@ from domino_cdk.config import DominoCDKConfig, EFS, EKS, Route53, S3, VPC, Ingre
 
 
 def config_template(
+    name: str = "domino",
     platform_nodegroups: int = 1,
     compute_nodegroups: int = 1,
     gpu_nodegroups: int = 1,
@@ -97,7 +98,7 @@ def config_template(
     )
 
     return DominoCDKConfig(
-        name=fill,
+        name=name,
         aws_region=fill,
         aws_account_id=fill,
         tags={"domino-infrastructure": "true"},

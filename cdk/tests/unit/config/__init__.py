@@ -5,7 +5,7 @@ from domino_cdk.config import config_loader, DominoCDKConfig, EFS, EKS, Route53,
 from domino_cdk.config.template import config_template
 
 default_config = DominoCDKConfig(
-    name='__FILL__',
+    name='domino',
     aws_region='__FILL__',
     aws_account_id='__FILL__',
     tags={'domino-infrastructure': 'true'},
@@ -98,7 +98,7 @@ default_config = DominoCDKConfig(
 
 legacy_template = {
     "schema": "0.0.0",
-    "name": "__FILL__",
+    "name": "domino",
     "aws_region": "__FILL__",
     "aws_account_id": "__FILL__",
     "availability_zones": [],
@@ -178,7 +178,7 @@ legacy_template = {
 }
 
 legacy_config = DominoCDKConfig(
-    name='__FILL__',
+    name='domino',
     aws_region='__FILL__',
     aws_account_id='__FILL__',
     tags={'domino-infrastructure': 'true'},
