@@ -6,7 +6,8 @@ from aws_cdk import core
 from ruamel.yaml import YAML, SafeLoader
 from ruamel.yaml import load as yaml_load
 
-from domino_cdk.config import config_loader, config_template
+from domino_cdk.config import config_loader
+from domino_cdk.config.template import config_template
 from domino_cdk.domino_stack import DominoStack
 from domino_cdk.util import DominoCdkUtil
 
