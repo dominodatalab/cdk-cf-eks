@@ -1,7 +1,7 @@
 import unittest
 from copy import deepcopy
 
-from domino_cdk.config.s3 import S3
+from domino_cdk.config import S3
 
 sse_kms_key_id = "some-kms-key"
 

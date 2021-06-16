@@ -2,12 +2,12 @@ import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config.util import IngressRule, MachineImage
-from domino_cdk.config.vpc import VPC
+from domino_cdk.config import VPC, IngressRule, MachineImage
 
 vpc_0_0_0_cfg = {"create": True, "id": None, "cidr": "10.0.0.0/24", "max_azs": 3}
 
 vpc_0_0_1_cfg = deepcopy(vpc_0_0_0_cfg)
+vpc_0_0_1_cfg["availability_zones"] = []
 vpc_0_0_1_cfg["bastion"] = {
     "enabled": False,
     "instance_type": None,
@@ -36,6 +36,7 @@ vpc_object = VPC(
     create=True,
     id=None,
     cidr="10.0.0.0/24",
+    availability_zones=[],
     max_azs=3,
     bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, machine_image=None),
 )

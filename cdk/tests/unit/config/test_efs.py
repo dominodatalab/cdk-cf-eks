@@ -1,7 +1,7 @@
 import unittest
 from copy import deepcopy
 
-from domino_cdk.config.efs import EFS
+from domino_cdk.config import EFS
 
 efs_0_0_0_cfg = {
     "backup": {

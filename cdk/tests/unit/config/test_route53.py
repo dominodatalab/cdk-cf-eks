@@ -1,7 +1,7 @@
 import unittest
 from copy import deepcopy
 
-from domino_cdk.config.route53 import Route53
+from domino_cdk.config import Route53
 
 zone_id = "some_zone_id"
 

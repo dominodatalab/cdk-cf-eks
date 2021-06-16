@@ -2,6 +2,12 @@ from semantic_version import Version
 
 from domino_cdk import __version__
 from domino_cdk.config.base import DominoCDKConfig
+from domino_cdk.config.efs import EFS
+from domino_cdk.config.eks import EKS
+from domino_cdk.config.route53 import Route53
+from domino_cdk.config.s3 import S3
+from domino_cdk.config.util import IngressRule, MachineImage
+from domino_cdk.config.vpc import VPC
 
 
 def config_loader(c: dict):
@@ -12,7 +18,11 @@ def config_loader(c: dict):
     return loader(c)
 
 
-def config_template(bastion: bool = False, private_api: bool = False, dev_defaults: bool = False):
+def config_template(
+    bastion: bool = False,
+    private_api: bool = False,
+    dev_defaults: bool = False,
+):
     max_nodegroup_azs = 3
     destroy_on_destroy = False
     disk_size = 1000
@@ -30,13 +40,13 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
             "name": "domino",
             "aws_region": "__FILL__",
             "aws_account_id": "__FILL__",
-            "availability_zones": [],
             "tags": {"domino-infrastructure": "true"},
             "vpc": {
                 "id": None,
                 "create": True,
                 "cidr": "10.0.0.0/16",
                 "max_azs": 3,
+                "availability_zones": [],
                 "bastion": {
                     "enabled": bastion,
                     "instance_type": "t2.micro",
@@ -61,9 +71,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                 "private_api": private_api,
                 "max_nodegroup_azs": max_nodegroup_azs,
                 "global_node_labels": {"dominodatalab.com/domino-node": "true"},
-                "global_node_tags": {
-                    "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"
-                },
+                "global_node_tags": {},
                 "managed_nodegroups": {},
                 "unmanaged_nodegroups": {
                     "platform": {
@@ -74,9 +82,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                         "max_size": 10,
                         "instance_types": [platform_instance_type],
                         "labels": {"dominodatalab.com/node-pool": "platform"},
-                        "tags": {
-                            "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool": "platform"
-                        },
+                        "tags": {},
                     },
                     "compute": {
                         "gpu": False,
@@ -86,10 +92,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                         "max_size": 10,
                         "instance_types": ["m5.2xlarge"],
                         "labels": {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"},
-                        "tags": {
-                            "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool": "default",
-                            "k8s.io/cluster-autoscaler/node-template/label/domino/build-node": "true",
-                        },
+                        "tags": {},
                     },
                     "nvidia": {
                         "gpu": True,
@@ -100,9 +103,7 @@ def config_template(bastion: bool = False, private_api: bool = False, dev_defaul
                         "instance_types": ["m5.2xlarge"],
                         "taints": {"nvidia.com/gpu": "true:NoSchedule"},
                         "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
-                        "tags": {
-                            "k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool": "default-gpu"
-                        },
+                        "tags": {},
                     },
                 },
             },

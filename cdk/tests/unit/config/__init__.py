@@ -1,26 +1,29 @@
 import unittest
 from unittest.mock import patch
 
-from domino_cdk.config import config_loader, config_template
-from domino_cdk.config.base import DominoCDKConfig
-from domino_cdk.config.efs import EFS
-from domino_cdk.config.eks import EKS
-from domino_cdk.config.route53 import Route53
-from domino_cdk.config.s3 import S3
-from domino_cdk.config.util import IngressRule
-from domino_cdk.config.vpc import VPC
+from domino_cdk.config import (
+    EFS,
+    EKS,
+    S3,
+    VPC,
+    DominoCDKConfig,
+    IngressRule,
+    Route53,
+    config_loader,
+    config_template,
+)
 
 default_config = DominoCDKConfig(
     name='domino',
     aws_region='__FILL__',
     aws_account_id='__FILL__',
-    availability_zones=[],
     tags={'domino-infrastructure': 'true'},
     install={},
     vpc=VPC(
         id=None,
         create=True,
         cidr='10.0.0.0/16',
+        availability_zones=[],
         max_azs=3,
         bastion=VPC.Bastion(
             enabled=False,
@@ -46,7 +49,7 @@ default_config = DominoCDKConfig(
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
-        global_node_tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node': 'true'},
+        global_node_tags={},
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform': EKS.UnmanagedNodegroup(
@@ -57,7 +60,7 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'platform'},
-                tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'platform'},
+                tags={},
                 gpu=False,
                 ssm_agent=True,
                 taints={},
@@ -70,10 +73,7 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
-                tags={
-                    'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'default',
-                    'k8s.io/cluster-autoscaler/node-template/label/domino/build-node': 'true',
-                },
+                tags={},
                 gpu=False,
                 ssm_agent=True,
                 taints={},
@@ -86,7 +86,7 @@ default_config = DominoCDKConfig(
                 machine_image=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default-gpu', 'nvidia.com/gpu': 'true'},
-                tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/node-pool': 'default-gpu'},
+                tags={},
                 gpu=True,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
@@ -189,13 +189,13 @@ legacy_config = DominoCDKConfig(
     name='domino',
     aws_region='__FILL__',
     aws_account_id='__FILL__',
-    availability_zones=[],
     tags={'domino-infrastructure': 'true'},
     install={},
     vpc=VPC(
         id=None,
         create=True,
         cidr='10.0.0.0/16',
+        availability_zones=[],
         max_azs=3,
         bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, machine_image=None),
     ),

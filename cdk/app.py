@@ -7,7 +7,7 @@ from ruamel.yaml import YAML, SafeLoader
 from ruamel.yaml import load as yaml_load
 
 from domino_cdk.config import config_loader, config_template
-from domino_cdk.eks_stack import DominoEksStack
+from domino_cdk.domino_stack import DominoStack
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -17,7 +17,9 @@ def main():
     with open(app.node.try_get_context("config") or "config.yaml") as f:
         cfg = config_loader(yaml_load(f, Loader=SafeLoader))
 
-    DominoEksStack(
+    nest = app.node.try_get_context("nest") or False
+
+    DominoStack(
         app,
         f"{cfg.name}-eks-stack",
         # If you don't specify 'env', this stack will be environment-agnostic.
@@ -32,6 +34,7 @@ def main():
         # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
         env=core.Environment(region=cfg.aws_region, account=cfg.aws_account_id),
         cfg=cfg,
+        nest=nest,
     )
 
     app.synth()
