@@ -36,9 +36,6 @@ class DominoAwsConfigurator:
         self.install_calico()
 
     def install_calico(self):
-        self._install_calico_manifest()
-
-    def _install_calico_manifest(self):
         # This produces an obnoxious diff on every subsequent run
         # Using a helm chart does not, so we should switch to that
         # However, we need to figure out how to get the helm chart
@@ -68,46 +65,3 @@ class DominoAwsConfigurator:
                 manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"],
             )
             non_crds.node.add_dependency(crds)
-
-    def _install_calico_lambda(self):
-        # WIP
-        k8s_lambda = aws_lambda.Function(
-            self.scope,
-            "k8s_lambda",
-            handler="main",
-            runtime=aws_lambda.Runtime.PROVIDED,
-            layers=[
-                KubectlLayer(self, "KubectlLayer"),
-                AwsCliLayer(self, "AwsCliLayer"),
-            ],
-            vpc=self.vpc,
-            code=aws_lambda.AssetCode("cni-bundle.zip"),
-            timeout=cdk.Duration.seconds(30),
-            environment={"cluster_name": self.eks_cluster.cluster_name},
-            security_groups=self.eks_cluster.connections.security_groups,
-        )
-        self.eks_cluster.connections.allow_default_port_from(self.eks_cluster.connections)
-        k8s_lambda.add_to_role_policy(self.s3_api_statement)
-        # k8s_lambda.add_to_role_policy(iam.PolicyStatement(
-        #    actions=["eks:*"],
-        #    resources=[self.eks_cluster.cluster_arn],
-        # ))
-        self.eks_cluster.aws_auth.add_masters_role(k8s_lambda.role)
-        # run_calico_lambda.node.add_dependency(k8s_lambda)
-
-        # This got stuck, need to make a response object?
-        # run_calico_lambda = core.CustomResource(
-        #    self.scope,
-        #    "run_calico_lambda",
-        #    service_token=k8s_lambda.function_arn,
-        # )
-
-        # This just doesn't trigger
-        from aws_cdk.aws_stepfunctions_tasks import LambdaInvoke
-
-        LambdaInvoke(
-            self.scope,
-            "run_calico_lambda",
-            lambda_function=k8s_lambda,
-            timeout=cdk.Duration.seconds(120),
-        )
