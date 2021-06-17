@@ -6,7 +6,7 @@ import aws_cdk.aws_iam as iam
 from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
 
-from domino_cdk.config import EKS
+from domino_cdk import config
 
 
 class DominoEksNodegroupProvisioner:
@@ -16,7 +16,7 @@ class DominoEksNodegroupProvisioner:
         cluster: eks.Cluster,
         ng_role: iam.Role,
         name: str,
-        eks_cfg: EKS,
+        eks_cfg: config.EKS,
         eks_version: eks.KubernetesVersion,
         vpc: ec2.Vpc,
         private_subnet_name: str,
@@ -34,7 +34,7 @@ class DominoEksNodegroupProvisioner:
 
         max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
 
-        def provision_nodegroup(nodegroup: EKS.NodegroupBase, prov_func):
+        def provision_nodegroup(nodegroup: config.EKS.NodegroupBase, prov_func):
             for name, ng in nodegroup.items():
                 if not ng.ami_id:
                     ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
@@ -48,7 +48,7 @@ class DominoEksNodegroupProvisioner:
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
-    def provision_managed_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
+    def provision_managed_nodegroup(self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id}) if ng.ami_id else None
         )
@@ -92,7 +92,7 @@ class DominoEksNodegroupProvisioner:
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
+    def provision_unmanaged_nodegroup(self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
         machine_image = (
             ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id})
             if ng.ami_id
