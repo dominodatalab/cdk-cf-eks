@@ -1,7 +1,5 @@
-from semantic_version import Version
-
 from domino_cdk import __version__
-from domino_cdk.config import DominoCDKConfig, EFS, EKS, Route53, S3, VPC, IngressRule, MachineImage, config_loader
+from domino_cdk.config import DominoCDKConfig, EFS, EKS, Route53, S3, VPC, IngressRule
 
 
 def config_template(
@@ -28,7 +26,8 @@ def config_template(
         platform_min_size = 1
 
     unmanaged_nodegroups = {}
-    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=disk_size, taints = None, gpu = False):
+
+    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=disk_size, taints=None, gpu=False):
         for i in range(0, count):
             unmanaged_nodegroups[f"{name}-{i}"] = EKS.UnmanagedNodegroup(
                 gpu=gpu,
@@ -37,7 +36,8 @@ def config_template(
                 key_name=None,
                 min_size=min_size,
                 max_size=10,
-                machine_image=None,
+                ami_id=None,
+                user_data=None,
                 instance_types=instance_types,
                 labels=labels,
                 tags={},
@@ -59,7 +59,8 @@ def config_template(
             key_name=None,
             instance_type='t2.micro',
             ingress_ports=[IngressRule(name='ssh', from_port=22, to_port=22, protocol='TCP', ip_cidrs=['0.0.0.0/0'])],
-            machine_image=None,
+            ami_id=None,
+            user_data=None
         ),
     )
 

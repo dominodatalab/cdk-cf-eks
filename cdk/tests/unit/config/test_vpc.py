@@ -2,7 +2,7 @@ import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config import VPC, IngressRule, MachineImage
+from domino_cdk.config import VPC, IngressRule
 
 vpc_0_0_0_cfg = {"create": True, "id": None, "cidr": "10.0.0.0/24", "max_azs": 3}
 
@@ -12,7 +12,8 @@ vpc_0_0_1_cfg["bastion"] = {
     "enabled": False,
     "instance_type": None,
     "ingress_ports": None,
-    "machine_image": None,
+    "ami_id": None,
+    "user_data": None,
 }
 bastion = {
     "enabled": True,
@@ -26,10 +27,8 @@ bastion = {
             "ip_cidrs": ["0.0.0.0/0"],
         }
     ],
-    "machine_image": {
-        "ami_id": "ami-1234abcd",
-        "user_data": "some-user-data",
-    },
+    "ami_id": "ami-1234abcd",
+    "user_data": "some-user-data",
 }
 
 vpc_object = VPC(
@@ -38,14 +37,15 @@ vpc_object = VPC(
     cidr="10.0.0.0/24",
     availability_zones=[],
     max_azs=3,
-    bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, machine_image=None),
+    bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None),
 )
 bastion_object = VPC.Bastion(
     enabled=True,
     key_name=None,
     instance_type="t2.micro",
     ingress_ports=[IngressRule("ssh", 22, 22, "TCP", ["0.0.0.0/0"])],
-    machine_image=MachineImage("ami-1234abcd", "some-user-data"),
+    ami_id="ami-1234abcd",
+    user_data="some-user-data",
 )
 
 
@@ -95,6 +95,7 @@ class TestConfigVPC(unittest.TestCase):
     def test_bastion_user_data_no_ami(self):
         vpc_cfg = deepcopy(vpc_0_0_1_cfg)
         vpc_cfg["bastion"]["enabled"] = True
-        vpc_cfg["bastion"]["machine_image"] = {"ami_id": None, "user_data": "some-user-data"}
+        vpc_cfg["bastion"]["ami_id"] = None
+        vpc_cfg["bastion"]["user_data"] = "some-user-data"
         with self.assertRaisesRegex(ValueError, "Bastion instance with user_data requires an ami_id!"):
             VPC.from_0_0_1(vpc_cfg)
