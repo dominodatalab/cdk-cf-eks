@@ -1,13 +1,13 @@
 import aws_cdk.aws_ec2 as ec2
 from aws_cdk import core as cdk
 
-from domino_cdk.config import VPC
+from domino_cdk import config
 
 _DominoVpcStack = None
 
 
 class DominoVpcProvisioner:
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, vpc: VPC, nest: bool, **kwargs) -> None:
+    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, vpc: config.VPC, nest: bool, **kwargs) -> None:
         self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
 
         self._availability_zones = vpc.availability_zones
@@ -15,7 +15,7 @@ class DominoVpcProvisioner:
         self.provision_vpc(name, vpc)
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
-    def provision_vpc(self, name: str, vpc: VPC):
+    def provision_vpc(self, name: str, vpc: config.VPC):
         self.public_subnet_name = f"{name}-public"
         self.private_subnet_name = f"{name}-private"
         if not vpc.create:
@@ -85,7 +85,7 @@ class DominoVpcProvisioner:
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
-    def provision_bastion(self, name: str, bastion: VPC.Bastion) -> None:
+    def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> None:
         if not bastion.enabled:
             return None
         if bastion.ami_id:

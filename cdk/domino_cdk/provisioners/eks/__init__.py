@@ -5,7 +5,7 @@ import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 
-from domino_cdk.config import EKS
+from domino_cdk import config
 from domino_cdk.provisioners.eks.eks_cluster import DominoEksClusterProvisioner
 from domino_cdk.provisioners.eks.eks_iam import DominoEksIamProvisioner
 from domino_cdk.provisioners.eks.eks_nodegroup import DominoEksNodegroupProvisioner
@@ -17,7 +17,7 @@ class DominoEksProvisioner:
         scope: cdk.Construct,
         construct_id: str,
         name: str,
-        eks_cfg: EKS,
+        eks_cfg: config.EKS,
         vpc: ec2.Vpc,
         private_subnet_name: str,
         bastion_sg: ec2.SecurityGroup,

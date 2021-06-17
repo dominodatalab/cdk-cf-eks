@@ -5,7 +5,7 @@ import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 
-from domino_cdk.config import EFS
+from domino_cdk import config
 
 _DominoEfsStack = None
 
@@ -16,7 +16,7 @@ class DominoEfsProvisioner:
         scope: cdk.Construct,
         construct_id: str,
         name: str,
-        cfg: EFS,
+        cfg: config.EFS,
         vpc: ec2.Vpc,
         security_group: ec2.SecurityGroup,
         nest: bool,
@@ -28,7 +28,7 @@ class DominoEfsProvisioner:
         if cfg.backup.enable:
             self.provision_backup_vault(name, cfg.backup)
 
-    def provision_efs(self, name: str, cfg: EFS, vpc: ec2.Vpc, security_group: ec2.SecurityGroup):
+    def provision_efs(self, name: str, cfg: config.EFS, vpc: ec2.Vpc, security_group: ec2.SecurityGroup):
         self.efs = efs.FileSystem(
             self.scope,
             "Efs",
@@ -60,7 +60,7 @@ class DominoEfsProvisioner:
             ),
         )
 
-    def provision_backup_vault(self, name: str, efs_backup: EFS.Backup):
+    def provision_backup_vault(self, name: str, efs_backup: config.EFS.Backup):
         vault = backup.BackupVault(
             self.scope,
             "efs_backup",
