@@ -17,12 +17,6 @@ def check_leavins(thing, section, obj):
 
 
 @dataclass
-class MachineImage:
-    ami_id: str
-    user_data: str
-
-
-@dataclass
 class IngressRule:
     name: str
     from_port: int
