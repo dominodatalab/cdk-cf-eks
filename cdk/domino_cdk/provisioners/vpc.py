@@ -88,10 +88,10 @@ class DominoVpcProvisioner:
     def provision_bastion(self, name: str, bastion: VPC.Bastion) -> None:
         if not bastion.enabled:
             return None
-        if bastion.machine_image:
-            bastion_machine_image = ec2.MachineImage.generic_linux(
-                {self.region: bastion.machine_image.ami_id},
-                user_data=ec2.UserData.custom(bastion.machine_image.user_data),
+        if bastion.ami_id:
+            machine_image = ec2.MachineImage.generic_linux(
+                {self.region: bastion.ami_id},
+                user_data=ec2.UserData.custom(bastion.user_data),
             )
         else:
             if not self.scope.account.isnumeric():  # TODO: Can we get rid of this requirement?
@@ -99,7 +99,7 @@ class DominoVpcProvisioner:
                     "Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
                 )
 
-            bastion_machine_image = ec2.LookupMachineImage(
+            machine_image = ec2.LookupMachineImage(
                 name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"]
             )
 
@@ -125,7 +125,7 @@ class DominoVpcProvisioner:
         bastion = ec2.Instance(
             self.scope,
             "bastion",
-            machine_image=bastion_machine_image,
+            machine_image=machine_image,
             vpc=self.vpc,
             instance_type=ec2.InstanceType(bastion.instance_type),
             key_name=bastion.key_name,
