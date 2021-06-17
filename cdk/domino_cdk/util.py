@@ -1,12 +1,10 @@
 from filecmp import cmp
 from glob import glob
 from json import loads as json_loads
-from os.path import basename, dirname, isfile
+from os.path import basename, isfile
 from os.path import join as path_join
 from subprocess import run
 from time import time
-
-from yaml import safe_load as yaml_safe_load
 
 
 class ExternalCommandException(Exception):
@@ -91,11 +89,6 @@ class DominoCdkUtil:
                 }
             },
         }
-
-    @classmethod
-    def config_template(cls):
-        with open(path_join(dirname(__file__), "config_template.yaml")) as f:
-            return yaml_safe_load(f.read())
 
     @classmethod
     def deep_merge(cls, *dictionaries) -> dict:
