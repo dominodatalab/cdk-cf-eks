@@ -1,5 +1,5 @@
 from domino_cdk import __version__
-from domino_cdk.config import DominoCDKConfig, EFS, EKS, Route53, S3, VPC, IngressRule
+from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Route53
 
 
 def config_template(
@@ -44,9 +44,29 @@ def config_template(
                 taints=taints or {},
             )
 
-    add_nodegroups("platform", platform_nodegroups, platform_min_size, [platform_instance_type], {"dominodatalab.com/node-pool": "platform"})
-    add_nodegroups("compute", compute_nodegroups, 1, ["m5.2xlarge"], {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"})
-    add_nodegroups("gpu", gpu_nodegroups, 0, ["p3.2xlarge"], {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"}, taints={"nvidia.com/gpu": "true:NoSchedule"}, gpu=True)
+    add_nodegroups(
+        "platform",
+        platform_nodegroups,
+        platform_min_size,
+        [platform_instance_type],
+        {"dominodatalab.com/node-pool": "platform"},
+    )
+    add_nodegroups(
+        "compute",
+        compute_nodegroups,
+        1,
+        ["m5.2xlarge"],
+        {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"},
+    )
+    add_nodegroups(
+        "gpu",
+        gpu_nodegroups,
+        0,
+        ["p3.2xlarge"],
+        {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
+        taints={"nvidia.com/gpu": "true:NoSchedule"},
+        gpu=True,
+    )
 
     vpc = VPC(
         id=None,
@@ -60,7 +80,7 @@ def config_template(
             instance_type='t2.micro',
             ingress_ports=[IngressRule(name='ssh', from_port=22, to_port=22, protocol='TCP', ip_cidrs=['0.0.0.0/0'])],
             ami_id=None,
-            user_data=None
+            user_data=None,
         ),
     )
 
@@ -85,16 +105,22 @@ def config_template(
         unmanaged_nodegroups=unmanaged_nodegroups,
     )
 
-    route53 = Route53(
-        zone_ids=[]
-    )
+    route53 = Route53(zone_ids=[])
 
     s3 = S3(
         buckets={
-            'blobs': S3.Bucket(auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None),
-            'logs': S3.Bucket(auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None),
-            'backups': S3.Bucket(auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None),
-            'registry': S3.Bucket(auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None),
+            'blobs': S3.Bucket(
+                auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
+            ),
+            'logs': S3.Bucket(
+                auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
+            ),
+            'backups': S3.Bucket(
+                auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
+            ),
+            'registry': S3.Bucket(
+                auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
+            ),
         }
     )
 

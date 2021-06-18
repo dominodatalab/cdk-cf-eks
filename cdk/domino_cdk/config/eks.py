@@ -140,6 +140,7 @@ class EKS:
     def from_0_0_0(c: dict):
         def remap_mi(ng):
             return {**ng.pop("machine_image", {}), **ng}
+
         return from_loader(
             "config.eks",
             EKS(
@@ -149,7 +150,8 @@ class EKS:
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),
                 managed_nodegroups={
-                    name: EKS.ManagedNodegroup.load(remap_mi(ng)) for name, ng in c.pop("managed_nodegroups", {}).items()
+                    name: EKS.ManagedNodegroup.load(remap_mi(ng))
+                    for name, ng in c.pop("managed_nodegroups", {}).items()
                 },
                 unmanaged_nodegroups={
                     name: EKS.UnmanagedNodegroup.load(remap_mi(ng)) for name, ng in c.pop("nodegroups", {}).items()
