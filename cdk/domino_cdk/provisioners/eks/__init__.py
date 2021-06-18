@@ -14,7 +14,7 @@ from domino_cdk.provisioners.eks.eks_nodegroup import DominoEksNodegroupProvisio
 class DominoEksProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        parent: cdk.Construct,
         construct_id: str,
         name: str,
         eks_cfg: config.EKS,
@@ -26,7 +26,7 @@ class DominoEksProvisioner:
         nest: bool,
         **kwargs,
     ) -> None:
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+        self.scope = cdk.NestedStack(parent, construct_id, **kwargs) if nest else parent
 
         eks_version = getattr(eks.KubernetesVersion, f"V{eks_cfg.version.replace('.', '_')}")
 
@@ -38,4 +38,11 @@ class DominoEksProvisioner:
         )
         DominoEksNodegroupProvisioner(
             self.scope, self.cluster, ng_role, name, eks_cfg, eks_version, vpc, private_subnet_name, bastion_sg
+        )
+
+        cdk.CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
+        cdk.CfnOutput(
+            parent,
+            "eks_kubeconfig_cmd",
+            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.scope.region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )

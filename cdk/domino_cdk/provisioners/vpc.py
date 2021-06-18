@@ -7,8 +7,11 @@ _DominoVpcStack = None
 
 
 class DominoVpcProvisioner:
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, vpc: config.VPC, nest: bool, **kwargs) -> None:
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+    def __init__(
+        self, parent: cdk.Construct, construct_id: str, name: str, vpc: config.VPC, nest: bool, **kwargs
+    ) -> None:
+        self.parent = parent
+        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self._availability_zones = vpc.availability_zones
 
@@ -46,7 +49,7 @@ class DominoVpcProvisioner:
             nat_gateway_provider=nat_provider,
         )
         cdk.Tags.of(self.vpc).add("Name", name)
-        cdk.CfnOutput(self.scope, "vpc-output", value=self.vpc.vpc_cidr_block)
+        cdk.CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
@@ -141,7 +144,7 @@ class DominoVpcProvisioner:
             instance_id=bastion.instance_id,
         )
 
-        cdk.CfnOutput(self.scope, "bastion_public_ip", value=bastion.instance_public_ip)
+        cdk.CfnOutput(self.parent, "bastion_public_ip", value=bastion.instance_public_ip)
 
         return bastion_sg
 
