@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Type, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
@@ -48,7 +48,9 @@ class DominoEksNodegroupProvisioner:
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
-    def provision_managed_nodegroup(self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
+    def provision_managed_nodegroup(
+        self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
+    ) -> None:
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id}) if ng.ami_id else None
         )
@@ -92,7 +94,9 @@ class DominoEksNodegroupProvisioner:
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
+    def provision_unmanaged_nodegroup(
+        self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
+    ) -> None:
         machine_image = (
             ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id})
             if ng.ami_id

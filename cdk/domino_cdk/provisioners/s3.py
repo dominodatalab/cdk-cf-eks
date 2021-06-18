@@ -9,8 +9,9 @@ from domino_cdk import config
 
 
 class DominoS3Provisioner:
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[config.S3], nest: bool, **kwargs):
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+    def __init__(self, parent: cdk.Construct, construct_id: str, name: str, s3: List[config.S3], nest: bool, **kwargs):
+        self.parent = parent
+        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self.s3_api_statement = iam.PolicyStatement(
             actions=[
@@ -72,7 +73,7 @@ class DominoS3Provisioner:
                 )
             )
             self.s3_api_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            cdk.CfnOutput(self.scope, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
+            cdk.CfnOutput(self.parent, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
     def provision_iam_policy(self, name: str):
         self.policy = iam.ManagedPolicy(

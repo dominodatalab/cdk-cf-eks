@@ -13,7 +13,7 @@ _DominoEfsStack = None
 class DominoEfsProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        parent: cdk.Construct,
         construct_id: str,
         name: str,
         cfg: config.EFS,
@@ -22,7 +22,8 @@ class DominoEfsProvisioner:
         nest: bool,
         **kwargs,
     ):
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+        self.parent = parent
+        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self.provision_efs(name, cfg, vpc, security_group)
         if cfg.backup.enable:
@@ -67,7 +68,7 @@ class DominoEfsProvisioner:
             backup_vault_name=f'{name}-efs',
             removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
         )
-        cdk.CfnOutput(self.scope, "backup-vault", value=vault.backup_vault_name)
+        cdk.CfnOutput(self.parent, "backup-vault", value=vault.backup_vault_name)
         plan = backup.BackupPlan(
             self.scope,
             "efs_backup_plan",
