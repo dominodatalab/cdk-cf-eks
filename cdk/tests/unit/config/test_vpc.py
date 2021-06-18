@@ -37,7 +37,9 @@ vpc_object = VPC(
     cidr="10.0.0.0/24",
     availability_zones=[],
     max_azs=3,
-    bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None),
+    bastion=VPC.Bastion(
+        enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None
+    ),
 )
 bastion_object = VPC.Bastion(
     enabled=True,

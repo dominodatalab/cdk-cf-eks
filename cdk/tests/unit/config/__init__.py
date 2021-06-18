@@ -1,7 +1,16 @@
 import unittest
 from unittest.mock import patch
 
-from domino_cdk.config import config_loader, DominoCDKConfig, EFS, EKS, Route53, S3, IngressRule, VPC
+from domino_cdk.config import (
+    EFS,
+    EKS,
+    S3,
+    VPC,
+    DominoCDKConfig,
+    IngressRule,
+    Route53,
+    config_loader,
+)
 from domino_cdk.config.template import config_template
 
 default_config = DominoCDKConfig(
@@ -193,7 +202,9 @@ legacy_config = DominoCDKConfig(
         cidr='10.0.0.0/16',
         availability_zones=[],
         max_azs=3,
-        bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None),
+        bastion=VPC.Bastion(
+            enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None
+        ),
     ),
     efs=EFS(
         backup=EFS.Backup(
