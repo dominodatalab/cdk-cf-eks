@@ -7,6 +7,7 @@ def config_template(
     platform_nodegroups: int = 1,
     compute_nodegroups: int = 1,
     gpu_nodegroups: int = 1,
+    keypair_name: str = None,
     bastion: bool = False,
     private_api: bool = False,
     dev_defaults: bool = False,
@@ -33,7 +34,7 @@ def config_template(
                 gpu=gpu,
                 ssm_agent=True,
                 disk_size=disk_size,
-                key_name=None,
+                key_name=keypair_name,
                 min_size=min_size,
                 max_size=10,
                 ami_id=None,
@@ -76,7 +77,7 @@ def config_template(
         max_azs=3,
         bastion=VPC.Bastion(
             enabled=bastion,
-            key_name=None,
+            key_name=keypair_name,
             instance_type='t2.micro',
             ingress_ports=[IngressRule(name='ssh', from_port=22, to_port=22, protocol='TCP', ip_cidrs=['0.0.0.0/0'])],
             ami_id=None,
@@ -124,12 +125,29 @@ def config_template(
         }
     )
 
+    install = {}
+
+    if dev_defaults:
+        install["services"] = {
+            "nucleus": {
+                "chart_values": {
+                    "replicaCount": {
+                        "dispatcher": 1,
+                        "frontend": 1,
+                    },
+                    "keycloak": {
+                        "createIntegrationTestUser": True,
+                    },
+                },
+            },
+        }
+
     return DominoCDKConfig(
         name=name,
         aws_region=fill,
         aws_account_id=fill,
         tags={"domino-infrastructure": "true"},
-        install={},
+        install=install,
         vpc=vpc,
         efs=efs,
         route53=route53,

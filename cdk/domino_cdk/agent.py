@@ -16,6 +16,7 @@ def generate_install_config(
 ):
     agent_cfg = {
         "name": name,
+        "hostname": "__FILL__",
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {
@@ -70,13 +71,6 @@ def generate_install_config(
         },
         "services": {
             "nginx_ingress": {},
-            "nucleus": {
-                "chart_values": {
-                    "keycloak": {
-                        "createIntegrationTestUser": True,
-                    }
-                }
-            },
             "forge": {
                 "chart_values": {
                     "config": {
@@ -103,6 +97,7 @@ def generate_install_config(
                 "enabled": True,
                 "type": "LoadBalancer",
                 "annotations": {
+                    "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "__FILL__",  # TODO: Should we have an official config for this?
                     "service.beta.kubernetes.io/aws-load-balancer-internal": False,
                     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                     "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
