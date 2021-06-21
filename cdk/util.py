@@ -9,6 +9,7 @@ from ruamel.yaml import load as yaml_load
 
 from domino_cdk.config import config_loader
 from domino_cdk.config.template import config_template
+from domino_cdk.config.iam import generate_iam
 from domino_cdk.util import DominoCdkUtil
 
 DEFAULT_TF_MODULE_PATH = "https://github.com/dominodatalab/cdk-cf-eks/releases/download/v0.0.1rc1/domino-cdk-terraform-0.0.1rc1.tar.gz"
@@ -29,6 +30,12 @@ def parse_args():
     template_parser.add_argument("--gpu-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
     template_parser.add_argument("--keypair-name", help="Name of AWS Keypair for bastion/nodegroup SSH [default: None]")
     template_parser.set_defaults(func=generate_config_template)
+
+    iam_parser = subparsers.add_parser("generate_iam_policy", help="Generate IAM Policy for CloudFormation")
+    iam_parser.add_argument("-s", "--stack-name", help="Name of CloudFormation stack", default="<YOUR_STACK_NAME>")
+    iam_parser.add_argument("-a", "--aws-account-id", help="AWS Account ID", default="<YOUR_ACCOUNT_ID>")
+    iam_parser.add_argument("-t", "--terraform", help="IAM Policy for Deploying CloudFormation stack via Terraform", action="store_true")
+    iam_parser.set_defaults(func=generate_iam_policy)
 
     load_parser = subparsers.add_parser("load_config", help="Load config into memory for linting/updating")
     load_parser.add_argument("-f", "--file", help="File to load, otherwise reads stdin", default=None)
@@ -65,6 +72,17 @@ def generate_config_template(args):
         private_api=args.private_api,
         dev_defaults=args.dev,
     ).render(args.no_comments), stdout)
+
+
+def generate_iam_policy(args):
+    print(json_dumps(
+        generate_iam(
+            stack_name=args.stack_name,
+            aws_account_id=args.aws_account_id,
+            terraform=args.terraform,
+        ),
+        indent=4,
+    ))
 
 
 def load_config(args):
