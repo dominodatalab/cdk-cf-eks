@@ -1,5 +1,12 @@
 
 def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
+    from_cf_condition = {"Condition": {
+            "ForAnyValue:StringEquals": {
+                "aws:CalledVia": ["cloudformation.amazonaws.com"]
+            }
+        },
+    }
+
     cloudformation = {
                 "Effect": "Allow",
                 "Action": [
@@ -36,11 +43,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "s3:PutBucketTagging",
                     "s3:PutEncryptionConfiguration",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [f"arn:aws:s3:::{stack_name}-*"],
             }
 
@@ -66,11 +69,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "iam:PutRolePolicy",
                     "iam:RemoveRoleFromInstanceProfile",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [
                     f"arn:aws:iam::{aws_account_id}:policy/{stack_name}-*",
                     f"arn:aws:iam::{aws_account_id}:role/{stack_name}-*",
@@ -90,11 +89,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "lambda:InvokeFunction",
                     "lambda:PublishLayerVersion",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [
                     f"arn:aws:lambda:*:{aws_account_id}:function:{stack_name}-*",
                     f"arn:aws:lambda:*:{aws_account_id}:layer:*",
@@ -109,11 +104,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "states:TagResource",
                     "states:UntagResource",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [f"arn:aws:states:*:{aws_account_id}:stateMachine:Provider*"],
             }
 
@@ -137,11 +128,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "ssm:PutParameter",
                     "ssm:RemoveTagsFromResource",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [f"arn:aws:ssm:*:{aws_account_id}:parameter/CFN*"],
             }
 
@@ -164,11 +151,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "backup:ListTags",
                     "backup:TagResource",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [
                     f"arn:aws:backup:*:{aws_account_id}:backup-vault:{stack_name}-efs",
                     f"arn:aws:backup:*:{aws_account_id}:backup-plan:{stack_name}-efs",
@@ -254,19 +237,9 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "kms:GenerateDataKey",
                     "kms:RetireGrant",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": "*",
             }
-
-#    from_cf_condition = {
-#                    "ForAnyValue:StringEquals": {
-#                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-#                    }
-#                }
 
 # if argv[1] == "cdk":
 #     cloudformation["Resource"].append(f"arn:aws:cloudformation:*:{aws_account_id}:stack/CDKToolkit/*")
@@ -367,11 +340,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "lambda:InvokeFunction",
                     "lambda:PublishLayerVersion",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [
                     f"arn:aws:lambda:*:{aws_account_id}:function:{stack_name}-*",
                     f"arn:aws:lambda:*:{aws_account_id}:layer:*",
@@ -385,11 +354,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "states:TagResource",
                     "states:UntagResource",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [f"arn:aws:states:*:{aws_account_id}:stateMachine:Provider*"],
             },
             {
@@ -400,11 +365,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "ssm:PutParameter",
                     "ssm:RemoveTagsFromResource",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [f"arn:aws:ssm:*:{aws_account_id}:parameter/CFN*"],
             },
             {
@@ -423,11 +384,7 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "backup:ListTags",
                     "backup:TagResource",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [
                     f"arn:aws:backup:*:{aws_account_id}:backup-vault:{stack_name}-efs",
                     f"arn:aws:backup:*:{aws_account_id}:backup-plan:*",
@@ -449,21 +406,13 @@ def generate_iam(stack_name: str, aws_account_id: str, terraform: bool = False):
                     "kms:GenerateDataKey",
                     "kms:RetireGrant",
                 ],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": "*",
             },
             {
                 "Effect": "Allow",
                 "Action": ["ecr:CreateRepository", "ecr:DeleteRepository"],
-                "Condition": {
-                    "ForAnyValue:StringEquals": {
-                        "aws:CalledVia": ["cloudformation.amazonaws.com"]
-                    }
-                },
+                **from_cf_condition,
                 "Resource": [f"arn:aws:ecr:*:{aws_account_id}:repository/{stack_name}*"],
             },
             {
