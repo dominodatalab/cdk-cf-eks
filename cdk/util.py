@@ -13,6 +13,7 @@ from domino_cdk.util import DominoCdkUtil
 
 DEFAULT_TF_MODULE_PATH = "https://github.com/dominodatalab/cdk-cf-eks/releases/download/v0.0.1rc1/domino-cdk-terraform-0.0.1rc1.tar.gz"
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="domino_cdk utility")
     subparsers = parser.add_subparsers(title="commands")
@@ -26,6 +27,7 @@ def parse_args():
     template_parser.add_argument("--platform-nodegroups", help="How many platform nodegroups per az", default=1, type=int)
     template_parser.add_argument("--compute-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
     template_parser.add_argument("--gpu-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
+    template_parser.add_argument("--keypair-name", help="Name of AWS Keypair for bastion/nodegroup SSH [default: None]")
     template_parser.set_defaults(func=generate_config_template)
 
     load_parser = subparsers.add_parser("load_config", help="Load config into memory for linting/updating")
@@ -58,6 +60,7 @@ def generate_config_template(args):
         platform_nodegroups=args.platform_nodegroups,
         compute_nodegroups=args.compute_nodegroups,
         gpu_nodegroups=args.gpu_nodegroups,
+        keypair_name=args.keypair_name,
         bastion=args.bastion,
         private_api=args.private_api,
         dev_defaults=args.dev,
