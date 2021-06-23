@@ -64,6 +64,7 @@ default_config = DominoCDKConfig(
                 labels={'dominodatalab.com/node-pool': 'platform'},
                 tags={},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
@@ -78,6 +79,7 @@ default_config = DominoCDKConfig(
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
                 tags={},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
@@ -92,6 +94,7 @@ default_config = DominoCDKConfig(
                 labels={'dominodatalab.com/node-pool': 'default-gpu', 'nvidia.com/gpu': 'true'},
                 tags={},
                 gpu=True,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
             ),
@@ -106,7 +109,7 @@ default_config = DominoCDKConfig(
             'registry': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
         }
     ),
-    schema='0.0.1-rc1',
+    schema='0.0.1-rc2',
 )
 
 legacy_template = {
@@ -236,6 +239,7 @@ legacy_config = DominoCDKConfig(
                 labels={'dominodatalab.com/node-pool': 'platform'},
                 tags={'dominodatalab.com/node-pool': 'platform'},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
@@ -250,6 +254,7 @@ legacy_config = DominoCDKConfig(
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
                 tags={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
@@ -264,6 +269,7 @@ legacy_config = DominoCDKConfig(
                 labels={'dominodatalab.com/node-pool': 'default-gpu', 'nvidia.com/gpu': 'true'},
                 tags={'dominodatalab.com/node-pool': 'default-gpu'},
                 gpu=True,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
             ),
@@ -278,7 +284,7 @@ legacy_config = DominoCDKConfig(
             'registry': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
         }
     ),
-    schema='0.0.1-rc1',
+    schema='0.0.1-rc2',
 )
 
 

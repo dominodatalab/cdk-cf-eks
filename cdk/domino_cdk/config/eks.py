@@ -93,11 +93,12 @@ class EKS:
     @dataclass
     class UnmanagedNodegroup(NodegroupBase):
         gpu: bool
+        imdsv2_required: bool
         taints: Dict[str, str]
 
         @classmethod
         def load(cls, ng):
-            out = cls(**cls.base_load(ng), gpu=ng.pop("gpu"), taints=ng.pop("taints", {}))
+            out = cls(**cls.base_load(ng), gpu=ng.pop("gpu"), imdsv2_required=ng.pop("imdsv2_required"), taints=ng.pop("taints", {}))
             check_leavins("unmanaged nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
             return out
 
@@ -138,7 +139,9 @@ class EKS:
 
     @staticmethod
     def from_0_0_0(c: dict):
-        def remap_mi(ng):
+        def remap_mi(ng, unmanaged=False):
+            if unmanaged:
+                ng["imdsv2_required"] = False
             return {**ng.pop("machine_image", {}), **ng}
 
         return from_loader(
@@ -154,7 +157,7 @@ class EKS:
                     for name, ng in c.pop("managed_nodegroups", {}).items()
                 },
                 unmanaged_nodegroups={
-                    name: EKS.UnmanagedNodegroup.load(remap_mi(ng)) for name, ng in c.pop("nodegroups", {}).items()
+                    name: EKS.UnmanagedNodegroup.load(remap_mi(ng, True)) for name, ng in c.pop("nodegroups", {}).items()
                 },
                 secrets_encryption_key_arn=None,
             ),

@@ -186,10 +186,13 @@ class DominoEksNodegroupProvisioner:
                 # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
                 lt.connections.add_security_group(self.cluster.cluster_security_group)
                 cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
+
+                http_tokens = "required" if ng.imdsv2_required else "optional"
+
                 lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
                     **cfn_lt.launch_template_data._values,
                     metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
-                        http_endpoint="enabled", http_tokens="required", http_put_response_hop_limit=2
+                        http_endpoint="enabled", http_tokens=http_tokens, http_put_response_hop_limit=2
                     ),
                 )
                 cfn_lt.launch_template_data = lt_data
