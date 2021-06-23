@@ -46,6 +46,9 @@ def parse_args():
     iam_parser.add_argument(
         "-o", "--out-file", help="File to write to or '-' for stdout [default: none]", default=None
     )
+    iam_parser.add_argument(
+        "-b", "--bastion", help="Add ec2 perms for bastion", action="store_true", default=False
+    )
     iam_parser.set_defaults(func=generate_iam_policy)
 
     load_parser = subparsers.add_parser("load_config", help="Load config into memory for linting/updating")
@@ -131,6 +134,7 @@ def generate_iam_policy(args):
                 stack_name=args.stack_name,
                 aws_account_id=args.aws_account_id,
                 manual=args.manual,
+                use_bastion=args.bastion,
             ),
             indent=4,
         )

@@ -1,4 +1,4 @@
-def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False):
+def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use_bastion: bool = False):
 
     if manual:
         asset_bucket = "*"
@@ -240,6 +240,22 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False):
     if not manual:
         ecr = []
 
+    if use_bastion:
+        bastion = [
+            {
+                "Effect": "Allow",
+                "Action": [
+                    "ec2:TerminateInstances",
+                ],
+                "Resource": "*",
+                "Condition": {
+                    "StringEquals": {
+                        "ec2:ResourceTag/domino-deploy-id": stack_name,
+                    }
+                }
+            },
+        ]
+
     general = {
         "Effect": "Allow",
         "Action": [
@@ -251,6 +267,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False):
             "ec2:*NetworkInterface*",
             "ec2:*Subnet*",
             "ec2:AllocateAddress",
+            "ec2:AssociateAddress",
             "ec2:CreateLaunchTemplate",
             "ec2:CreateSecurityGroup",
             "ec2:CreateTags",
@@ -259,8 +276,10 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False):
             "ec2:DescribeAccountAttributes",
             "ec2:DescribeAddresses",
             "ec2:DescribeAvailabilityZones",
+            "ec2:DescribeInstances",
             "ec2:DescribeLaunchTemplates",
             "ec2:DescribeSecurityGroups",
+            "ec2:DisassociateAddress",
             "ec2:GetLaunchTemplateData",
             "ec2:ReleaseAddress",
             "ec2:RunInstances",
@@ -359,6 +378,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False):
             backup,
             *backup_efs_kms_combo,
             *ecr,
+            *bastion,
             general,
         ],
     }
