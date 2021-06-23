@@ -32,7 +32,7 @@ def config_template(
         for i in range(0, count):
             unmanaged_nodegroups[f"{name}-{i}"] = EKS.UnmanagedNodegroup(
                 gpu=gpu,
-                imdsv2_required=False  # Can flip this default back to true when IMDSv2 is merged into 4.5.1
+                imdsv2_required=False
                 ssm_agent=True,
                 disk_size=disk_size,
                 key_name=keypair_name,
