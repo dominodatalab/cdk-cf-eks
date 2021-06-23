@@ -15,7 +15,7 @@ nest = app.node.try_get_context("nest") or False
 
 DominoStack(
     app,
-    f"{cfg.name}-domino",
+    f"{cfg.name}",
     # If you don't specify 'env', this stack will be environment-agnostic.
     # Account/Region-dependent features and context lookups will not work,
     # but a single synthesized template can be deployed anywhere.
