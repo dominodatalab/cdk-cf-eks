@@ -50,6 +50,8 @@ eks_0_0_0_cfg = {
 
 eks_0_0_1_cfg = deepcopy(eks_0_0_0_cfg)
 eks_0_0_1_cfg["unmanaged_nodegroups"] = eks_0_0_1_cfg["nodegroups"]
+eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["imdsv2_required"] = False
+eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["imdsv2_required"] = False
 del eks_0_0_1_cfg["nodegroups"]
 
 managed_ngs = {
@@ -80,6 +82,7 @@ unmanaged_ngs = {
         labels={"dominodatalab.com/node-pool": "platform"},
         tags={"dominodatalab.com/node-pool": "platform"},
         gpu=False,
+        imdsv2_required=False,
         ssm_agent=True,
         taints={},
     ),
@@ -94,6 +97,7 @@ unmanaged_ngs = {
         labels={"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
         tags={"dominodatalab.com/node-pool": "default-gpu"},
         gpu=True,
+        imdsv2_required=False,
         ssm_agent=False,
         taints={"nvidia.com/gpu": "true:NoSchedule"},
     ),
