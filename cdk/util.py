@@ -43,6 +43,9 @@ def parse_args():
     iam_parser.add_argument(
         "-m", "--manual", help="Use policy geared toward manual or terraform deployments", action="store_true"
     )
+    iam_parser.add_argument(
+        "-o", "--out-file", help="File to write to or '-' for stdout [default: none]", default=None
+    )
     iam_parser.set_defaults(func=generate_iam_policy)
 
     load_parser = subparsers.add_parser("load_config", help="Load config into memory for linting/updating")
@@ -98,6 +101,9 @@ def parse_args():
     tf_bootstrap_parser.add_argument(
         "--iam-role-arn", help="IAM Role to assign to CloudFormation stack (optional, default: none)", default=None
     )
+    tf_bootstrap_parser.add_argument(
+        "--iam-policy-path", help="IAM policy file to provision as role and assign to CloudFormation stack (optional, default: none)", default=None
+    )
     tf_bootstrap_parser.set_defaults(func=generate_terraform_bootstrap)
 
     return parser.parse_args()
@@ -120,8 +126,7 @@ def generate_config_template(args):
 
 
 def generate_iam_policy(args):
-    print(
-        json_dumps(
+    policy = json_dumps(
             generate_iam(
                 stack_name=args.stack_name,
                 aws_account_id=args.aws_account_id,
@@ -129,8 +134,9 @@ def generate_iam_policy(args):
             ),
             indent=4,
         )
-    )
 
+    with open(args.out_file or 1, "w") as out:
+        out.write(f"{policy}\n")
 
 def load_config(args):
     print(f"Loading config {args.file or 'from stdin'}...")
@@ -154,6 +160,8 @@ def generate_asset_parameters(args):
 
 
 def generate_terraform_bootstrap(args):
+    if args.iam_role_arn and args.iam_policy_path:
+        raise Exception("Cannot provide both --iam-role-arn and --iam-policy-path!")
     print(
         json_dumps(
             DominoCdkUtil.generate_terraform_bootstrap(
@@ -164,6 +172,7 @@ def generate_terraform_bootstrap(args):
                 args.output_dir,
                 args.disable_random_templates,
                 args.iam_role_arn,
+                args.iam_policy_path,
             ),
             indent=4,
         )

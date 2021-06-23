@@ -35,7 +35,13 @@ variable "template_filename" {
 
 variable "iam_role_arn" {
   type        = string
-  description = "IAM role to use for deployment"
+  description = "Pre-existing IAM role to use for deployment"
+  default     = ""
+}
+
+variable "iam_policy_path" {
+  type        = string
+  description = "IAM policy to provision and use for deployment"
   default     = ""
 }
 
@@ -43,4 +49,10 @@ variable "cloudformation_timeout_in_minutes" {
   type        = number
   description = "CloudFormation provisioning timeout in minutes"
   default     = 60
+}
+
+variable "tags" {
+  type        = map
+  description = "Tags to apply to all resources (not including what CloudFormation provisions)"
+  default     = {}
 }
