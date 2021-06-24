@@ -232,6 +232,22 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
     if not manual:
         backup_efs_kms_combo = []
 
+    eks_kms = {
+            # TODO: how do we limit this?!
+            "Effect": "Allow",
+            "Action": [
+                "kms:CreateKey",
+                "kms:CreateAlias",
+                "kms:EnableKeyRotation",
+                "kms:ScheduleKeyDeletion",
+                "kms:TagResource",
+                "kms:PutKeyPolicy",
+                "kms:DeleteKey"
+                ],
+            **from_cf_condition,
+            "Resource": "*",
+            }
+
     ecr = [
         {
             "Effect": "Allow",
@@ -393,6 +409,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             *ecr,
             *bastion,
             general,
+            eks_kms
         ],
     }
 
