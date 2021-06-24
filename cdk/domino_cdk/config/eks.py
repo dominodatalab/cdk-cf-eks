@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from domino_cdk.config.util import check_leavins, from_loader
 
@@ -109,9 +109,9 @@ class EKS:
     max_nodegroup_azs: int
     global_node_labels: Dict[str, str]
     global_node_tags: Dict[str, str]
+    secrets_encryption_key_arn: str
     managed_nodegroups: Dict[str, ManagedNodegroup]
     unmanaged_nodegroups: Dict[str, UnmanagedNodegroup]
-    secrets_encryption_key_arn: Optional[str]
 
     def __post_init__(self):
         errors = []

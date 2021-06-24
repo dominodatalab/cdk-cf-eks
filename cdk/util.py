@@ -35,6 +35,7 @@ def parse_args():
     template_parser.add_argument("--compute-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
     template_parser.add_argument("--gpu-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
     template_parser.add_argument("--keypair-name", help="Name of AWS Keypair for bastion/nodegroup SSH [default: None]")
+    template_parser.add_argument("--secrets-encryption-key-arn", help="KMS Key arn to encrypt kubernetes secrets, generated if not provided. [default: None]")
     template_parser.set_defaults(func=generate_config_template)
 
     iam_parser = subparsers.add_parser("generate_iam_policy", help="Generate IAM Policy for CloudFormation")
@@ -120,6 +121,7 @@ def generate_config_template(args):
             compute_nodegroups=args.compute_nodegroups,
             gpu_nodegroups=args.gpu_nodegroups,
             keypair_name=args.keypair_name,
+            secrets_encryption_key_arn=args.secrets_encryption_key_arn,
             bastion=args.bastion,
             private_api=args.private_api,
             dev_defaults=args.dev,
