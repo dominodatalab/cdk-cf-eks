@@ -33,12 +33,14 @@ class EKS:
         ami_id: ami-123abc - AMI to use for nodegroup, empty/null will use the default EKS AMI, which
                              is the default. When specifying an AMI, you MUST specify a custom user_data
                              script to join the node to the cluster, and this script must do any sort of
-                             node setup that is desired. Options that are implemented via user_data (ie
-                             labels, taints, ssm_agent) are not supported with custom AMIs, and must be
-                             implemented manualyl.
+                             node setup that is desired. Additionally, some nodegroup options (ie labels,
+                             taints, ssm_agent) depend on the default user data and are not supported when
+                             using custom user_data. When providing custom user_data, you must implement
+                             those options manually, if desired, in your script.
         user_data: ... - Custom script for user_data, ran by cloud_init on node startup. When using the
-                         default EKS AMI, this will be ran in addition to the default user_data scripts.
-                         When specifying a custom AMI, this will be the *only/* user_data script in use.
+                         default EKS AMI, this does not replace the default user_data. Your custom script
+                         will be injected _before_ the default one, and both will be ran. However, when
+                         specifying a custom AMI, this will be the *only* user_data script in use.
         instance_types: ["m5.2xlarge", "m5.4xlarge"] - Instance types available to nodegroup
         labels: some-label: "true" - Labels to apply to all nodes in nodegroup
         tags: some-tag: "true" - Tags to apply to all nodes in nodegroup
