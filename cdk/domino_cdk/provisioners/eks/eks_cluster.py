@@ -1,5 +1,7 @@
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
+import aws_cdk.aws_logs as logs
+import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 
@@ -39,7 +41,9 @@ class DominoEksClusterProvisioner:
                 enable_key_rotation=True,
             )
 
-        # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
+        # TODO: tag the EKS cluster
+        # Need some way: https://github.com/aws/aws-cdk/issues/4995
+        
         cluster = eks.Cluster(
             self.scope,
             "eks",
@@ -51,6 +55,33 @@ class DominoEksClusterProvisioner:
             default_capacity=0,
             security_group=eks_sg,
             secrets_encryption_key=key,
+        )
+
+        params = {
+            "name": cluster.cluster_name,
+            "logging": {
+                "clusterLogging": [
+                    {
+                        "enabled": True,
+                        "types": ["api", "audit", "authenticator", "controllerManager", "scheduler"],
+                    },
+                ],
+            },
+        }
+
+        cr.AwsCustomResource(
+            self.scope,
+            "UpdateClusterConfigCustom",
+            timeout=cdk.Duration.minutes(10),  # defaults to 2 minutes
+            log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+            on_create={
+                "service": "EKS",
+                "action": "updateClusterConfig",
+                "parameters": params,
+                "physical_resource_id": cr.PhysicalResourceId.of("UpdateClusterConfigCustom"),
+                "ignore_error_codes_matching": "...",
+            },
         )
 
         if bastion_sg:
