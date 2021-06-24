@@ -43,7 +43,7 @@ class DominoEksClusterProvisioner:
 
         # TODO: tag the EKS cluster
         # Need some way: https://github.com/aws/aws-cdk/issues/4995
-        
+
         cluster = eks.Cluster(
             self.scope,
             "eks",
