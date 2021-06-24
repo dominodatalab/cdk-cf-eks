@@ -80,6 +80,10 @@ class DominoEksClusterProvisioner:
                 "action": "updateClusterConfig",
                 "parameters": params,
                 "physical_resource_id": cr.PhysicalResourceId.of("UpdateClusterConfigCustom"),
+                # If the cluster already has logging enabled, this call will return error "already in desired state"
+                # We ignore errors here. "..." is regexp for all 3-digit error codes because we cannot find what is the
+                # actual error code. It is not 2.. 3.. 4.. 5..
+                # We have a JIRA to explore this further: https://dominodatalab.atlassian.net/browse/PLAT-2439
                 "ignore_error_codes_matching": "...",
             },
         )
