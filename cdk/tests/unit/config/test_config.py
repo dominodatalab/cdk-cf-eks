@@ -1,6 +1,6 @@
 import unittest
-from unittest.mock import patch
 from copy import deepcopy
+from unittest.mock import patch
 
 from semantic_version import Version
 
