@@ -1,5 +1,6 @@
-from semantic_version import Version
 from typing import Optional
+
+from semantic_version import Version
 
 from domino_cdk import __version__
 from domino_cdk.config.base import DominoCDKConfig
