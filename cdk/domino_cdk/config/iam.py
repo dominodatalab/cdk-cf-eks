@@ -207,7 +207,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         backup["Action"].remove("backup:GetBackupPlan")
         backup["Action"].insert(0, "backup:*BackupPlan")
 
-    backup_efs_kms_combo = [
+    backup_efs = [
         {
             "Effect": "Allow",
             "Action": [
@@ -218,11 +218,6 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
                 "elasticfilesystem:DeleteFileSystem",
                 "elasticfilesystem:DescribeAccessPoints",
                 "elasticfilesystem:DescribeFileSystems",
-                "kms:CreateGrant",
-                "kms:Decrypt",
-                "kms:DescribeKey",
-                "kms:GenerateDataKey",
-                "kms:RetireGrant",
             ],
             **from_cf_condition,
             "Resource": "*",
@@ -230,23 +225,27 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
     ]
 
     if not manual:
-        backup_efs_kms_combo = []
+        backup_efs = []
 
-    eks_kms = {
-            # TODO: how do we limit this?!
-            "Effect": "Allow",
-            "Action": [
-                "kms:CreateKey",
-                "kms:CreateAlias",
-                "kms:EnableKeyRotation",
-                "kms:ScheduleKeyDeletion",
-                "kms:TagResource",
-                "kms:PutKeyPolicy",
-                "kms:DeleteKey"
-                ],
-            **from_cf_condition,
-            "Resource": "*",
-            }
+    kms = {
+        "Effect": "Allow",
+        "Action": [
+            "kms:CreateGrant",
+            "kms:CreateKey",
+            "kms:CreateAlias",
+            "kms:Decrypt",
+            "kms:DeleteKey",
+            "kms:DescribeKey",
+            "kms:EnableKeyRotation",
+            "kms:GenerateDataKey",
+            "kms:PutKeyPolicy",
+            "kms:RetireGrant",
+            "kms:ScheduleKeyDeletion",
+            "kms:TagResource",
+        ],
+        **from_cf_condition,
+        "Resource": "*",
+    }
 
     ecr = [
         {
@@ -367,11 +366,6 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
                 "elasticfilesystem:DescribeAccessPoints",
                 "elasticfilesystem:DescribeFileSystems",
                 "iam:ListAttachedRolePolicies",
-                "kms:CreateGrant",
-                "kms:Decrypt",
-                "kms:DescribeKey",
-                "kms:GenerateDataKey",
-                "kms:RetireGrant",
             ]
         )
     else:
@@ -405,11 +399,11 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             cfn_tagging,
             ssm,
             backup,
-            *backup_efs_kms_combo,
+            *backup_efs,
             *ecr,
             *bastion,
             general,
-            eks_kms
+            kms,
         ],
     }
 
