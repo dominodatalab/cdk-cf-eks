@@ -22,6 +22,12 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: 3.8
+    - name: Setup nodejs
+      uses: actions/setup-node@v2
+      with:
+        node-version: 16
+    - name: Install aws-cdk
+      run: npm install -g aws-cdk@1.105.0
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -39,3 +45,11 @@ jobs:
     - name: Test with pytest
       run: |
         pytest tests
+    - name: Create/lint default config
+      run: |
+        ./util.py generate_config_template | sed -e 's/aws_region: __FILL__/aws_region: us-west-2/' -e 's/aws_account_id: __FILL__/aws_account_id: null/' > config.yaml
+        ./util.py load_config -f ./config.yaml
+    - name: Test default config
+      run: |
+        cdk synth -q
+        cdk synth --context nest=true
