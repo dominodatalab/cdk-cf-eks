@@ -1,6 +1,7 @@
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 from aws_cdk import core as cdk
+from aws_cdk.aws_kms import Key
 
 
 class DominoEksClusterProvisioner:
@@ -15,6 +16,7 @@ class DominoEksClusterProvisioner:
         name: str,
         eks_version: eks.KubernetesVersion,
         private_api: bool,
+        secrets_encryption_key_arn: str,
         vpc: ec2.Vpc,
         bastion_sg: ec2.SecurityGroup,
     ):
@@ -25,6 +27,17 @@ class DominoEksClusterProvisioner:
             security_group_name=f"{name}-EKSSG",
             allow_all_outbound=False,
         )
+
+        if secrets_encryption_key_arn:
+            key = Key.from_key_arn(self.scope, "secrets_encryption_key_arn", secrets_encryption_key_arn)
+        else:
+            key = Key(
+                self.scope,
+                f"{name}-kubernetes-secrets-envelope-key",
+                alias=f"{name}-kubernetes-secrets-envelope-key",
+                removal_policy=cdk.RemovalPolicy.DESTROY,
+                enable_key_rotation=True,
+            )
 
         # Note: We can't tag the EKS cluster via CDK/CF: https://github.com/aws/aws-cdk/issues/4995
         cluster = eks.Cluster(
@@ -37,6 +50,7 @@ class DominoEksClusterProvisioner:
             version=eks_version,
             default_capacity=0,
             security_group=eks_sg,
+            secrets_encryption_key=key,
         )
 
         if bastion_sg:
