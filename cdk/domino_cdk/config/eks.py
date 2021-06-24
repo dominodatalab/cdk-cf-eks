@@ -100,7 +100,12 @@ class EKS:
 
         @classmethod
         def load(cls, ng):
-            out = cls(**cls.base_load(ng), gpu=ng.pop("gpu"), imdsv2_required=ng.pop("imdsv2_required"), taints=ng.pop("taints", {}))
+            out = cls(
+                **cls.base_load(ng),
+                gpu=ng.pop("gpu"),
+                imdsv2_required=ng.pop("imdsv2_required"),
+                taints=ng.pop("taints", {}),
+            )
             check_leavins("unmanaged nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
             return out
 
@@ -159,7 +164,8 @@ class EKS:
                     for name, ng in c.pop("managed_nodegroups", {}).items()
                 },
                 unmanaged_nodegroups={
-                    name: EKS.UnmanagedNodegroup.load(remap_mi(ng, True)) for name, ng in c.pop("nodegroups", {}).items()
+                    name: EKS.UnmanagedNodegroup.load(remap_mi(ng, True))
+                    for name, ng in c.pop("nodegroups", {}).items()
                 },
                 secrets_encryption_key_arn=None,
             ),
