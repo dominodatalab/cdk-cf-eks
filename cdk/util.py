@@ -18,12 +18,12 @@ DEFAULT_TF_MODULE_PATH = (
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="domino_cdk utility")
+    parser = argparse.ArgumentParser(description="domino_cdk utility", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     subparsers = parser.add_subparsers(title="commands")
 
-    template_parser = subparsers.add_parser("generate_config_template", help="Generate Config Template")
+    template_parser = subparsers.add_parser("generate_config_template", help="Generate Config Template", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     template_parser.add_argument(
-        "--name", help="Name for deployment, will prefix all namespaces [defualt: domino]", default="domino"
+        "--name", help="Name for deployment, will prefix all namespaces", default="domino"
     )
     template_parser.add_argument("--dev", help="Use development (small) defaults", action="store_true")
     template_parser.add_argument("--bastion", help="Provision bastion", action="store_true")
@@ -34,63 +34,65 @@ def parse_args():
     )
     template_parser.add_argument("--compute-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
     template_parser.add_argument("--gpu-nodegroups", help="How many compute nodegroups per az", default=1, type=int)
-    template_parser.add_argument("--keypair-name", help="Name of AWS Keypair for bastion/nodegroup SSH [default: None]")
-    template_parser.add_argument("--secrets-encryption-key-arn", help="KMS Key arn to encrypt kubernetes secrets, generated if not provided. [default: None]")
+    template_parser.add_argument("--keypair-name", help="Name of AWS Keypair for bastion/nodegroup SSH", default=None)
+    template_parser.add_argument("--secrets-encryption-key-arn", help="KMS Key arn to encrypt kubernetes secrets, generated if not provided", default=None)
     template_parser.set_defaults(func=generate_config_template)
 
-    iam_parser = subparsers.add_parser("generate_iam_policy", help="Generate IAM Policy for CloudFormation")
+    iam_parser = subparsers.add_parser("generate_iam_policy", help="Generate IAM Policy for CloudFormation", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     iam_parser.add_argument("-s", "--stack-name", help="Name of CloudFormation stack", default="<YOUR_STACK_NAME>")
     iam_parser.add_argument("-a", "--aws-account-id", help="AWS Account ID", default="<YOUR_ACCOUNT_ID>")
     iam_parser.add_argument(
         "-m", "--manual", help="Use policy geared toward manual or terraform deployments", action="store_true"
     )
     iam_parser.add_argument(
-        "-o", "--out-file", help="File to write to or '-' for stdout [default: none]", default=None
+        "-o", "--out-file", help="File to write to or '-' for stdout", default=None
     )
     iam_parser.add_argument(
         "-b", "--bastion", help="Add ec2 perms for bastion", action="store_true", default=False
     )
     iam_parser.set_defaults(func=generate_iam_policy)
 
-    load_parser = subparsers.add_parser("load_config", help="Load config into memory for linting/updating")
+    load_parser = subparsers.add_parser("load_config", help="Load config into memory for linting/updating", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     load_parser.add_argument("-f", "--file", help="File to load, otherwise reads stdin", default=None)
     load_parser.add_argument(
-        "-o", "--out-file", help="File to write to or '-' for stdout [default: none]", default=None
+        "-o", "--out-file", help="File to write to or '-' for stdout", default=None
     )
     load_parser.add_argument("--no-comments", help="Strip comments from template", action="store_true")
     load_parser.set_defaults(func=load_config)
 
     asset_parser = subparsers.add_parser(
-        "generate_asset_parameters", help="Generate CloudFormation parameters for CDK assets"
+        "generate_asset_parameters", help="Generate CloudFormation parameters for CDK assets",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     asset_parser.add_argument(
         "-b",
         "--bucket",
-        help="Name of bucket you plan to upload rendered CDK assets to (optional, default: __FILL__)",
+        help="Name of bucket you plan to upload rendered CDK assets to",
         default="__FILL__",
     )
     asset_parser.add_argument(
-        "-d", "--dir", help="Directory with rendered CDK assets (optional, default: cdk.out)", default="cdk.out"
+        "-d", "--dir", help="Directory with rendered CDK assets (optional)", default="cdk.out"
     )
     asset_parser.set_defaults(func=generate_asset_parameters)
 
     tf_bootstrap_parser = subparsers.add_parser(
-        "generate_terraform_bootstrap", help="Generate Terraform bootstrap config"
+        "generate_terraform_bootstrap", help="Generate Terraform bootstrap config",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     tf_bootstrap_parser.add_argument(
         "-m",
         "--module-path",
-        help=f"Path to terraform module (optional, default: {DEFAULT_TF_MODULE_PATH})",
+        help=f"Path to terraform module (optional)",
         default=DEFAULT_TF_MODULE_PATH,
     )
     tf_bootstrap_parser.add_argument(
         "-b",
         "--bucket",
-        help="Path to asset bucket, ie where to upload rendered CDK asset directory (optional, default: __FILL__)",
+        help="Path to asset bucket, ie where to upload rendered CDK asset directory (optional)",
         default="__FILL__",
     )
     tf_bootstrap_parser.add_argument(
-        "-d", "--dir", help="Directory with rendered CDK assets (optional, default: cdk.out)", default="cdk.out"
+        "-d", "--dir", help="Directory with rendered CDK assets (optional)", default="cdk.out"
     )
     tf_bootstrap_parser.add_argument("-r", "--aws-region", help="AWS Region")
     tf_bootstrap_parser.add_argument(
@@ -103,15 +105,20 @@ def parse_args():
         default=False,
     )
     tf_bootstrap_parser.add_argument(
-        "--iam-role-arn", help="IAM Role to assign to CloudFormation stack (optional, default: none)", default=None
+        "--iam-role-arn", help="IAM Role to assign to CloudFormation stack (optional)", default=None
     )
     tf_bootstrap_parser.add_argument(
-        "--iam-policy-path", help="IAM policy file to provision as role and assign to CloudFormation stack (optional, default: none)", default=None
+        "--iam-policy-path", help="IAM policy file to provision as role and assign to CloudFormation stack (optional)", default=None
     )
     tf_bootstrap_parser.set_defaults(func=generate_terraform_bootstrap)
 
-    return parser.parse_args()
+    args = parser.parse_args()
 
+    if not hasattr(args, "func"):
+        parser.print_help()
+        exit(0)
+
+    return args
 
 def generate_config_template(args):
     YAML().dump(
