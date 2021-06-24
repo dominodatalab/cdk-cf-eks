@@ -49,7 +49,7 @@ jobs:
       run: |
         ./util.py generate_config_template | sed -e 's/aws_region: __FILL__/aws_region: us-west-2/' -e 's/aws_account_id: __FILL__/aws_account_id: null/' > config.yaml
         ./util.py load_config -f ./config.yaml
-    - name: Test default config
+    - name: Test default config (single and nested stackes)
       run: |
         cdk synth -q
-        cdk synth --context nest=true
+        cdk synth --context nest=true -q
