@@ -104,6 +104,7 @@ eks_object = EKS(
     global_node_tags={"k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"},
     managed_nodegroups=managed_ngs,
     unmanaged_nodegroups=unmanaged_ngs,
+    secrets_encryption_key_arn=None,
 )
 
 
@@ -137,6 +138,21 @@ class TestConfigEKS(unittest.TestCase):
                 f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_0_cfg['nodegroups']}}}"
             )
             self.assertEqual(eks.managed_nodegroups, managed_ngs)
+
+    def test_from_0_0_1_with_secrets_key(self):
+        with patch("domino_cdk.config.eks.log.warning") as warn:
+            eks_cfg = deepcopy(eks_0_0_1_cfg)
+            eks_cfg["secrets_encryption_key_arn"] = "test_arn"
+            eks = EKS.from_0_0_1(eks_cfg)
+            warn.assert_not_called()
+            self.assertEqual(eks.secrets_encryption_key_arn, "test_arn")
+
+    def test_from_0_0_1_with_no_secrets_key(self):
+        with patch("domino_cdk.config.eks.log.warning") as warn:
+            eks_cfg = deepcopy(eks_0_0_1_cfg)
+            eks = EKS.from_0_0_1(eks_cfg)
+            warn.assert_not_called()
+            self.assertIsNone(eks.secrets_encryption_key_arn)
 
     def test_oldest_newest_loaders_identical_result(self):
         eks_old = EKS.from_0_0_0(deepcopy(eks_0_0_0_cfg))

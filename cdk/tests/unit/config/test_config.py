@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+from copy import deepcopy
 
 from semantic_version import Version
 
@@ -21,19 +22,17 @@ class TestConfig(unittest.TestCase):
 
     def test_legacy_template(self):
         with patch("domino_cdk.config.util.log.warning") as warn:
-            c = config_loader(legacy_template)
+            template = deepcopy(legacy_template)
+            c = config_loader(template)
             self.assertEqual(c, legacy_config)
             warn.assert_called_with(
                 "Warning: Unused/unsupported config entries in config.vpc: {'bastion': {'enabled': False, 'instance_type': None, 'ingress_ports': None}}"
             )
 
         with patch("domino_cdk.config.util.log.warning") as warn:
-            rendered_template = c.render()
-            rendered_template["schema"] = "0.0.0"
-            rendered_template["eks"]["nodegroups"] = rendered_template["eks"]["unmanaged_nodegroups"]
-            del rendered_template["eks"]["unmanaged_nodegroups"]
-            del rendered_template["vpc"]["bastion"]
-            d = config_loader(rendered_template)
+            template = deepcopy(legacy_template)
+            del template["vpc"]["bastion"]
+            d = config_loader(template)
             warn.assert_not_called()
             self.assertEqual(c, d)
 

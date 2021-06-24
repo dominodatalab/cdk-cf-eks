@@ -1,4 +1,5 @@
 from semantic_version import Version
+from typing import Optional
 
 from domino_cdk import __version__
 from domino_cdk.config.base import DominoCDKConfig
@@ -21,6 +22,7 @@ def config_loader(c: dict):
 def config_template(
     bastion: bool = False,
     private_api: bool = False,
+    secrets_encryption_key_arn: Optional[str] = None,
     dev_defaults: bool = False,
 ):
     max_nodegroup_azs = 3
@@ -69,6 +71,7 @@ def config_template(
             "eks": {
                 "version": "1.19",
                 "private_api": private_api,
+                "secrets_encryption_key_arn": secrets_encryption_key_arn,
                 "max_nodegroup_azs": max_nodegroup_azs,
                 "global_node_labels": {"dominodatalab.com/domino-node": "true"},
                 "global_node_tags": {},

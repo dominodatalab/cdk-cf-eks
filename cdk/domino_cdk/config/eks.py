@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from domino_cdk.config.util import MachineImage, check_leavins, from_loader
 
@@ -13,6 +13,7 @@ class EKS:
     max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
     global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes
     global_node_tags: some-tags: "true"  - Labels to apply to all kubernetes nodes
+    secrets_encryption_key_arn: ARN  - KMS key arn to encrypt kubernetes secrets. A new key will be created if omitted.
     """
 
     @dataclass
@@ -107,6 +108,7 @@ class EKS:
     global_node_tags: Dict[str, str]
     managed_nodegroups: Dict[str, ManagedNodegroup]
     unmanaged_nodegroups: Dict[str, UnmanagedNodegroup]
+    secrets_encryption_key_arn: Optional[str]
 
     def __post_init__(self):
         errors = []
@@ -152,6 +154,7 @@ class EKS:
                 unmanaged_nodegroups={
                     name: EKS.UnmanagedNodegroup.load(ng) for name, ng in c.pop("nodegroups", {}).items()
                 },
+                secrets_encryption_key_arn=None,
             ),
             c,
         )
@@ -163,6 +166,7 @@ class EKS:
             EKS(
                 version=c.pop("version"),
                 private_api=c.pop("private_api"),
+                secrets_encryption_key_arn=c.pop("secrets_encryption_key_arn", None),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),

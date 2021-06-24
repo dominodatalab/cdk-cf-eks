@@ -92,6 +92,7 @@ default_config = DominoCDKConfig(
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
             ),
         },
+        secrets_encryption_key_arn=None,
     ),
     s3=S3(
         buckets={
@@ -258,6 +259,7 @@ legacy_config = DominoCDKConfig(
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
             ),
         },
+        secrets_encryption_key_arn=None,
     ),
     s3=S3(
         buckets={
