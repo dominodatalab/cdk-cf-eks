@@ -51,31 +51,6 @@ class DominoVpcProvisioner:
         cdk.Tags.of(self.vpc).add("Name", name)
         cdk.CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
 
-        default_sg = ec2.SecurityGroup.from_security_group_id(
-            self.scope, "default_security_group", self.vpc.vpc_default_security_group, allow_all_outbound=False
-        )
-        # TODO: Default security group isn't tagged, and using cdk.Tags.of doesn't seem to work here
-
-        # Disabling default ingress/egress
-        default_sg.add_ingress_rule(
-            peer=ec2.Peer.ipv4("127.0.0.1/32"),
-            connection=ec2.Port(
-                protocol=ec2.Protocol("ALL"),
-                string_representation="Default Outbound",
-                from_port=0,
-                to_port=65535,
-            ),
-        )
-        default_sg.add_egress_rule(
-            peer=ec2.Peer.ipv4("127.0.0.1/32"),
-            connection=ec2.Port(
-                protocol=ec2.Protocol("ALL"),
-                string_representation="Default Outbound",
-                from_port=0,
-                to_port=65535,
-            ),
-        )
-
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
         c = 0
