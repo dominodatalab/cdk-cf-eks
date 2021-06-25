@@ -231,9 +231,10 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         "Effect": "Allow",
         "Action": [
             "kms:CreateGrant",
-            "kms:CreateKey",
             "kms:CreateAlias",
+            "kms:CreateKey",
             "kms:Decrypt",
+            "kms:DeleteAlias",
             "kms:DeleteKey",
             "kms:DescribeKey",
             "kms:EnableKeyRotation",
