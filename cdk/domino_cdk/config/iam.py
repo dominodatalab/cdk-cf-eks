@@ -259,6 +259,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
     if not manual:
         ecr = []
 
+    bastion = []
     if use_bastion:
         bastion = [
             {
