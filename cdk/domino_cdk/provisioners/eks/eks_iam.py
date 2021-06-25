@@ -3,6 +3,7 @@ from typing import Dict, List
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
+from aws_cdk.region_info import Fact, FactName
 
 
 class DominoEksIamProvisioner:
@@ -41,6 +42,7 @@ class DominoEksIamProvisioner:
             ],
         )
 
+        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
         ecr_policy = iam.ManagedPolicy(
             self.scope,
             f"{stack_name}-DominoEcrRestricted",
@@ -54,7 +56,7 @@ class DominoEksIamProvisioner:
                         "ecr:GetDownloadUrlForLayer",
                     ],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
-                    resources=[f"arn:aws:ecr:*:{self.scope.account}:*"],
+                    resources=[f"arn:{partition}:ecr:*:{self.scope.account}:*"],
                 ),
             ],
         )
@@ -83,6 +85,8 @@ class DominoEksIamProvisioner:
         )
 
     def provision_r53_policy(self, stack_name: str, r53_zone_ids: List[str]):
+        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
+
         return iam.ManagedPolicy(
             self.scope,
             "route53",
@@ -97,7 +101,7 @@ class DominoEksIamProvisioner:
                         "route53:ChangeResourceRecordSets",
                         "route53:ListResourceRecordSets",
                     ],
-                    resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
+                    resources=[f"arn:{partition}:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
                 ),
             ],
         )

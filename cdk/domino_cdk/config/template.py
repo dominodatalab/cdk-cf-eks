@@ -59,9 +59,9 @@ def config_template(
     add_nodegroups(
         "compute",
         compute_nodegroups,
-        1,
+        0,
         ["m5.2xlarge"],
-        {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"},
+        {"dominodatalab.com/node-pool": "default"},
     )
     add_nodegroups(
         "gpu",
@@ -79,6 +79,7 @@ def config_template(
         cidr='10.0.0.0/16',
         availability_zones=[],
         max_azs=3,
+        flow_logging=True,
         bastion=VPC.Bastion(
             enabled=bastion,
             key_name=keypair_name,
@@ -101,7 +102,7 @@ def config_template(
     )
 
     eks = EKS(
-        version="1.19",
+        version="1.20",
         private_api=private_api,
         secrets_encryption_key_arn=secrets_encryption_key_arn,
         max_nodegroup_azs=max_nodegroup_azs,
@@ -127,7 +128,13 @@ def config_template(
             'registry': S3.Bucket(
                 auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
             ),
-        }
+        },
+        monitoring_bucket=S3.Bucket(
+            auto_delete_objects=destroy_on_destroy,
+            removal_policy_destroy=destroy_on_destroy,
+            sse_kms_key_id=None,
+            require_encryption=False,
+        ),
     )
 
     install = {}

@@ -63,9 +63,11 @@ class DominoEksNodegroupProvisioner:
             launch_template_name=f"{self.stack_name}-{name}",
             block_devices=[
                 ec2.BlockDevice(
-                    device_name="/dev/xvda",
+                    device_name="/dev/xvda",  # TODO: this only works for AL2
                     volume=ec2.BlockDeviceVolume.ebs(
                         ng.disk_size,
+                        delete_on_termination=True,  # TODO ??
+                        encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
                     ),
                 )
@@ -172,6 +174,8 @@ class DominoEksNodegroupProvisioner:
                             device_name="/dev/xvda",
                             volume=ec2.BlockDeviceVolume.ebs(
                                 ng.disk_size,
+                                delete_on_termination=True,  # TODO ??
+                                encrypted=True,
                                 volume_type=ec2.EbsDeviceVolumeType.GP2,
                             ),
                         )

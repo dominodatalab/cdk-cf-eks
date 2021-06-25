@@ -14,6 +14,7 @@ class VPC:
     availability_zones: Specific availability zones to use with vpc (optional)
     max_azs: 3 - Maximum amount of availability zones to configure for the VPC
                  MUST have at least two for the EKS control plane to provision
+    flow_logging: false - Whether or not to enable VPC flow logging
     """
 
     @dataclass
@@ -49,6 +50,7 @@ class VPC:
     availability_zones: List[str]
     max_azs: int
     bastion: Bastion
+    flow_logging: bool
 
     def __post_init__(self):
         if not self.id and not self.create:
@@ -68,6 +70,7 @@ class VPC:
                 cidr=c.pop("cidr"),
                 availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
+                flow_logging=c.pop("flow_logging", False),
                 bastion=VPC.Bastion(
                     enabled=False,
                     key_name=None,
@@ -91,6 +94,7 @@ class VPC:
                 cidr=c.pop("cidr"),
                 availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
+                flow_logging=c.pop("flow_logging", False),
                 bastion=VPC.Bastion(
                     enabled=bastion.pop("enabled"),
                     key_name=bastion.pop("key_name", None),

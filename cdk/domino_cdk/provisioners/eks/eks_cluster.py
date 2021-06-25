@@ -2,6 +2,7 @@ from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
+import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
@@ -117,5 +118,13 @@ class DominoEksClusterProvisioner:
                     to_port=443,
                 ),
             )
+
+        # account_id = cdk.Stack.of(self.scope).account
+        # cluster.aws_auth.add_masters_role(
+        #     iam.Role.from_role_arn(self.scope, "okta-fulladmin", f"arn:aws-us-gov:iam::{account_id}:role/okta-fulladmin")
+        # )
+        # cluster.aws_auth.add_masters_role(
+        #     iam.Role.from_role_arn(self.scope, "okta-poweruser", f"arn:aws-us-gov:iam::{account_id}:role/okta-poweruser")
+        # )
 
         return cluster

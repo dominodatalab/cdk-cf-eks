@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict
 
 from aws_cdk.aws_s3 import Bucket
 
@@ -9,12 +9,12 @@ def generate_install_config(
     eks_cluster_name: str,
     pod_cidr: str,
     global_node_selectors: Dict[str, str],
-    buckets: List[Bucket],
+    buckets: Dict[str, Bucket],
     efs_fs_ap_id: str,
     r53_zone_ids: str,
     r53_owner_id: str,
-):
-    agent_cfg = {
+) -> Dict:
+    agent_cfg: Dict[str, Any] = {
         "name": name,
         "hostname": "__FILL__",
         "pod_cidr": pod_cidr,
@@ -26,6 +26,11 @@ def generate_install_config(
                     "filesystem_id": efs_fs_ap_id,
                 }
             },
+        },
+        "namespaces": {
+            "platform": {"name": f"{name}-platform"},
+            "compute": {"name": f"{name}-compute"},
+            "system": {"name": f"{name}-system"},
         },
         "blob_storage": {
             "projects": {
@@ -111,5 +116,15 @@ def generate_install_config(
             },
         }
     }
+
+    if mb := buckets.get("monitoring"):
+        agent_cfg["services"]["nginx_ingress"]["chart_values"].update(
+            {
+                "service.beta.kubernetes.io/aws-load-balancer-access-log-enabled": "true",
+                "service.beta.kubernetes.io/aws-load-balancer-access-log-emit-interval": "5",
+                "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name": mb.bucket_name,
+                "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix": "ELBAccessLogs",
+            }
+        )
 
     return agent_cfg

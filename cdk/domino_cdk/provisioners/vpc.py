@@ -1,4 +1,9 @@
+from typing import Optional
+
 import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_logs as logs
+import aws_cdk.aws_s3 as s3
+import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 
 from domino_cdk import config
@@ -8,20 +13,28 @@ _DominoVpcStack = None
 
 class DominoVpcProvisioner:
     def __init__(
-        self, parent: cdk.Construct, construct_id: str, name: str, vpc: config.VPC, nest: bool, **kwargs
+        self,
+        parent: cdk.Construct,
+        construct_id: str,
+        name: str,
+        vpc: config.VPC,
+        nest: bool,
+        flow_log_bucket: Optional[s3.Bucket],
+        **kwargs,
     ) -> None:
         self.parent = parent
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self._availability_zones = vpc.availability_zones
 
-        self.provision_vpc(name, vpc)
+        self.provision_vpc(name, vpc, flow_log_bucket)
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
-    def provision_vpc(self, stack_name: str, vpc: config.VPC):
+    def provision_vpc(self, stack_name: str, vpc: config.VPC, flow_log_bucket: Optional[s3.Bucket]):
         self.public_subnet_name = f"{stack_name}-public"
         self.private_subnet_name = f"{stack_name}-private"
         if not vpc.create:
+            # TODO missing self.scope???
             self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc.id)
             return
 
@@ -50,6 +63,45 @@ class DominoVpcProvisioner:
         )
         cdk.Tags.of(self.vpc).add("Name", stack_name)
         cdk.CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
+
+        default_sg = ec2.SecurityGroup.from_security_group_id(
+            self.scope, "default_security_group", self.vpc.vpc_default_security_group
+        )
+        # TODO: Default security group isn't tagged, and using cdk.Tags.of doesn't seem to work here
+
+        cr.AwsCustomResource(
+            self.scope,
+            "RevokeDefaultSecurityGroupEgress",
+            log_retention=logs.RetentionDays.ONE_DAY,
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+            on_create=cr.AwsSdkCall(
+                action="revokeSecurityGroupEgress",
+                service="EC2",
+                parameters={
+                    "GroupId": default_sg.security_group_id,
+                    "IpPermissions": [{"IpProtocol": "-1", "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}],
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("RevokeDefaultSecurityGroupEgress"),
+            ),
+        )
+
+        cr.AwsCustomResource(
+            self.scope,
+            "RevokeDefaultSecurityGroupIngress",
+            log_retention=logs.RetentionDays.ONE_DAY,
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+            on_create=cr.AwsSdkCall(
+                action="revokeSecurityGroupIngress",
+                service="EC2",
+                parameters={
+                    "GroupId": default_sg.security_group_id,
+                    "IpPermissions": [
+                        {"IpProtocol": "-1", "UserIdGroupPairs": [{"GroupId": default_sg.security_group_id}]}
+                    ],
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("RevokeDefaultSecurityGroupIngress"),
+            ),
+        )
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
@@ -88,22 +140,52 @@ class DominoVpcProvisioner:
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
-    def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> None:
+        # TODO until https://github.com/aws/aws-cdk/issues/14194
+        for idx, subnet_id in enumerate(self.vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC).subnet_ids):
+            name = f"DisableMapPublicIpLaunch-{idx}"
+            cr.AwsCustomResource(
+                self.scope,
+                name,
+                log_retention=logs.RetentionDays.ONE_DAY,
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+                on_create=cr.AwsSdkCall(
+                    action="modifySubnetAttribute",
+                    service="EC2",
+                    parameters={"MapPublicIpOnLaunch": {"Value": False}, "SubnetId": subnet_id},
+                    physical_resource_id=cr.PhysicalResourceId.of(name),
+                ),
+            )
+
+        if vpc.flow_logging:
+            if not flow_log_bucket:
+                # raise?
+                pass
+
+            if flow_log_bucket:
+                self.vpc.add_flow_log(
+                    "rejectFlowLogs",
+                    destination=ec2.FlowLogDestination.to_s3(flow_log_bucket),
+                    traffic_type=ec2.FlowLogTrafficType.REJECT,
+                )
+
+    def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> Optional[ec2.SecurityGroup]:
         if not bastion.enabled:
             return None
         if bastion.ami_id:
             machine_image = ec2.MachineImage.generic_linux(
+                # TODO no region???
                 {self.region: bastion.ami_id},
                 user_data=ec2.UserData.custom(bastion.user_data),
             )
         else:
+            # ??? is this now covered under the config? is it not auto?? why is it in here?
             if not self.scope.account.isnumeric():  # TODO: Can we get rid of this requirement?
                 raise ValueError(
-                    "Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
+                    "Error looking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
                 )
 
             machine_image = ec2.LookupMachineImage(
-                name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"]
+                name="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*", owners=["099720109477", "513442679011"]
             )
 
         bastion_sg = ec2.SecurityGroup(
@@ -125,12 +207,24 @@ class DominoVpcProvisioner:
                     ),
                 )
 
-        bastion = ec2.Instance(
+        bastion_instance = ec2.Instance(
             self.scope,
             "bastion",
             machine_image=machine_image,
             vpc=self.vpc,
             instance_type=ec2.InstanceType(bastion.instance_type),
+            block_devices=[
+                ec2.BlockDevice(
+                    device_name="/dev/sda1",  # TODO: this depends on the AMI
+                    volume=ec2.BlockDeviceVolume.ebs(
+                        40,
+                        delete_on_termination=True,
+                        encrypted=True,
+                        volume_type=ec2.EbsDeviceVolumeType.GP2,
+                    ),
+                )
+            ],
+            role=None,
             key_name=bastion.key_name,
             security_group=bastion_sg,
             vpc_subnets=ec2.SubnetSelection(
@@ -141,10 +235,26 @@ class DominoVpcProvisioner:
         ec2.CfnEIP(
             self.scope,
             "bastion_eip",
-            instance_id=bastion.instance_id,
+            instance_id=bastion_instance.instance_id,
         )
 
-        cdk.CfnOutput(self.parent, "bastion_public_ip", value=bastion.instance_public_ip)
+        cr.AwsCustomResource(
+            self.scope,
+            "DisableBastionHTTPEndpoint",
+            log_retention=logs.RetentionDays.ONE_DAY,
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+            on_create=cr.AwsSdkCall(
+                action="modifyInstanceMetadataOptions",
+                service="EC2",
+                parameters={
+                    "InstanceId": bastion_instance.instance_id,
+                    "HttpEndpoint": "disabled",
+                },
+                physical_resource_id=cr.PhysicalResourceId.of("DisableBastionHTTPEndpoint"),
+            ),
+        )
+
+        cdk.CfnOutput(self.parent, "bastion_public_ip", value=bastion_instance.instance_public_ip)
 
         return bastion_sg
 
