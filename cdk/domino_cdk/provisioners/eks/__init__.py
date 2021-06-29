@@ -31,7 +31,7 @@ class DominoEksProvisioner:
         eks_version = getattr(eks.KubernetesVersion, f"V{eks_cfg.version.replace('.', '_')}")
 
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
-            name, eks_version, eks_cfg.private_api, eks_cfg.secrets_encryption_key_arn, vpc, bastion_sg
+            name, eks_version, eks_cfg.private_api, eks_cfg.secrets_encryption_key_arn, vpc, bastion_sg, parent.cfg.tags
         )
         ng_role = DominoEksIamProvisioner(self.scope).provision(
             name, self.cluster.cluster_name, s3_policy, r53_zone_ids
