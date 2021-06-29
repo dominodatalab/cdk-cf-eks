@@ -1,13 +1,17 @@
-from typing import List
+from typing import Dict, List
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
+from aws_cdk.aws_s3 import Bucket
 
 from domino_cdk import config
 from domino_cdk.provisioners.eks.eks_cluster import DominoEksClusterProvisioner
 from domino_cdk.provisioners.eks.eks_iam import DominoEksIamProvisioner
+from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
+    DominoEksK8sIamRolesProvisioner,
+)
 from domino_cdk.provisioners.eks.eks_nodegroup import DominoEksNodegroupProvisioner
 
 
@@ -22,8 +26,8 @@ class DominoEksProvisioner:
         private_subnet_name: str,
         bastion_sg: ec2.SecurityGroup,
         r53_zone_ids: List[str],
-        s3_policy: iam.ManagedPolicy,
         nest: bool,
+        buckets: Dict[str, Bucket],
         **kwargs,
     ) -> None:
         self.scope = cdk.NestedStack(parent, construct_id, **kwargs) if nest else parent
@@ -33,12 +37,11 @@ class DominoEksProvisioner:
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
             name, eks_version, eks_cfg.private_api, eks_cfg.secrets_encryption_key_arn, vpc, bastion_sg, parent.cfg.tags
         )
-        ng_role = DominoEksIamProvisioner(self.scope).provision(
-            name, self.cluster.cluster_name, s3_policy, r53_zone_ids
-        )
+        ng_role = DominoEksIamProvisioner(self.scope).provision(name, self.cluster.cluster_name, r53_zone_ids)
         DominoEksNodegroupProvisioner(
             self.scope, self.cluster, ng_role, name, eks_cfg, eks_version, vpc, private_subnet_name, bastion_sg
         )
+        DominoEksK8sIamRolesProvisioner(self.scope).provision(name, self.cluster, buckets)
 
         cdk.CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(
