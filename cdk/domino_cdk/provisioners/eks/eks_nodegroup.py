@@ -160,7 +160,7 @@ class DominoEksNodegroupProvisioner:
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
-            mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [asg.user_data, ng.user_data])
+            mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data, asg.user_data])
 
             if not cfn_lt:
                 lt = ec2.LaunchTemplate(
