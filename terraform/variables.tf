@@ -39,10 +39,9 @@ variable "iam_role_arn" {
   default     = ""
 }
 
-variable "iam_policy_path" {
-  type        = string
-  description = "IAM policy to provision and use for deployment"
-  default     = ""
+variable "iam_policy_paths" {
+  type        = list
+  description = "IAM policies to provision and use for deployment role"
 }
 
 variable "cloudformation_timeout_in_minutes" {

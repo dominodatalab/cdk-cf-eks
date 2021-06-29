@@ -1,15 +1,15 @@
 resource "aws_iam_policy" "deployment" {
-    count = var.iam_policy_path != "" ? 1: 0
+    count = length(var.iam_policy_paths)
 
-    name = "${var.name}-deployment-policy"
+    name = "${var.name}-deployment-policy-${count.index}"
 
-    policy = file(var.iam_policy_path)
+    policy = file(var.iam_policy_paths[count.index])
 
     tags = var.tags
 }
 
 resource "aws_iam_role" "deployment" {
-    count = var.iam_policy_path != "" ? 1: 0
+    count = length(var.iam_policy_paths) != 0 ? 1: 0
 
     name = "${var.name}-deployment-role"
 
@@ -27,9 +27,7 @@ resource "aws_iam_role" "deployment" {
         ]
     })
 
-    managed_policy_arns = [
-        aws_iam_policy.deployment[0].arn
-    ]
+    managed_policy_arns = aws_iam_policy.deployment[*].arn
 
     provisioner "local-exec" {
       command = "sleep 15"
