@@ -41,11 +41,12 @@ class DominoCDKConfig:
     def get_tags(self) -> Dict[str, str]:
         return {**unwrap_property(self).tags, **{"domino-deploy-id": self.name}}
 
-    @field_property(tags).setter
     def set_tags(self, tags: int):
         if "domino-deploy-id" in tags:
             raise ValueError("Tag domino-deploy-id cannot be overridden")
         unwrap_property(self).tags = tags
+
+    field_property(tags).setter(set_tags)
 
     @staticmethod
     def from_0_0_0(c: dict):
