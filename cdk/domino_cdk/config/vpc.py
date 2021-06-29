@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from domino_cdk.config.util import IngressRule, MachineImage, from_loader
+from domino_cdk.config.util import IngressRule, from_loader
 
 
 @dataclass
@@ -32,17 +32,16 @@ class VPC:
                          ip_cidrs:
                          - 0.0.0.0/0
                        (customizing cidrs aside, this would be the most common rule for this)
-        machine_image: AMI and/or user_data script for the bastion
-                       machine_image:
-                         ami_id: ami-123abc
-                         user_data: ...
+        ami_id: ami-123abc - AMI to use for the bastion. Defaults to ubuntu.
+        user_data: ... - user_data to use to setup the bastion. Default: blank
         """
 
         enabled: bool
         key_name: str
         instance_type: str
         ingress_ports: List[IngressRule]
-        machine_image: MachineImage
+        ami_id: str
+        user_data: str
 
     create: bool
     id: str
@@ -56,8 +55,7 @@ class VPC:
             raise ValueError("Error: Cannot provision into a VPC. Must either create a vpc or provide an existing one")
         if self.max_azs < 2:
             raise ValueError("Error: Must use at least two availability zones with EKS")
-        # The "or" is covering the case of user_data provided without ami_id
-        if self.bastion.enabled and self.bastion.machine_image and not self.bastion.machine_image.ami_id:
+        if self.bastion.enabled and not self.bastion.ami_id and self.bastion.user_data:
             raise ValueError("Error: Bastion instance with user_data requires an ami_id!")
 
     @staticmethod
@@ -75,7 +73,8 @@ class VPC:
                     key_name=None,
                     instance_type=None,
                     ingress_ports=None,
-                    machine_image=None,
+                    ami_id=None,
+                    user_data=None,
                 ),
             ),
             c,
@@ -84,7 +83,6 @@ class VPC:
     @staticmethod
     def from_0_0_1(c: dict):
         bastion = c.pop("bastion")
-        machine_image = bastion.pop("machine_image", None)
         return from_loader(
             "config.vpc",
             VPC(
@@ -98,12 +96,8 @@ class VPC:
                     key_name=bastion.pop("key_name", None),
                     instance_type=bastion.pop("instance_type"),
                     ingress_ports=IngressRule.load_rules("config.vpc.bastion", bastion.pop("ingress_ports")),
-                    machine_image=MachineImage(
-                        ami_id=machine_image.pop("ami_id"),
-                        user_data=machine_image.pop("user_data"),
-                    )
-                    if machine_image
-                    else None,
+                    ami_id=bastion.pop("ami_id", None),
+                    user_data=bastion.pop("user_data", None),
                 ),
             ),
             c,

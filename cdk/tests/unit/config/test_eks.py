@@ -2,7 +2,7 @@ import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
-from domino_cdk.config import EKS, MachineImage
+from domino_cdk.config import EKS
 
 eks_0_0_0_cfg = {
     "version": "1.19",
@@ -50,6 +50,8 @@ eks_0_0_0_cfg = {
 
 eks_0_0_1_cfg = deepcopy(eks_0_0_0_cfg)
 eks_0_0_1_cfg["unmanaged_nodegroups"] = eks_0_0_1_cfg["nodegroups"]
+eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["imdsv2_required"] = False
+eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["imdsv2_required"] = False
 del eks_0_0_1_cfg["nodegroups"]
 
 managed_ngs = {
@@ -59,7 +61,8 @@ managed_ngs = {
         key_name=None,
         min_size=1,
         max_size=1,
-        machine_image=None,
+        ami_id=None,
+        user_data=None,
         instance_types=["t2.micro"],
         labels={},
         tags={},
@@ -73,11 +76,13 @@ unmanaged_ngs = {
         key_name=None,
         min_size=1,
         max_size=10,
-        machine_image=None,
+        ami_id=None,
+        user_data=None,
         instance_types=["m5.2xlarge"],
         labels={"dominodatalab.com/node-pool": "platform"},
         tags={"dominodatalab.com/node-pool": "platform"},
         gpu=False,
+        imdsv2_required=False,
         ssm_agent=True,
         taints={},
     ),
@@ -86,11 +91,13 @@ unmanaged_ngs = {
         key_name=None,
         min_size=0,
         max_size=10,
-        machine_image=None,
+        ami_id=None,
+        user_data=None,
         instance_types=["p3.2xlarge"],
         labels={"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
         tags={"dominodatalab.com/node-pool": "default-gpu"},
         gpu=True,
+        imdsv2_required=False,
         ssm_agent=False,
         taints={"nvidia.com/gpu": "true:NoSchedule"},
     ),
@@ -165,33 +172,10 @@ class TestConfigEKS(unittest.TestCase):
         eks_object_copy.unmanaged_nodegroups = {}
         self.assertEqual(eks, eks_object_copy)
 
-    def test_machine_image(self):
-        ami_id = "ami-1234abcd"
-        user_data = "some_user_data"
-        machine_image_cfg = {"ami_id": ami_id, "user_data": user_data}
-        machine_image = MachineImage(ami_id=ami_id, user_data=user_data)
+    def test_ami_no_user_data(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
-        for ng_type, ng_name in [["managed_nodegroups", "compute"], ["unmanaged_nodegroups", "platform"]]:
-            eks_cfg[ng_type][ng_name]["machine_image"] = deepcopy(machine_image_cfg)
-            eks_cfg[ng_type][ng_name]["ssm_agent"] = False
-            eks_cfg[ng_type][ng_name]["labels"] = {}
-        eks = EKS.from_0_0_1(eks_cfg)
-        self.assertEqual(eks.managed_nodegroups["compute"].machine_image, machine_image)
-        self.assertEqual(eks.unmanaged_nodegroups["platform"].machine_image, machine_image)
-
-    def test_no_machine_image(self):
-        eks_cfg = deepcopy(eks_0_0_1_cfg)
-        # Current default config has this as a no-op, but worthwhile testing in case that changes and we overlook
-        eks_cfg["managed_nodegroups"]["compute"].pop("machine_image", None)
-        eks_cfg["unmanaged_nodegroups"]["platform"].pop("machine_image", None)
-        eks = EKS.from_0_0_1(eks_cfg)
-        self.assertEqual(eks.managed_nodegroups["compute"].machine_image, None)
-        self.assertEqual(eks.unmanaged_nodegroups["platform"].machine_image, None)
-
-    def test_machine_image_ami_no_user_data(self):
-        eks_cfg = deepcopy(eks_0_0_1_cfg)
-        machine_image_cfg = {"ami_id": "some-ami-id", "user_data": None}
-        eks_cfg["managed_nodegroups"]["compute"]["machine_image"] = machine_image_cfg
+        eks_cfg["managed_nodegroups"]["compute"]["ami_id"] = "some-ami-id"
+        eks_cfg["managed_nodegroups"]["compute"]["user_data"] = None
         eks_cfg["managed_nodegroups"]["compute"]["ssm_agent"] = None
         eks_cfg["managed_nodegroups"]["compute"]["labels"] = {}
         with self.assertRaisesRegex(
@@ -199,19 +183,19 @@ class TestConfigEKS(unittest.TestCase):
         ):
             EKS.from_0_0_1(eks_cfg)
 
-    def test_machine_image_incompatible_options(self):
+    def test_ami_incompatible_options(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
-        machine_image_cfg = {"ami_id": "some-ami-id", "user_data": "some-user-data"}
-        eks_cfg["managed_nodegroups"]["compute"]["machine_image"] = machine_image_cfg
+        eks_cfg["managed_nodegroups"]["compute"]["ami_id"] = "some-ami-id"
+        eks_cfg["managed_nodegroups"]["compute"]["user_data"] = "some-user-data"
         eks_cfg["managed_nodegroups"]["compute"]["ssm_agent"] = True
         eks_cfg["managed_nodegroups"]["compute"]["labels"] = {}
         with self.assertRaisesRegex(ValueError, "Managed nodegroup \\[compute\\]: ssm_agent, labels and taints"):
             EKS.from_0_0_1(eks_cfg)
 
-    def test_machine_unmanaged_multiple_exceptions(self):
-        machine_image_cfg = {"ami_id": "some-ami-id", "user_data": None}
+    def test_ami_unmanaged_multiple_exceptions(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
-        eks_cfg["unmanaged_nodegroups"]["platform"]["machine_image"] = machine_image_cfg
+        eks_cfg["unmanaged_nodegroups"]["platform"]["ami_id"] = "some-ami-id"
+        eks_cfg["unmanaged_nodegroups"]["platform"]["user_data"] = None
         with self.assertRaisesRegex(
             ValueError,
             "Unmanaged nodegroup \\[platform\\]: User data must be provided.*Unmanaged nodegroup \\[platform\\]: ssm_agent, labels and taints",
@@ -283,12 +267,14 @@ class TestConfigEKS(unittest.TestCase):
     def test_nodegroup_base(self):
         test_group_cfg = deepcopy(eks_0_0_1_cfg["managed_nodegroups"]["compute"])
         test_group_cfg["key_name"] = None
-        test_group_cfg["machine_image"] = {"ami_id": "ami-1234", "user_data": "some-user-data"}
+        test_group_cfg["ami_id"] = "ami-1234"
+        test_group_cfg["user_data"] = "some-user-data"
 
         expected_base_result = deepcopy(test_group_cfg)
         del expected_base_result["spot"]
         del expected_base_result["desired_size"]
-        expected_base_result["machine_image"] = MachineImage(ami_id="ami-1234", user_data="some-user-data")
+        expected_base_result["ami_id"] = "ami-1234"
+        expected_base_result["user_data"] = "some-user-data"
 
         base_ng_dict = EKS.NodegroupBase.base_load(test_group_cfg)
         self.assertEqual(base_ng_dict, expected_base_result)

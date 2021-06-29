@@ -6,7 +6,7 @@ resource "aws_cloudformation_stack" "cdk_stack" {
   ]
   parameters         = var.parameters
   template_url       = "https://${aws_s3_bucket.cf_asset_bucket.bucket_regional_domain_name}/${var.template_filename}"
-  iam_role_arn       = var.iam_role_arn
+  iam_role_arn       = var.iam_policy_path != "" ? aws_iam_role.deployment[0].arn : var.iam_role_arn
   depends_on         = [aws_s3_bucket_object.assets]
   timeout_in_minutes = var.cloudformation_timeout_in_minutes
 
@@ -15,6 +15,8 @@ resource "aws_cloudformation_stack" "cdk_stack" {
     update = "${var.cloudformation_timeout_in_minutes}m"
     delete = "${var.cloudformation_timeout_in_minutes}m"
   }
+
+  tags = var.tags
 }
 
 output "cloudformation_outputs" {

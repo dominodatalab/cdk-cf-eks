@@ -13,6 +13,8 @@ resource "aws_s3_bucket" "cf_asset_bucket" {
       }
     }
   }
+
+  tags = var.tags
 }
 
 resource "aws_s3_bucket_policy" "ssl_only" {

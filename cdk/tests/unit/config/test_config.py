@@ -5,7 +5,8 @@ from unittest.mock import patch
 from semantic_version import Version
 
 from domino_cdk import __version__
-from domino_cdk.config import config_loader, config_template
+from domino_cdk.config import config_loader
+from domino_cdk.config.template import config_template
 
 from . import default_config, legacy_config, legacy_template
 

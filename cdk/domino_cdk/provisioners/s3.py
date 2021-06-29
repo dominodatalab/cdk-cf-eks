@@ -5,12 +5,13 @@ from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import Bucket, BucketEncryption
 
-from domino_cdk.config import S3
+from domino_cdk import config
 
 
 class DominoS3Provisioner:
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, s3: List[S3], nest: bool, **kwargs):
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+    def __init__(self, parent: cdk.Construct, construct_id: str, name: str, s3: List[config.S3], nest: bool, **kwargs):
+        self.parent = parent
+        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self.s3_api_statement = iam.PolicyStatement(
             actions=[
@@ -24,7 +25,7 @@ class DominoS3Provisioner:
         self.provision_buckets(name, s3)
         self.provision_iam_policy(name)
 
-    def provision_buckets(self, name: str, s3: List[S3]):
+    def provision_buckets(self, name: str, s3: List[config.S3]):
         self.buckets = {}
         for bucket, attrs in s3.buckets.items():
             use_sse_kms_key = False
@@ -72,7 +73,7 @@ class DominoS3Provisioner:
                 )
             )
             self.s3_api_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            cdk.CfnOutput(self.scope, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
+            cdk.CfnOutput(self.parent, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
     def provision_iam_policy(self, name: str):
         self.policy = iam.ManagedPolicy(

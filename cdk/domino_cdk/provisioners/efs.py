@@ -5,7 +5,7 @@ import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 
-from domino_cdk.config import EFS
+from domino_cdk import config
 
 _DominoEfsStack = None
 
@@ -13,22 +13,23 @@ _DominoEfsStack = None
 class DominoEfsProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        parent: cdk.Construct,
         construct_id: str,
         name: str,
-        cfg: EFS,
+        cfg: config.EFS,
         vpc: ec2.Vpc,
         security_group: ec2.SecurityGroup,
         nest: bool,
         **kwargs,
     ):
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+        self.parent = parent
+        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self.provision_efs(name, cfg, vpc, security_group)
         if cfg.backup.enable:
             self.provision_backup_vault(name, cfg.backup)
 
-    def provision_efs(self, name: str, cfg: EFS, vpc: ec2.Vpc, security_group: ec2.SecurityGroup):
+    def provision_efs(self, name: str, cfg: config.EFS, vpc: ec2.Vpc, security_group: ec2.SecurityGroup):
         self.efs = efs.FileSystem(
             self.scope,
             "Efs",
@@ -60,14 +61,14 @@ class DominoEfsProvisioner:
             ),
         )
 
-    def provision_backup_vault(self, name: str, efs_backup: EFS.Backup):
+    def provision_backup_vault(self, name: str, efs_backup: config.EFS.Backup):
         vault = backup.BackupVault(
             self.scope,
             "efs_backup",
             backup_vault_name=f'{name}-efs',
             removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
         )
-        cdk.CfnOutput(self.scope, "backup-vault", value=vault.backup_vault_name)
+        cdk.CfnOutput(self.parent, "backup-vault", value=vault.backup_vault_name)
         plan = backup.BackupPlan(
             self.scope,
             "efs_backup_plan",

@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Type, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
@@ -6,7 +6,7 @@ import aws_cdk.aws_iam as iam
 from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
 
-from domino_cdk.config import EKS, MachineImage
+from domino_cdk import config
 
 
 class DominoEksNodegroupProvisioner:
@@ -16,7 +16,7 @@ class DominoEksNodegroupProvisioner:
         cluster: eks.Cluster,
         ng_role: iam.Role,
         name: str,
-        eks_cfg: EKS,
+        eks_cfg: config.EKS,
         eks_version: eks.KubernetesVersion,
         vpc: ec2.Vpc,
         private_subnet_name: str,
@@ -34,9 +34,9 @@ class DominoEksNodegroupProvisioner:
 
         max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
 
-        def provision_nodegroup(nodegroup: EKS.NodegroupBase, prov_func):
+        def provision_nodegroup(nodegroup: config.EKS.NodegroupBase, prov_func):
             for name, ng in nodegroup.items():
-                if not ng.machine_image or not ng.machine_image.ami_id:
+                if not ng.ami_id:
                     ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
                     ng.tags = {
                         **ng.tags,
@@ -48,12 +48,13 @@ class DominoEksNodegroupProvisioner:
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
-    def provision_managed_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
-        ami_id, user_data = self._get_machine_image(name, ng.machine_image)
+    def provision_managed_nodegroup(
+        self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
+    ) -> None:
         machine_image: Optional[ec2.IMachineImage] = (
-            ec2.MachineImage.generic_linux({self.scope.region: ami_id}) if ami_id else None
+            ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id}) if ng.ami_id else None
         )
-        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ami_id, ng.ssm_agent, [user_data])
+        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data])
 
         lt = ec2.LaunchTemplate(
             self.cluster,
@@ -93,12 +94,12 @@ class DominoEksNodegroupProvisioner:
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(self, name: str, ng: Type[EKS.NodegroupBase], max_nodegroup_azs: int) -> None:
-        ami_id, user_data = self._get_machine_image(name, ng.machine_image)
-
+    def provision_unmanaged_nodegroup(
+        self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
+    ) -> None:
         machine_image = (
-            ec2.MachineImage.generic_linux({self.scope.region: ami_id})
-            if ami_id
+            ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id})
+            if ng.ami_id
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
                 kubernetes_version=self.eks_version.version,
@@ -159,7 +160,7 @@ class DominoEksNodegroupProvisioner:
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
-            mime_user_data = self._handle_user_data(name, ami_id, ng.ssm_agent, [asg.user_data, user_data])
+            mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data, asg.user_data])
 
             if not cfn_lt:
                 lt = ec2.LaunchTemplate(
@@ -185,10 +186,13 @@ class DominoEksNodegroupProvisioner:
                 # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
                 lt.connections.add_security_group(self.cluster.cluster_security_group)
                 cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
+
+                http_tokens = "required" if ng.imdsv2_required else "optional"
+
                 lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
                     **cfn_lt.launch_template_data._values,
                     metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
-                        http_endpoint="enabled", http_tokens="required", http_put_response_hop_limit=2
+                        http_endpoint="enabled", http_tokens=http_tokens, http_put_response_hop_limit=2
                     ),
                 )
                 cfn_lt.launch_template_data = lt_data
@@ -210,9 +214,9 @@ class DominoEksNodegroupProvisioner:
             )
 
             options: dict[str, Any] = {
-                "bootstrap_enabled": ami_id is None,
+                "bootstrap_enabled": ng.ami_id is None,
             }
-            if not ami_id:
+            if not ng.ami_id:
                 extra_args: list[str] = []
                 if labels := ng.labels:
                     extra_args.append(
@@ -226,11 +230,6 @@ class DominoEksNodegroupProvisioner:
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
-
-    def _get_machine_image(self, cfg_name: str, image: MachineImage) -> Tuple[Optional[str], Optional[str]]:
-        if image:
-            return image.ami_id, image.user_data
-        return None, None
 
     def _handle_user_data(
         self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]

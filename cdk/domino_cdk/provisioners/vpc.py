@@ -1,21 +1,24 @@
 import aws_cdk.aws_ec2 as ec2
 from aws_cdk import core as cdk
 
-from domino_cdk.config import VPC
+from domino_cdk import config
 
 _DominoVpcStack = None
 
 
 class DominoVpcProvisioner:
-    def __init__(self, scope: cdk.Construct, construct_id: str, name: str, vpc: VPC, nest: bool, **kwargs) -> None:
-        self.scope = cdk.NestedStack(scope, construct_id, **kwargs) if nest else scope
+    def __init__(
+        self, parent: cdk.Construct, construct_id: str, name: str, vpc: config.VPC, nest: bool, **kwargs
+    ) -> None:
+        self.parent = parent
+        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self._availability_zones = vpc.availability_zones
 
         self.provision_vpc(name, vpc)
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
-    def provision_vpc(self, name: str, vpc: VPC):
+    def provision_vpc(self, name: str, vpc: config.VPC):
         self.public_subnet_name = f"{name}-public"
         self.private_subnet_name = f"{name}-private"
         if not vpc.create:
@@ -46,7 +49,7 @@ class DominoVpcProvisioner:
             nat_gateway_provider=nat_provider,
         )
         cdk.Tags.of(self.vpc).add("Name", name)
-        cdk.CfnOutput(self.scope, "vpc-output", value=self.vpc.vpc_cidr_block)
+        cdk.CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
         pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
@@ -85,13 +88,13 @@ class DominoVpcProvisioner:
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
-    def provision_bastion(self, name: str, bastion: VPC.Bastion) -> None:
+    def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> None:
         if not bastion.enabled:
             return None
-        if bastion.machine_image:
-            bastion_machine_image = ec2.MachineImage.generic_linux(
-                {self.region: bastion.machine_image.ami_id},
-                user_data=ec2.UserData.custom(bastion.machine_image.user_data),
+        if bastion.ami_id:
+            machine_image = ec2.MachineImage.generic_linux(
+                {self.region: bastion.ami_id},
+                user_data=ec2.UserData.custom(bastion.user_data),
             )
         else:
             if not self.scope.account.isnumeric():  # TODO: Can we get rid of this requirement?
@@ -99,7 +102,7 @@ class DominoVpcProvisioner:
                     "Error loooking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
                 )
 
-            bastion_machine_image = ec2.LookupMachineImage(
+            machine_image = ec2.LookupMachineImage(
                 name="ubuntu/images/hvm-ssd/ubuntu-bionic-18.04-amd64-server-*", owners=["099720109477"]
             )
 
@@ -125,7 +128,7 @@ class DominoVpcProvisioner:
         bastion = ec2.Instance(
             self.scope,
             "bastion",
-            machine_image=bastion_machine_image,
+            machine_image=machine_image,
             vpc=self.vpc,
             instance_type=ec2.InstanceType(bastion.instance_type),
             key_name=bastion.key_name,
@@ -141,7 +144,7 @@ class DominoVpcProvisioner:
             instance_id=bastion.instance_id,
         )
 
-        cdk.CfnOutput(self.scope, "bastion_public_ip", value=bastion.instance_public_ip)
+        cdk.CfnOutput(self.parent, "bastion_public_ip", value=bastion.instance_public_ip)
 
         return bastion_sg
 

@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from domino_cdk.config.s3 import S3
+from domino_cdk import config
 
 
 def generate_install_config(
@@ -9,13 +9,14 @@ def generate_install_config(
     eks_cluster_name: str,
     pod_cidr: str,
     global_node_selectors: Dict[str, str],
-    buckets: List[S3.Bucket],
+    buckets: List[config.S3.Bucket],
     efs_fs_ap_id: str,
     r53_zone_ids: str,
     r53_owner_id: str,
 ):
     agent_cfg = {
         "name": name,
+        "hostname": "__FILL__",
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {
@@ -70,13 +71,6 @@ def generate_install_config(
         },
         "services": {
             "nginx_ingress": {},
-            "nucleus": {
-                "chart_values": {
-                    "keycloak": {
-                        "createIntegrationTestUser": True,
-                    }
-                }
-            },
             "forge": {
                 "chart_values": {
                     "config": {
@@ -103,6 +97,7 @@ def generate_install_config(
                 "enabled": True,
                 "type": "LoadBalancer",
                 "annotations": {
+                    "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "__FILL__",  # TODO: Should we have an official config for this?
                     "service.beta.kubernetes.io/aws-load-balancer-internal": False,
                     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                     "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",

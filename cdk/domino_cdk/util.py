@@ -1,12 +1,11 @@
 from filecmp import cmp
 from glob import glob
 from json import loads as json_loads
-from os.path import basename, dirname, isfile
+from os.path import basename, isfile
 from os.path import join as path_join
 from subprocess import run
 from time import time
-
-from yaml import safe_load as yaml_safe_load
+from urllib.parse import urlparse
 
 
 class ExternalCommandException(Exception):
@@ -14,14 +13,28 @@ class ExternalCommandException(Exception):
 
 
 class DominoCdkUtil:
+    @staticmethod
+    def load_manifest(manifest_file):
+        with open(manifest_file) as f:
+            try:
+                artifacts = json_loads(f.read())["artifacts"]
+                artifacts.pop("Tree")
+                stack_name = list(artifacts)[0]
+                env = artifacts[stack_name]["environment"]
+                aws_region = basename(urlparse(env).path)
+                metadata = artifacts[stack_name]["metadata"][f"/{stack_name}"]
+            except Exception:
+                raise KeyError(f"Cannot parse CDK asset manifest {manifest_file}!")
+            return {"name": stack_name, "region": aws_region, "metadata": metadata}
+
     @classmethod
-    def generate_asset_parameters(cls, asset_dir: str, asset_bucket: str, stack_name: str, manifest_file: str = None):
-        with open(manifest_file or path_join(asset_dir, "manifest.json")) as f:
-            cfg = json_loads(f.read())['artifacts'][stack_name]['metadata'][f"/{stack_name}"]
+    def generate_asset_parameters(cls, asset_dir: str, asset_bucket: str, cfg: dict = None):
+        if not cfg:
+            cfg = cls.load_manifest(path_join(asset_dir, "manifest.json"))
 
         parameters = {}
 
-        for c in cfg:
+        for c in cfg["metadata"]:
             if c["type"] == "aws:cdk:asset":
                 d = c["data"]
                 path = d['path']
@@ -47,12 +60,21 @@ class DominoCdkUtil:
         asset_bucket: str,
         asset_dir: str,
         aws_region: str,
-        name: str,
-        stack_name: str,
         output_dir: str,
         disable_random_templates: bool = False,
         iam_role_arn: str = "",
+        iam_policy_path: str = "",
     ):
+        cfg = cls.load_manifest(path_join(asset_dir, "manifest.json"))
+        stack_name = cfg["name"]
+
+        if not aws_region:
+            aws_region = cfg["region"]
+
+            if aws_region == "unknown-region":
+                raise Exception("Please provide region")
+
+        asset_parameters = cls.generate_asset_parameters(asset_dir, asset_bucket, cfg)
         template_filename = path_join(asset_dir, f"{stack_name}.template.json")
 
         if not disable_random_templates:
@@ -78,9 +100,10 @@ class DominoCdkUtil:
                     "asset_bucket": asset_bucket,
                     "asset_dir": asset_dir,
                     "aws_region": aws_region,
-                    "name": name,
+                    "name": stack_name,
                     "iam_role_arn": iam_role_arn,
-                    "parameters": cls.generate_asset_parameters(asset_dir, asset_bucket, stack_name),
+                    "iam_policy_path": iam_policy_path,
+                    "parameters": asset_parameters,
                     "template_filename": basename(template_filename),
                     "output_dir": output_dir,
                 },
@@ -91,11 +114,6 @@ class DominoCdkUtil:
                 }
             },
         }
-
-    @classmethod
-    def config_template(cls):
-        with open(path_join(dirname(__file__), "config_template.yaml")) as f:
-            return yaml_safe_load(f.read())
 
     @classmethod
     def deep_merge(cls, *dictionaries) -> dict:

@@ -99,11 +99,4 @@ class DominoEksClusterProvisioner:
                 ),
             )
 
-        cdk.CfnOutput(self.scope, "eks_cluster_name", value=cluster.cluster_name)
-        cdk.CfnOutput(
-            self.scope,
-            "eks_kubeconfig_cmd",
-            value=f"aws eks update-kubeconfig --name {cluster.cluster_name} --region {self.scope.region} --role-arn {cluster.kubectl_role.role_arn}",
-        )
-
         return cluster

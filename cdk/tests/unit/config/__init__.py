@@ -10,8 +10,8 @@ from domino_cdk.config import (
     IngressRule,
     Route53,
     config_loader,
-    config_template,
 )
+from domino_cdk.config.template import config_template
 
 default_config = DominoCDKConfig(
     name='domino',
@@ -30,7 +30,8 @@ default_config = DominoCDKConfig(
             key_name=None,
             instance_type='t2.micro',
             ingress_ports=[IngressRule(name='ssh', from_port=22, to_port=22, protocol='TCP', ip_cidrs=['0.0.0.0/0'])],
-            machine_image=None,
+            ami_id=None,
+            user_data=None,
         ),
     ),
     efs=EFS(
@@ -52,42 +53,48 @@ default_config = DominoCDKConfig(
         global_node_tags={},
         managed_nodegroups={},
         unmanaged_nodegroups={
-            'platform': EKS.UnmanagedNodegroup(
+            'platform-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
                 key_name=None,
                 min_size=3,
                 max_size=10,
-                machine_image=None,
+                ami_id=None,
+                user_data=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'platform'},
                 tags={},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
-            'compute': EKS.UnmanagedNodegroup(
+            'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
                 key_name=None,
-                min_size=0,
+                min_size=1,
                 max_size=10,
-                machine_image=None,
+                ami_id=None,
+                user_data=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
                 tags={},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
-            'nvidia': EKS.UnmanagedNodegroup(
+            'gpu-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
                 key_name=None,
                 min_size=0,
                 max_size=10,
-                machine_image=None,
-                instance_types=['m5.2xlarge'],
+                ami_id=None,
+                user_data=None,
+                instance_types=['p3.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default-gpu', 'nvidia.com/gpu': 'true'},
                 tags={},
                 gpu=True,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
             ),
@@ -102,7 +109,7 @@ default_config = DominoCDKConfig(
             'registry': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
         }
     ),
-    schema='0.0.1-rc1',
+    schema='0.0.1-rc2',
 )
 
 legacy_template = {
@@ -142,7 +149,7 @@ legacy_template = {
         "global_node_tags": {"k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"},
         "managed_nodegroups": {},
         "nodegroups": {
-            "platform": {
+            "platform-0": {
                 "gpu": False,
                 "ssm_agent": True,
                 "disk_size": 100,
@@ -152,23 +159,23 @@ legacy_template = {
                 "labels": {"dominodatalab.com/node-pool": "platform"},
                 "tags": {"dominodatalab.com/node-pool": "platform"},
             },
-            "compute": {
+            "compute-0": {
                 "gpu": False,
                 "ssm_agent": True,
                 "disk_size": 100,
-                "min_size": 0,
+                "min_size": 1,
                 "max_size": 10,
                 "instance_types": ["m5.2xlarge"],
                 "labels": {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"},
                 "tags": {"dominodatalab.com/node-pool": "default", "domino/build-node": "true"},
             },
-            "nvidia": {
+            "gpu-0": {
                 "gpu": True,
                 "ssm_agent": True,
                 "disk_size": 100,
                 "min_size": 0,
                 "max_size": 10,
-                "instance_types": ["m5.2xlarge"],
+                "instance_types": ["p3.2xlarge"],
                 "taints": {"nvidia.com/gpu": "true:NoSchedule"},
                 "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
                 "tags": {"dominodatalab.com/node-pool": "default-gpu"},
@@ -198,7 +205,9 @@ legacy_config = DominoCDKConfig(
         cidr='10.0.0.0/16',
         availability_zones=[],
         max_azs=3,
-        bastion=VPC.Bastion(enabled=False, key_name=None, instance_type=None, ingress_ports=None, machine_image=None),
+        bastion=VPC.Bastion(
+            enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None
+        ),
     ),
     efs=EFS(
         backup=EFS.Backup(
@@ -219,42 +228,48 @@ legacy_config = DominoCDKConfig(
         global_node_tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node': 'true'},
         managed_nodegroups={},
         unmanaged_nodegroups={
-            'platform': EKS.UnmanagedNodegroup(
+            'platform-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
                 key_name=None,
                 min_size=1,
                 max_size=10,
-                machine_image=None,
+                ami_id=None,
+                user_data=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'platform'},
                 tags={'dominodatalab.com/node-pool': 'platform'},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
-            'compute': EKS.UnmanagedNodegroup(
+            'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
                 key_name=None,
-                min_size=0,
+                min_size=1,
                 max_size=10,
-                machine_image=None,
+                ami_id=None,
+                user_data=None,
                 instance_types=['m5.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
                 tags={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
                 gpu=False,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
             ),
-            'nvidia': EKS.UnmanagedNodegroup(
+            'gpu-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
                 key_name=None,
                 min_size=0,
                 max_size=10,
-                machine_image=None,
-                instance_types=['m5.2xlarge'],
+                ami_id=None,
+                user_data=None,
+                instance_types=['p3.2xlarge'],
                 labels={'dominodatalab.com/node-pool': 'default-gpu', 'nvidia.com/gpu': 'true'},
                 tags={'dominodatalab.com/node-pool': 'default-gpu'},
                 gpu=True,
+                imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
             ),
@@ -269,7 +284,7 @@ legacy_config = DominoCDKConfig(
             'registry': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
         }
     ),
-    schema='0.0.1-rc1',
+    schema='0.0.1-rc2',
 )
 
 
