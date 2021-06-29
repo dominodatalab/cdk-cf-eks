@@ -2,6 +2,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from textwrap import dedent
 from typing import Dict
 
+from field_properties import field_property, unwrap_property
 from ruamel.yaml.comments import CommentedMap
 
 from domino_cdk import __version__
@@ -25,15 +26,26 @@ class DominoCDKConfig:
     name: str
     aws_region: str
     aws_account_id: str
-    tags: Dict[str, str]
 
-    vpc: VPC
-    efs: EFS
-    route53: Route53
-    eks: EKS
-    s3: S3
+    tags: Dict[str, str] = field_property(default={})
 
-    install: dict
+    vpc: VPC = None
+    efs: EFS = None
+    route53: Route53 = None
+    eks: EKS = None
+    s3: S3 = None
+
+    install: dict = None
+
+    @field_property(tags)
+    def get_tags(self) -> Dict[str, str]:
+        return {**unwrap_property(self).tags, **{"domino-deploy-id": self.name}}
+
+    @field_property(tags).setter
+    def set_tags(self, tags: int):
+        if "domino-deploy-id" in tags:
+            raise ValueError("Tag domino-deploy-id cannot be overridden")
+        unwrap_property(self).tags = tags
 
     @staticmethod
     def from_0_0_0(c: dict):
@@ -111,7 +123,7 @@ class DominoCDKConfig:
         def r_vars(c, indent: int):
             indent += 2
             if is_dataclass(c):
-                cm = CommentedMap({x: r_vars(y, indent) for x, y in vars(c).items()})
+                cm = CommentedMap({(x if x != "_tags" else "tags"): r_vars(y, indent) for x, y in vars(c).items()})
                 if not disable_comments:
                     [
                         cm.yaml_set_comment_before_after_key(k, after=dedent(v.__doc__).strip(), after_indent=indent)
