@@ -30,13 +30,13 @@ class EKS:
         key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
         min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
         max_size: 10 - Maximum limit for node count in node gorup
-        ami_id: ami-123abc - AMI to use for nodegroup, empty/null will use the default EKS AMI, which
-                             is the default. When specifying an AMI, you MUST specify a custom user_data
-                             script to join the node to the cluster, and this script must do any sort of
-                             node setup that is desired. Additionally, some nodegroup options (ie labels,
-                             taints, ssm_agent) depend on the default user data and are not supported when
-                             using custom user_data. When providing custom user_data, you must implement
-                             those options manually, if desired, in your script.
+        ami_id: ami-123abc - AMI to use for nodegroup, empty/null will default to the current EKS AMI,
+                             When specifying an AMI, you MUST specify a custom user_data script to join
+                             the node to the cluster, and this script must do any sort of node setup that
+                             is desired. Additionally, some nodegroup options (ie labels, taints,
+                             ssm_agent) are only allowed when using the default EKS AMI, as they may not
+                             be compatible with other AMIs. When speicying an AMI, you must implement
+                             those options manually via your user_data script.
         user_data: ... - Custom script for user_data, ran by cloud_init on node startup. When using the
                          default EKS AMI, this does not replace the default user_data. Your custom script
                          will be injected _before_ the default one, and both will be ran. However, when
