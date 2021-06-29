@@ -1,3 +1,5 @@
+from typing import Dict
+
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_logs as logs
@@ -21,6 +23,7 @@ class DominoEksClusterProvisioner:
         secrets_encryption_key_arn: str,
         vpc: ec2.Vpc,
         bastion_sg: ec2.SecurityGroup,
+        tags: Dict[str, str],
     ):
         eks_sg = ec2.SecurityGroup(
             self.scope,
@@ -40,9 +43,6 @@ class DominoEksClusterProvisioner:
                 removal_policy=cdk.RemovalPolicy.DESTROY,
                 enable_key_rotation=True,
             )
-
-        # TODO: tag the EKS cluster
-        # Need some way: https://github.com/aws/aws-cdk/issues/4995
 
         cluster = eks.Cluster(
             self.scope,
@@ -85,6 +85,25 @@ class DominoEksClusterProvisioner:
                 # actual error code. It is not 2.. 3.. 4.. 5..
                 # We have a JIRA to explore this further: https://dominodatalab.atlassian.net/browse/PLAT-2439
                 "ignore_error_codes_matching": "...",
+            },
+        )
+
+        params = {
+            "resourceArn": f"arn:aws:eks:{self.scope.region}:{self.scope.account}:cluster/{cluster.cluster_name}",
+            "tags": tags,
+        }
+
+        cr.AwsCustomResource(
+            self.scope,
+            "TagClusterCustom",
+            # timeout defaults to 2 minutes
+            log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
+            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+            on_create={
+                "service": "EKS",
+                "action": "tagResource",
+                "parameters": params,
+                "physical_resource_id": cr.PhysicalResourceId.of("TagClusterCustom"),
             },
         )
 

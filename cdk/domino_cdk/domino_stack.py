@@ -24,7 +24,6 @@ class DominoStack(cdk.Stack):
         self.env = kwargs["env"]
         self.name = self.cfg.name
         cdk.CfnOutput(self, "deploy_name", value=self.name)
-        cdk.Tags.of(self).add("domino-deploy-id", self.name)
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
