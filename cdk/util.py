@@ -124,7 +124,7 @@ def parse_args():
     )
     tf_bootstrap_parser.add_argument(
         "--iam-policy-path",
-        help="IAM policy file(s) to provision as role and assign to CloudFormation stack (optional, can be specified multiple times)",
+        help="IAM policy file(s) to provision and attach to role and assign to CloudFormation stack. Can be specified multiple times for multiple policies.  (optional)",
         action="append",
         default=[],
     )
