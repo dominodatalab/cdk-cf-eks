@@ -47,8 +47,8 @@ def parse_args():
     template_parser.set_defaults(func=generate_config_template)
 
     iam_parser = subparsers.add_parser(
-        "generate_iam_policy",
-        help="Generate IAM Policy for CloudFormation",
+        "generate_iam_policies",
+        help="Generate IAM Policies for CloudFormation",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     iam_parser.add_argument("-s", "--stack-name", help="Name of CloudFormation stack", default="<YOUR_STACK_NAME>")
@@ -56,9 +56,9 @@ def parse_args():
     iam_parser.add_argument(
         "-m", "--manual", help="Use policy geared toward manual or terraform deployments", action="store_true"
     )
-    iam_parser.add_argument("-o", "--out-file", help="File to write to or '-' for stdout", default=None)
+    iam_parser.add_argument("-o", "--out-file-base", help="Base filename (ie 'iam-policy' for 'iam-policy-1/2/3.json'). All files generated are printed to stdout.", default="deploy-policy")
     iam_parser.add_argument("-b", "--bastion", help="Add ec2 perms for bastion", action="store_true", default=False)
-    iam_parser.set_defaults(func=generate_iam_policy)
+    iam_parser.set_defaults(func=generate_iam_policies)
 
     load_parser = subparsers.add_parser(
         "load_config",
@@ -150,19 +150,19 @@ def generate_config_template(args):
     )
 
 
-def generate_iam_policy(args):
-    policy = json_dumps(
-        generate_iam(
+def generate_iam_policies(args):
+    policies = generate_iam(
             stack_name=args.stack_name,
             aws_account_id=args.aws_account_id,
             manual=args.manual,
             use_bastion=args.bastion,
-        ),
-        indent=4,
-    )
+        )
 
-    with open(args.out_file or 1, "w") as out:
-        out.write(f"{policy}\n")
+    for i, policy in enumerate(policies):
+        fn = f"{args.out_file_base}-{i}.json"
+        with open(fn, "w") as out:
+            out.write(f"{json_dumps(policy, indent=4)}\n")
+            print(fn)
 
 
 def load_config(args):

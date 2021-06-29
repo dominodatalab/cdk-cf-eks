@@ -387,26 +387,33 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         general["Resource"] = ["*"]
     general["Action"] = sorted(general["Action"])
 
-    base_iam = {
-        "Version": "2012-10-17",
-        "Statement": [
-            cloudformation,
-            asset_bucket,
-            s3,
-            iam,
-            *lambda_invoke,
-            _lambda,
-            states,
-            *eks_nodegroups,
-            cfn_tagging,
-            ssm,
-            backup,
-            *backup_efs,
-            *ecr,
-            *bastion,
-            general,
-            kms,
-        ],
-    }
+    policies = [
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                cloudformation,
+                asset_bucket,
+                s3,
+                iam,
+                *lambda_invoke,
+                _lambda,
+                states,
+                *eks_nodegroups,
+                cfn_tagging,
+                ssm,
+            ],
+        },
+        {
+            "Version": "2012-10-17",
+            "Statement": [
+                backup,
+                *backup_efs,
+                *ecr,
+                *bastion,
+                general,
+                kms,
+            ],
+        },
+    ]
 
-    return base_iam
+    return policies
