@@ -56,7 +56,12 @@ def parse_args():
     iam_parser.add_argument(
         "-m", "--manual", help="Use policy geared toward manual or terraform deployments", action="store_true"
     )
-    iam_parser.add_argument("-o", "--out-file-base", help="Base filename (ie 'iam-policy' for 'iam-policy-1/2/3.json'). All files generated are printed to stdout.", default="deploy-policy")
+    iam_parser.add_argument(
+        "-o",
+        "--out-file-base",
+        help="Base filename (ie 'iam-policy' for 'iam-policy-1/2/3.json'). All files generated are printed to stdout.",
+        default="deploy-policy",
+    )
     iam_parser.add_argument("-b", "--bastion", help="Add ec2 perms for bastion", action="store_true", default=False)
     iam_parser.set_defaults(func=generate_iam_policies)
 
@@ -152,11 +157,11 @@ def generate_config_template(args):
 
 def generate_iam_policies(args):
     policies = generate_iam(
-            stack_name=args.stack_name,
-            aws_account_id=args.aws_account_id,
-            manual=args.manual,
-            use_bastion=args.bastion,
-        )
+        stack_name=args.stack_name,
+        aws_account_id=args.aws_account_id,
+        manual=args.manual,
+        use_bastion=args.bastion,
+    )
 
     for i, policy in enumerate(policies):
         fn = f"{args.out_file_base}-{i}.json"
