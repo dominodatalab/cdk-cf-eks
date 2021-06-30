@@ -2,11 +2,11 @@ from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
-import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
+from aws_cdk.region_info import Fact, FactName
 
 
 class DominoEksClusterProvisioner:
@@ -89,8 +89,12 @@ class DominoEksClusterProvisioner:
             },
         )
 
+        region = cdk.Stack.of(self.scope).region
+        account = cdk.Stack.of(self.scope).account
+        partition = Fact.require_fact(region, FactName.PARTITION)
+
         params = {
-            "resourceArn": f"arn:aws:eks:{self.scope.region}:{self.scope.account}:cluster/{cluster.cluster_name}",
+            "resourceArn": f"arn:{partition}:eks:{region}:{account}:cluster/{cluster.cluster_name}",
             "tags": tags,
         }
 
