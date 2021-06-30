@@ -119,12 +119,4 @@ class DominoEksClusterProvisioner:
                 ),
             )
 
-        # account_id = cdk.Stack.of(self.scope).account
-        # cluster.aws_auth.add_masters_role(
-        #     iam.Role.from_role_arn(self.scope, "okta-fulladmin", f"arn:aws-us-gov:iam::{account_id}:role/okta-fulladmin")
-        # )
-        # cluster.aws_auth.add_masters_role(
-        #     iam.Role.from_role_arn(self.scope, "okta-poweruser", f"arn:aws-us-gov:iam::{account_id}:role/okta-poweruser")
-        # )
-
         return cluster
