@@ -2,6 +2,7 @@ from typing import Dict, List
 
 from aws_cdk.aws_s3 import Bucket
 
+
 def generate_install_config(
     name: str,
     aws_region: str,

@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Dict, List
 
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
@@ -91,10 +91,7 @@ class DominoEksIamProvisioner:
             )
 
         if buckets:
-            managed_policies.append(
-                self.provision_node_s3_iam_policy(stack_name, buckets)
-            )
-
+            managed_policies.append(self.provision_node_s3_iam_policy(stack_name, buckets))
 
         return iam.Role(
             self.scope,

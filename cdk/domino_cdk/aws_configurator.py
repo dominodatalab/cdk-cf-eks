@@ -4,7 +4,6 @@ from re import split as re_split
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
-import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 from requests import get as requests_get
 from yaml import safe_load as yaml_safe_load
