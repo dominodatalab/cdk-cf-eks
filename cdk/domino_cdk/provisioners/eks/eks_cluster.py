@@ -6,7 +6,6 @@ import aws_cdk.aws_logs as logs
 import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
-from aws_cdk.region_info import Fact, FactName
 
 
 class DominoEksClusterProvisioner:
@@ -51,7 +50,7 @@ class DominoEksClusterProvisioner:
             cluster_name=stack_name,
             vpc=vpc,
             endpoint_access=eks.EndpointAccess.PRIVATE if private_api else None,
-            vpc_subnets=[ec2.SubnetType.PRIVATE],
+            vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE)],
             version=eks_version,
             default_capacity=0,
             security_group=eks_sg,
@@ -76,25 +75,23 @@ class DominoEksClusterProvisioner:
             timeout=cdk.Duration.minutes(10),  # defaults to 2 minutes
             log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-            on_create={
-                "service": "EKS",
-                "action": "updateClusterConfig",
-                "parameters": params,
-                "physical_resource_id": cr.PhysicalResourceId.of("UpdateClusterConfigCustom"),
+            on_create=cr.AwsSdkCall(
+                action="updateClusterConfig",
+                service="EKS",
+                parameters=params,
+                physical_resource_id=cr.PhysicalResourceId.of("UpdateClusterConfigCustom"),
                 # If the cluster already has logging enabled, this call will return error "already in desired state"
                 # We ignore errors here. "..." is regexp for all 3-digit error codes because we cannot find what is the
                 # actual error code. It is not 2.. 3.. 4.. 5..
                 # We have a JIRA to explore this further: https://dominodatalab.atlassian.net/browse/PLAT-2439
-                "ignore_error_codes_matching": "...",
-            },
+                ignore_error_codes_matching="...",
+            ),
         )
 
-        region = cdk.Stack.of(self.scope).region
-        account = cdk.Stack.of(self.scope).account
-        partition = Fact.require_fact(region, FactName.PARTITION)
-
         params = {
-            "resourceArn": f"arn:{partition}:eks:{region}:{account}:cluster/{cluster.cluster_name}",
+            "resourceArn": cdk.Arn.format(
+                cdk.ArnComponents(service="eks", resource=f"cluster/{cluster.cluster_name}"), cdk.Stack.of(self.scope)
+            ),
             "tags": tags,
         }
 
@@ -104,12 +101,12 @@ class DominoEksClusterProvisioner:
             # timeout defaults to 2 minutes
             log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-            on_create={
-                "service": "EKS",
-                "action": "tagResource",
-                "parameters": params,
-                "physical_resource_id": cr.PhysicalResourceId.of("TagClusterCustom"),
-            },
+            on_create=cr.AwsSdkCall(
+                action="tagResource",
+                service="EKS",
+                parameters=params,
+                physical_resource_id=cr.PhysicalResourceId.of("TagClusterCustom"),
+            ),
         )
 
         if bastion_sg:

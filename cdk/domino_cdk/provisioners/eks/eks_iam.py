@@ -3,7 +3,6 @@ from typing import Dict, List
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
-from aws_cdk.region_info import Fact, FactName
 
 
 class DominoEksIamProvisioner:
@@ -14,9 +13,6 @@ class DominoEksIamProvisioner:
         self.scope = scope
 
     def provision(self, stack_name: str, cluster_name: str, r53_zone_ids: List[str], buckets: Dict[str, Bucket]):
-        region = cdk.Stack.of(self.scope).region
-        partition = Fact.require_fact(region, FactName.PARTITION)
-
         asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
@@ -45,8 +41,6 @@ class DominoEksIamProvisioner:
             ],
         )
 
-        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
-        account = cdk.Stack.of(self.scope).account
         ecr_policy = iam.ManagedPolicy(
             self.scope,
             f"{stack_name}-DominoEcrRestricted",
@@ -60,7 +54,11 @@ class DominoEksIamProvisioner:
                         "ecr:GetDownloadUrlForLayer",
                     ],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
-                    resources=[f"arn:{partition}:ecr:*:{account}:*"],
+                    resources=[
+                        cdk.Arn.format(
+                            cdk.ArnComponents(region="*", service="ecr", resource="*"), cdk.Stack.of(self.scope)
+                        )
+                    ],
                 ),
             ],
         )
@@ -88,9 +86,7 @@ class DominoEksIamProvisioner:
             managed_policies=managed_policies,
         )
 
-    def provision_r53_policy(self, stack_name: str, r53_zone_ids: List[str]):
-        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
-
+    def provision_r53_policy(self, stack_name: str, r53_zone_ids: List[str]) -> iam.ManagedPolicy:
         return iam.ManagedPolicy(
             self.scope,
             "route53",
@@ -105,7 +101,15 @@ class DominoEksIamProvisioner:
                         "route53:ChangeResourceRecordSets",
                         "route53:ListResourceRecordSets",
                     ],
-                    resources=[f"arn:{partition}:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
+                    resources=[
+                        cdk.Arn.format(
+                            cdk.ArnComponents(
+                                account="", region="", service="route53", resource=f"hostedzone/{zone_id}"
+                            ),
+                            cdk.Stack.of(self.scope),
+                        )
+                        for zone_id in r53_zone_ids
+                    ],
                 ),
             ],
         )
