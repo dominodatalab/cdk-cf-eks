@@ -27,11 +27,6 @@ def generate_install_config(
                 }
             },
         },
-        "namespaces": {
-            "platform": {"name": f"{name}-platform"},
-            "compute": {"name": f"{name}-compute"},
-            "system": {"name": f"{name}-system"},
-        },
         "blob_storage": {
             "projects": {
                 "s3": {

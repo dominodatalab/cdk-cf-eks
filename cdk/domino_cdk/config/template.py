@@ -133,7 +133,6 @@ def config_template(
             auto_delete_objects=destroy_on_destroy,
             removal_policy_destroy=destroy_on_destroy,
             sse_kms_key_id=None,
-            require_encryption=False,
         ),
     )
 

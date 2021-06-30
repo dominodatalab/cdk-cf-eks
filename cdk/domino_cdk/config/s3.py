@@ -13,8 +13,6 @@ class S3:
     removal_policy_destroy: true/false - Delete bucket when destroying stack. If auto_delete_objects is false,
                                          destroys will fail unless buckets are emptied.
     sse_kms_key_id: XXX - Specific KMS key ID to setup with bucket. Otherwise, defaults to AES256
-    require_encryption: true/false - Require all requests and objects to be encrypted through policies.
-                                     Defaults to true, changing to false does not disable default KMS key encryption of objects.
     """
 
     @dataclass
@@ -22,7 +20,6 @@ class S3:
         auto_delete_objects: bool
         removal_policy_destroy: bool
         sse_kms_key_id: Optional[str]
-        require_encryption: bool = True
 
     buckets: Dict[str, Bucket]
     monitoring_bucket: Optional[Bucket]
@@ -34,7 +31,6 @@ class S3:
                 auto_delete_objects=b.pop("auto_delete_objects", False),
                 removal_policy_destroy=b.pop("removal_policy_destroy", False),
                 sse_kms_key_id=b.pop("sse_kms_key_id", None),
-                require_encryption=b.pop("require_encryption", True),
             )
 
         buckets = c.pop("buckets")

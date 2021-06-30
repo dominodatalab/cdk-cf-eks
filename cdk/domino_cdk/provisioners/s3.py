@@ -26,6 +26,7 @@ class DominoS3Provisioner:
         bucket_id: str,
         attrs: config.S3.Bucket,
         server_access_logs_bucket: Optional[Bucket] = None,
+        require_encryption: bool = True,
         **kwargs,
     ) -> Bucket:
         use_sse_kms_key = False
@@ -41,7 +42,7 @@ class DominoS3Provisioner:
             bucket_name=bucket_name,
             auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
             removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
-            enforce_ssl=True,  # attrs.require_encryption,
+            enforce_ssl=True,
             bucket_key_enabled=use_sse_kms_key,
             encryption_key=(sse_kms_key if use_sse_kms_key else None),
             encryption=(BucketEncryption.KMS if use_sse_kms_key else BucketEncryption.S3_MANAGED),
@@ -52,7 +53,7 @@ class DominoS3Provisioner:
             **kwargs,
         )
 
-        if attrs.require_encryption:
+        if require_encryption:
             bucket.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="DenyIncorrectEncryptionHeader",
@@ -90,7 +91,11 @@ class DominoS3Provisioner:
 
         if s3.monitoring_bucket:
             monitoring_bucket = self._provision_bucket(
-                stack_name, "monitoring", s3.monitoring_bucket, access_control=BucketAccessControl.LOG_DELIVERY_WRITE
+                stack_name,
+                "monitoring",
+                s3.monitoring_bucket,
+                access_control=BucketAccessControl.LOG_DELIVERY_WRITE,
+                require_encryption=False,
             )
 
             region = cdk.Stack.of(self.scope).region
