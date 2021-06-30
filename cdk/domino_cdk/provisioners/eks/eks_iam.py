@@ -123,7 +123,7 @@ class DominoEksIamProvisioner:
                         "s3:ListMultipartUploadParts",
                         "s3:AbortMultipartUpload",
                     ],
-                    resources={f"{b.bucket_arn}*" for b in buckets.values()},
+                    resources=[f"{b.bucket_arn}*" for b in buckets.values()],
                 ),
             ],
         )
