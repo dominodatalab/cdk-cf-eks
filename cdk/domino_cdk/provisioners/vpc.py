@@ -241,14 +241,16 @@ class DominoVpcProvisioner:
             "DisableBastionHTTPEndpoint",
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-            on_create=cr.AwsSdkCall(
+            on_update=cr.AwsSdkCall(
                 action="modifyInstanceMetadataOptions",
                 service="EC2",
                 parameters={
                     "InstanceId": bastion_instance.instance_id,
                     "HttpEndpoint": "disabled",
                 },
-                physical_resource_id=cr.PhysicalResourceId.of("DisableBastionHTTPEndpoint"),
+                physical_resource_id=cr.PhysicalResourceId.of(
+                    f"DisableBastionHTTPEndpoint-{bastion_instance.instance_id}"
+                ),
             ),
         )
 
