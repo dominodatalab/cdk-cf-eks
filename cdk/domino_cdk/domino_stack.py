@@ -47,7 +47,6 @@ class DominoStack(cdk.Stack):
         )
 
         if cfg.create_iam_roles_for_service_accounts:
-            print("WOW!")
             DominoEksK8sIamRolesProvisioner(self).provision(self.name, self.eks_stack.cluster, self.s3_stack.buckets)
 
         self.efs_stack = DominoEfsProvisioner(

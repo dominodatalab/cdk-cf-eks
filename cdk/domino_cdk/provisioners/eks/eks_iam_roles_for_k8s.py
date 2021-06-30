@@ -8,6 +8,7 @@ from aws_cdk.aws_s3 import Bucket
 # Permission groups
 
 s3_write_permissions = [
+    "s3:GetObject",
     "s3:PutObject",
     "s3:DeleteObject",
     "s3:ListMultipartUploadParts",
@@ -51,16 +52,22 @@ ecr_policies = {
     ]
 }
 
-# Roles
+# The bucket policies are auto-generated from the bucket list with the names write-name, read-name. E.g. write_blobs
+
+# Roles. The roles are the collection of the policies.
 roles = {
-    "nucleus": [
-        "write_blobs_read_logs",
+    # E.g. nucleus needs this role
+    "write_blobs_read_logs": [
+        "write_blobs",
+        "read_logs",
     ],
-    "executor": [
+    # E.g. executor needs this role
+    "write_blobs": [
         "write_blobs",
     ],
-    "builder": [
-        "ecr_read_write_permissions",
+    # E.g. builder needs this role
+    "write_images": [
+        "ecr_read_write_policy",
     ],
 }
 
@@ -71,11 +78,6 @@ class DominoEksK8sIamRolesProvisioner:
         scope: cdk.Construct,
     ) -> None:
         self.scope = scope
-
-    def print_children(self, construct):
-        print(construct.node.path, construct.to_string())
-        for c in construct.node.children:
-            self.print_children(c)
 
     def provision(self, stack_name: str, cluster: eks.Cluster, buckets: Dict[str, Bucket]):
         # Create dummy service account just to make EKS to do heavy listing of creating OIDC
@@ -102,8 +104,8 @@ class DominoEksK8sIamRolesProvisioner:
         managed_policies = {}
         for name, cfg in ecr_policies.items():
             managed_policies[name] = self.create_ecr_policy(stack_name, name, cfg)
-        for name, cfg in s3_policies.items():
-            managed_policies[name] = self.create_s3_policy(name, cfg, buckets)
+
+        managed_policies.update(self.create_s3_policies(stack_name, buckets))
 
         for name, policy_list in roles.items():
             iam_role = iam.Role(
@@ -140,20 +142,29 @@ class DominoEksK8sIamRolesProvisioner:
             ],
         )
 
-    def create_s3_policy(self, policy_name: str, cfg: Dict[str, List[str]], buckets: Dict[str, Bucket]):
-        statements = []
-        for bucket_name, actions in cfg.items():
-            if bucket_name not in buckets:
-                raise Exception(f'Unknown bucket "{bucket_name}" in policy "{policy_name}"')
-            statements.append(
-                iam.PolicyStatement(
-                    actions=actions,
-                    resources=[f"{buckets[bucket_name].bucket_arn}*"],
-                ),
+    def create_s3_policies(self, stack_name: str, buckets: Dict[str, Bucket]) -> Dict[str, iam.ManagedPolicy]:
+        policies = {}
+        for name, bucket in buckets.items():
+            policies[f"read_{name}"] = iam.ManagedPolicy(
+                self.scope,
+                f"{stack_name}-read-{name}",
+                managed_policy_name=f"{stack_name}-read-{name}",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=s3_read_permissions,
+                        resources=[f"{bucket.bucket_arn}*"],
+                    )
+                ],
             )
-        return iam.ManagedPolicy(
-            self.scope,
-            f"{policy_name}-S3",
-            managed_policy_name=f"{policy_name}-S3",
-            statements=statements,
-        )
+            policies[f"write_{name}"] = iam.ManagedPolicy(
+                self.scope,
+                f"{stack_name}-write-{name}",
+                managed_policy_name=f"{stack_name}-write-{name}",
+                statements=[
+                    iam.PolicyStatement(
+                        actions=s3_write_permissions,
+                        resources=[f"{bucket.bucket_arn}*"],
+                    )
+                ],
+            )
+        return policies
