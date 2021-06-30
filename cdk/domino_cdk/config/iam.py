@@ -186,7 +186,10 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
     ssm = {
         "Effect": "Allow",
         "Action": ["ssm:GetParameters"],
-        "Resource": [f"arn:{partition}:ssm:*::parameter/aws/service/eks/*"],
+        "Resource": [
+            f"arn:{partition}:ssm:*::parameter/aws/service/eks/*",
+            f"arn:{partition}:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*",
+        ],
     }
 
     # TODO: TF-only version of this list
