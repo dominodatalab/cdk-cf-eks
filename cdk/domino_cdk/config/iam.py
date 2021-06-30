@@ -323,6 +323,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "elasticfilesystem:TagResource",
             "elasticfilesystem:UntagResource",
             "iam:GetRole",
+            "iam:GetRolePolicy",
         ],
         **do_cf(),
         "Resource": "*",
