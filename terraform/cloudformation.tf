@@ -32,7 +32,7 @@ resource "local_file" "agent_template" {
 
 resource "null_resource" "kubeconfig" {
   provisioner "local-exec" {
-    command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${var.output_dir}/kubeconfig")}"
+    command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${var.output_dir}/kubeconfig")} && chmod 600 ${abspath("${var.output_dir}/kubeconfig")}"
   }
 
   depends_on = [aws_cloudformation_stack.cdk_stack]
