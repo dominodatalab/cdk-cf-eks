@@ -9,9 +9,6 @@ from aws_cdk.aws_s3 import Bucket
 from domino_cdk import config
 from domino_cdk.provisioners.eks.eks_cluster import DominoEksClusterProvisioner
 from domino_cdk.provisioners.eks.eks_iam import DominoEksIamProvisioner
-from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
-    DominoEksK8sIamRolesProvisioner,
-)
 from domino_cdk.provisioners.eks.eks_nodegroup import DominoEksNodegroupProvisioner
 
 
@@ -37,11 +34,10 @@ class DominoEksProvisioner:
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
             name, eks_version, eks_cfg.private_api, eks_cfg.secrets_encryption_key_arn, vpc, bastion_sg, parent.cfg.tags
         )
-        ng_role = DominoEksIamProvisioner(self.scope).provision(name, self.cluster.cluster_name, r53_zone_ids)
+        ng_role = DominoEksIamProvisioner(self.scope).provision(name, self.cluster.cluster_name, r53_zone_ids, buckets)
         DominoEksNodegroupProvisioner(
             self.scope, self.cluster, ng_role, name, eks_cfg, eks_version, vpc, private_subnet_name, bastion_sg
         )
-        DominoEksK8sIamRolesProvisioner(self.scope).provision(name, self.cluster, buckets)
 
         cdk.CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
         cdk.CfnOutput(

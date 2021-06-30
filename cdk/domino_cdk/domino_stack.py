@@ -10,6 +10,9 @@ from domino_cdk.provisioners import (
     DominoS3Provisioner,
     DominoVpcProvisioner,
 )
+from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
+    DominoEksK8sIamRolesProvisioner,
+)
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -39,8 +42,14 @@ class DominoStack(cdk.Stack):
             self.vpc_stack.bastion_sg,
             self.cfg.route53.zone_ids,
             nest,
-            self.s3_stack.buckets,
+            #
+            self.s3_stack.buckets if cfg.create_iam_roles_for_service_accounts is False else [],
         )
+
+        if cfg.create_iam_roles_for_service_accounts:
+            print("WOW!")
+            DominoEksK8sIamRolesProvisioner(self).provision(self.name, self.eks_stack.cluster, self.s3_stack.buckets)
+
         self.efs_stack = DominoEfsProvisioner(
             self,
             "EfsStack",

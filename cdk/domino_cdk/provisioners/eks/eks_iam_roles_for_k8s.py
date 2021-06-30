@@ -19,7 +19,7 @@ s3_read_permissions = [
 ]
 
 ecr_policies = {
-    "ecr_read_write_permissions": [
+    "ecr_read_write_policy": [
         "ecr:PutImageTagMutability",
         "ecr:StartImageScan",
         "ecr:ListTagsForResource",
@@ -50,23 +50,6 @@ ecr_policies = {
         "ecr:GetRepositoryPolicy",
     ]
 }
-
-s3_policies = {
-    "write_blobs_read_logs": {
-        "blobs": s3_read_permissions + s3_write_permissions,
-        "logs": s3_read_permissions,
-    },
-    "write_blobs": {
-        "blobs": s3_read_permissions + s3_write_permissions,
-    },
-    "read_logs": {
-        "logs": s3_read_permissions,
-    },
-    "read_blobs": {
-        "blobs": s3_read_permissions,
-    },
-}
-
 
 # Roles
 roles = {
