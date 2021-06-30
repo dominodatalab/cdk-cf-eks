@@ -14,6 +14,9 @@ class DominoEksIamProvisioner:
         self.scope = scope
 
     def provision(self, stack_name: str, cluster_name: str, r53_zone_ids: List[str], buckets: Dict[str, Bucket]):
+        region = cdk.Stack.of(self.scope).region
+        partition = Fact.require_fact(region, FactName.PARTITION)
+
         asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
@@ -43,6 +46,7 @@ class DominoEksIamProvisioner:
         )
 
         partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
+        account = cdk.Stack.of(self.scope).account
         ecr_policy = iam.ManagedPolicy(
             self.scope,
             f"{stack_name}-DominoEcrRestricted",
@@ -56,7 +60,7 @@ class DominoEksIamProvisioner:
                         "ecr:GetDownloadUrlForLayer",
                     ],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
-                    resources=[f"arn:{partition}:ecr:*:{self.scope.account}:*"],
+                    resources=[f"arn:{partition}:ecr:*:{account}:*"],
                 ),
             ],
         )

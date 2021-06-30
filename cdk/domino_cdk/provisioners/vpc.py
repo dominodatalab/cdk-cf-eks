@@ -184,9 +184,7 @@ class DominoVpcProvisioner:
                     "Error looking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
                 )
 
-            machine_image = ec2.LookupMachineImage(
-                name="ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*", owners=["099720109477", "513442679011"]
-            )
+            machine_image = ec2.AmazonLinuxImage()
 
         bastion_sg = ec2.SecurityGroup(
             self.scope,
@@ -215,7 +213,7 @@ class DominoVpcProvisioner:
             instance_type=ec2.InstanceType(bastion.instance_type),
             block_devices=[
                 ec2.BlockDevice(
-                    device_name="/dev/sda1",  # TODO: this depends on the AMI
+                    device_name="/dev/xvda",  # TODO: this depends on the AMI
                     volume=ec2.BlockDeviceVolume.ebs(
                         40,
                         delete_on_termination=True,
