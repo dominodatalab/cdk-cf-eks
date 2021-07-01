@@ -7,6 +7,12 @@ from aws_cdk.aws_s3 import Bucket
 
 # Permission groups
 
+s3_global_access_permissions = [
+    "s3:ListBucket",
+    "s3:GetBucketLocation",
+    "s3:ListBucketMultipartUploads",
+]
+
 s3_write_permissions = [
     "s3:GetObject",
     "s3:PutObject",
@@ -19,8 +25,7 @@ s3_read_permissions = [
     "s3:GetObject",
 ]
 
-ecr_policies = {
-    "ecr_read_write_policy": [
+ecr_write_permisions = [
         "ecr:PutImageTagMutability",
         "ecr:StartImageScan",
         "ecr:ListTagsForResource",
@@ -50,7 +55,6 @@ ecr_policies = {
         "ecr:InitiateLayerUpload",
         "ecr:GetRepositoryPolicy",
     ]
-}
 
 # The bucket policies are auto-generated from the bucket list with the names write-name, read-name. E.g. write_blobs
 
@@ -58,16 +62,16 @@ ecr_policies = {
 roles = {
     # E.g. nucleus needs this role
     "write_blobs_read_logs": [
-        "write_blobs",
-        "read_logs",
+        "blobs:write",
+        "logs:read",
     ],
     # E.g. executor needs this role
     "write_blobs": [
-        "write_blobs",
+        "blobs:write",
     ],
     # E.g. builder needs this role
     "write_images": [
-        "ecr_read_write_policy",
+        "ecr:write",
     ],
 }
 
@@ -102,31 +106,32 @@ class DominoEksK8sIamRolesProvisioner:
             self.scope, "OidcJson", value={f"{fn}:aud": "sts.amazonaws.com", f"{fn}:sub": "system:serviceaccount:*"}
         )
         managed_policies = {}
-        for name, cfg in ecr_policies.items():
-            managed_policies[name] = self.create_ecr_policy(stack_name, name, cfg)
+        managed_policies["ecr"] = { "write": self.create_ecr_policy(stack_name, "ecr-write", ecr_write_permisions) }
 
         managed_policies.update(self.create_s3_policies(stack_name, buckets))
 
         for name, policy_list in roles.items():
             iam_role = iam.Role(
                 self.scope,
-                f"{stack_name}-IAM-role-for-k8s-{name}",
+                f"{stack_name}-4SA-{name}",
                 # Undesired side effect of this: additional statement is created to trust this principal.
                 # Because Role constructor mandates principal and creates assume_role_policy
                 # with this statement. And later we cannot neither replace assume_role_policy nor remove this statement.
                 # Potentially we can avoid this by using CnfRole but no examples exist. A guesswork can take a week.
                 assumed_by=iam.ServicePrincipal('eks.amazonaws.com'),
-                role_name=f"{stack_name}-IAM-role-for-k8s-{name}",
+                role_name=f"{stack_name}-4SA-{name}",
             )
             iam_role.assume_role_policy.add_statements(iam.PolicyStatement.from_json(statement_json))
             for policy_name in policy_list:
-                iam_role.add_managed_policy(managed_policies[policy_name])
+                name_array = policy_name.split(":")
+                iam_role.add_managed_policy(managed_policies[name_array[0]][name_array[1]])
 
     def create_ecr_policy(self, stack_name: str, policy_name: str, actions: List[str]):
+        external_policy_name = f"{stack_name}-ECR-{policy_name}"
         return iam.ManagedPolicy(
             self.scope,
-            f"{stack_name}-{policy_name}-ECR",
-            managed_policy_name=f"{stack_name}-{policy_name}-ECR",
+            external_policy_name,
+            managed_policy_name=external_policy_name    ,
             statements=[
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
@@ -144,23 +149,37 @@ class DominoEksK8sIamRolesProvisioner:
 
     def create_s3_policies(self, stack_name: str, buckets: Dict[str, Bucket]) -> Dict[str, iam.ManagedPolicy]:
         policies = {}
-        for name, bucket in buckets.items():
-            policies[f"read_{name}"] = iam.ManagedPolicy(
+        for bucket_name, bucket in buckets.items():
+            if bucket_name not in policies:
+                policies[bucket_name] = {}
+            # Read
+            external_policy_name = f"{stack_name}-S3-{bucket_name}-read"
+            policies[bucket_name]["read"] = iam.ManagedPolicy(
                 self.scope,
-                f"{stack_name}-read-{name}",
-                managed_policy_name=f"{stack_name}-read-{name}",
+                external_policy_name,
+                managed_policy_name=external_policy_name,
                 statements=[
+                    iam.PolicyStatement(
+                        actions=s3_global_access_permissions,
+                        resources=["*"],
+                    ),
                     iam.PolicyStatement(
                         actions=s3_read_permissions,
                         resources=[f"{bucket.bucket_arn}*"],
                     )
                 ],
             )
-            policies[f"write_{name}"] = iam.ManagedPolicy(
+            # Write
+            external_policy_name = f"{stack_name}-S3-{bucket_name}-write"
+            policies[bucket_name]["write"] = iam.ManagedPolicy(
                 self.scope,
-                f"{stack_name}-write-{name}",
-                managed_policy_name=f"{stack_name}-write-{name}",
+                external_policy_name,
+                managed_policy_name=external_policy_name,
                 statements=[
+                    iam.PolicyStatement(
+                        actions=s3_global_access_permissions,
+                        resources=["*"],
+                    ),
                     iam.PolicyStatement(
                         actions=s3_write_permissions,
                         resources=[f"{bucket.bucket_arn}*"],
