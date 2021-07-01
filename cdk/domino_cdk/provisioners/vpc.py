@@ -158,8 +158,9 @@ class DominoVpcProvisioner:
 
         if vpc.flow_logging:
             if not flow_log_bucket:
-                # raise?
-                pass
+                raise ValueError(
+                    "VPC flow logging enabled without a corresponding S3 bucket destination. Ensure the `monitoring_bucket` is configured correctly."
+                )
 
             if flow_log_bucket:
                 self.vpc.add_flow_log(
