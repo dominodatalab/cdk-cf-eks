@@ -26,56 +26,49 @@ s3_read_permissions = [
 ]
 
 ecr_write_permisions = [
-        "ecr:PutImageTagMutability",
-        "ecr:StartImageScan",
-        "ecr:ListTagsForResource",
-        "ecr:UploadLayerPart",
-        "ecr:BatchDeleteImage",
-        "ecr:ListImages",
-        "ecr:DeleteRepository",
-        "ecr:CompleteLayerUpload",
-        "ecr:TagResource",
-        "ecr:DescribeRepositories",
-        "ecr:DeleteRepositoryPolicy",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:ReplicateImage",
-        "ecr:GetLifecyclePolicy",
-        "ecr:PutLifecyclePolicy",
-        "ecr:DescribeImageScanFindings",
-        "ecr:GetLifecyclePolicyPreview",
-        "ecr:CreateRepository",
-        "ecr:PutImageScanningConfiguration",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:DeleteLifecyclePolicy",
-        "ecr:PutImage",
-        "ecr:UntagResource",
-        "ecr:BatchGetImage",
-        "ecr:DescribeImages",
-        "ecr:StartLifecyclePolicyPreview",
-        "ecr:InitiateLayerUpload",
-        "ecr:GetRepositoryPolicy",
-    ]
+    "ecr:PutImageTagMutability",
+    "ecr:StartImageScan",
+    "ecr:ListTagsForResource",
+    "ecr:UploadLayerPart",
+    "ecr:BatchDeleteImage",
+    "ecr:ListImages",
+    "ecr:DeleteRepository",
+    "ecr:CompleteLayerUpload",
+    "ecr:TagResource",
+    "ecr:DescribeRepositories",
+    "ecr:DeleteRepositoryPolicy",
+    "ecr:BatchCheckLayerAvailability",
+    "ecr:ReplicateImage",
+    "ecr:GetLifecyclePolicy",
+    "ecr:PutLifecyclePolicy",
+    "ecr:DescribeImageScanFindings",
+    "ecr:GetLifecyclePolicyPreview",
+    "ecr:CreateRepository",
+    "ecr:PutImageScanningConfiguration",
+    "ecr:GetDownloadUrlForLayer",
+    "ecr:DeleteLifecyclePolicy",
+    "ecr:PutImage",
+    "ecr:UntagResource",
+    "ecr:BatchGetImage",
+    "ecr:DescribeImages",
+    "ecr:StartLifecyclePolicyPreview",
+    "ecr:InitiateLayerUpload",
+    "ecr:GetRepositoryPolicy",
+]
 
 # The bucket policies are auto-generated from the bucket list with the names write-name, read-name. E.g. write_blobs
 
 # Roles. The roles are the collection of the policies.
 roles = {
     # E.g. nucleus needs this role
-    "blobs-write--logs-read":
-        {
-            "blobs": "write" ,
-            "logs": "read",
-        },
+    "blobs-write--logs-read": {
+        "blobs": "write",
+        "logs": "read",
+    },
     # E.g. executor needs this role
-    "blobs-write":
-        {
-            "blobs": "write"
-        },
+    "blobs-write": {"blobs": "write"},
     # E.g. builder needs this role
-    "images-write":
-        {
-            "ecr": "write"
-        },
+    "images-write": {"ecr": "write"},
 }
 
 
@@ -109,7 +102,7 @@ class DominoEksK8sIamRolesProvisioner:
             self.scope, "OidcJson", value={f"{fn}:aud": "sts.amazonaws.com", f"{fn}:sub": "system:serviceaccount:*"}
         )
         managed_policies = {}
-        managed_policies["ecr"] = { "write": self.create_ecr_policy(stack_name, "ecr-write", ecr_write_permisions) }
+        managed_policies["ecr"] = {"write": self.create_ecr_policy(stack_name, "ecr-write", ecr_write_permisions)}
 
         managed_policies.update(self.create_s3_policies(stack_name, buckets))
 
@@ -133,7 +126,7 @@ class DominoEksK8sIamRolesProvisioner:
         return iam.ManagedPolicy(
             self.scope,
             external_policy_name,
-            managed_policy_name=external_policy_name    ,
+            managed_policy_name=external_policy_name,
             statements=[
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
@@ -168,7 +161,7 @@ class DominoEksK8sIamRolesProvisioner:
                     iam.PolicyStatement(
                         actions=s3_read_permissions,
                         resources=[f"{bucket.bucket_arn}*"],
-                    )
+                    ),
                 ],
             )
             # Write
@@ -185,7 +178,7 @@ class DominoEksK8sIamRolesProvisioner:
                     iam.PolicyStatement(
                         actions=s3_write_permissions,
                         resources=[f"{bucket.bucket_arn}*"],
-                    )
+                    ),
                 ],
             )
         return policies
