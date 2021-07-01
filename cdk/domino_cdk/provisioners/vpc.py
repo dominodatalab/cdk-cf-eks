@@ -173,18 +173,12 @@ class DominoVpcProvisioner:
         if not bastion.enabled:
             return None
         if bastion.ami_id:
+            region = cdk.Stack.of(self.scope).region
             machine_image = ec2.MachineImage.generic_linux(
-                # TODO no region???
-                {self.region: bastion.ami_id},
+                {region: bastion.ami_id},
                 user_data=ec2.UserData.custom(bastion.user_data),
             )
         else:
-            # ??? is this now covered under the config? is it not auto?? why is it in here?
-            if not self.scope.account.isnumeric():  # TODO: Can we get rid of this requirement?
-                raise ValueError(
-                    "Error looking up AMI: Must provide explicit AWS account ID to do AMI lookup. Either provide AMI ID or AWS account id"
-                )
-
             machine_image = ec2.AmazonLinuxImage()
 
         bastion_sg = ec2.SecurityGroup(
