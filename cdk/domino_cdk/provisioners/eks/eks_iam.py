@@ -69,26 +69,7 @@ class DominoEksIamProvisioner:
         ]
 
         if r53_zone_ids:
-            managed_policies.append(
-                iam.ManagedPolicy(
-                    self.scope,
-                    "route53",
-                    managed_policy_name=f"{stack_name}-route53",
-                    statements=[
-                        iam.PolicyStatement(
-                            actions=["route53:ListHostedZones"],
-                            resources=["*"],
-                        ),
-                        iam.PolicyStatement(
-                            actions=[
-                                "route53:ChangeResourceRecordSets",
-                                "route53:ListResourceRecordSets",
-                            ],
-                            resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
-                        ),
-                    ],
-                )
-            )
+            managed_policies.append(self.provision_r53_policy(stack_name, r53_zone_ids))
 
         if buckets:
             managed_policies.append(self.provision_node_s3_iam_policy(stack_name, buckets))
@@ -101,11 +82,31 @@ class DominoEksIamProvisioner:
             managed_policies=managed_policies,
         )
 
-    def provision_node_s3_iam_policy(self, name: str, buckets: Dict[str, Bucket]) -> iam.ManagedPolicy:
+    def provision_r53_policy(self, stack_name: str, r53_zone_ids: List[str]):
+        return iam.ManagedPolicy(
+            self.scope,
+            "route53",
+            managed_policy_name=f"{stack_name}-route53",
+            statements=[
+                iam.PolicyStatement(
+                    actions=["route53:ListHostedZones"],
+                    resources=["*"],
+                ),
+                iam.PolicyStatement(
+                    actions=[
+                        "route53:ChangeResourceRecordSets",
+                        "route53:ListResourceRecordSets",
+                    ],
+                    resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
+                ),
+            ],
+        )
+
+    def provision_node_s3_iam_policy(self, stack_name: str, buckets: Dict[str, Bucket]) -> iam.ManagedPolicy:
         return iam.ManagedPolicy(
             self.scope,
             "S3",
-            managed_policy_name=f"{name}-S3",
+            managed_policy_name=f"{stack_name}-S3",
             statements=[
                 iam.PolicyStatement(
                     actions=[
