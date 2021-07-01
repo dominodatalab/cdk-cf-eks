@@ -61,18 +61,21 @@ ecr_write_permisions = [
 # Roles. The roles are the collection of the policies.
 roles = {
     # E.g. nucleus needs this role
-    "blobs-write--logs-read": [
-        "blobs:write",
-        "logs:read",
-    ],
+    "blobs-write--logs-read":
+        {
+            "blobs": "write" ,
+            "logs": "read",
+        },
     # E.g. executor needs this role
-    "blobs-write": [
-        "blobs:write",
-    ],
+    "blobs-write":
+        {
+            "blobs": "write"
+        },
     # E.g. builder needs this role
-    "images-write": [
-        "ecr:write",
-    ],
+    "images-write":
+        {
+            "ecr": "write"
+        },
 }
 
 
@@ -110,7 +113,7 @@ class DominoEksK8sIamRolesProvisioner:
 
         managed_policies.update(self.create_s3_policies(stack_name, buckets))
 
-        for name, policy_list in roles.items():
+        for name, policy_ref in roles.items():
             iam_role = iam.Role(
                 self.scope,
                 f"{stack_name}-4SA-{name}",
@@ -122,9 +125,8 @@ class DominoEksK8sIamRolesProvisioner:
                 role_name=f"{stack_name}-4SA-{name}",
             )
             iam_role.assume_role_policy.add_statements(iam.PolicyStatement.from_json(statement_json))
-            for policy_name in policy_list:
-                name_array = policy_name.split(":")
-                iam_role.add_managed_policy(managed_policies[name_array[0]][name_array[1]])
+            for policy_group, policy_mode in policy_ref.items():
+                iam_role.add_managed_policy(managed_policies[policy_group][policy_mode])
 
     def create_ecr_policy(self, stack_name: str, policy_name: str, actions: List[str]):
         external_policy_name = f"{stack_name}-ECR-{policy_name}"

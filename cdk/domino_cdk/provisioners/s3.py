@@ -14,7 +14,7 @@ class DominoS3Provisioner:
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
         self.provision_buckets(name, s3)
 
-    def provision_buckets(self, name: str, s3: List[config.S3]):
+    def provision_buckets(self, stack_name: str, s3: List[config.S3]):
         self.buckets = {}
         for bucket, attrs in s3.buckets.items():
             use_sse_kms_key = False
@@ -25,7 +25,7 @@ class DominoS3Provisioner:
             self.buckets[bucket] = Bucket(
                 self.scope,
                 bucket,
-                bucket_name=f"{name}-{bucket}",
+                bucket_name=f"{stack_name}-{bucket}",
                 auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
                 removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
                 enforce_ssl=True,

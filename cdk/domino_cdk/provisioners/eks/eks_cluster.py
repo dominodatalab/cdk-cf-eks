@@ -17,7 +17,7 @@ class DominoEksClusterProvisioner:
 
     def provision(
         self,
-        name: str,
+        stack_name: str,
         eks_version: eks.KubernetesVersion,
         private_api: bool,
         secrets_encryption_key_arn: str,
@@ -29,7 +29,7 @@ class DominoEksClusterProvisioner:
             self.scope,
             "EKSSG",
             vpc=vpc,
-            security_group_name=f"{name}-EKSSG",
+            security_group_name=f"{stack_name}-EKSSG",
             allow_all_outbound=False,
         )
 
@@ -38,8 +38,8 @@ class DominoEksClusterProvisioner:
         else:
             key = Key(
                 self.scope,
-                f"{name}-kubernetes-secrets-envelope-key",
-                alias=f"{name}-kubernetes-secrets-envelope-key",
+                f"{stack_name}-kubernetes-secrets-envelope-key",
+                alias=f"{stack_name}-kubernetes-secrets-envelope-key",
                 removal_policy=cdk.RemovalPolicy.DESTROY,
                 enable_key_rotation=True,
             )
@@ -47,7 +47,7 @@ class DominoEksClusterProvisioner:
         cluster = eks.Cluster(
             self.scope,
             "eks",
-            cluster_name=name,
+            cluster_name=stack_name,
             vpc=vpc,
             endpoint_access=eks.EndpointAccess.PRIVATE if private_api else None,
             vpc_subnets=[ec2.SubnetType.PRIVATE],
