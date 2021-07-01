@@ -67,7 +67,7 @@ class DominoEksNodegroupProvisioner:
                     device_name="/dev/xvda",  # TODO: this only works for AL2
                     volume=ec2.BlockDeviceVolume.ebs(
                         ng.disk_size,
-                        delete_on_termination=True,  # TODO ??
+                        delete_on_termination=True,
                         encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
                     ),
@@ -100,8 +100,9 @@ class DominoEksNodegroupProvisioner:
     def provision_unmanaged_nodegroup(
         self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
     ) -> None:
+        region = cdk.Stack.of(self.scope).region
         machine_image = (
-            ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id})
+            ec2.MachineImage.generic_linux({region: ng.ami_id})
             if ng.ami_id
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
@@ -175,7 +176,7 @@ class DominoEksNodegroupProvisioner:
                             device_name="/dev/xvda",
                             volume=ec2.BlockDeviceVolume.ebs(
                                 ng.disk_size,
-                                delete_on_termination=True,  # TODO ??
+                                delete_on_termination=True,
                                 encrypted=True,
                                 volume_type=ec2.EbsDeviceVolumeType.GP2,
                             ),
