@@ -131,6 +131,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         "Action": [
             "states:CreateStateMachine",
             "states:DeleteStateMachine",
+            "states:DescribeStateMachine",
             "states:TagResource",
             "states:UntagResource",
             "states:UpdateStateMachine",
