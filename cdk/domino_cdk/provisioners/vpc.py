@@ -18,9 +18,9 @@ class DominoVpcProvisioner:
         self.provision_vpc(name, vpc)
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
-    def provision_vpc(self, name: str, vpc: config.VPC):
-        self.public_subnet_name = f"{name}-public"
-        self.private_subnet_name = f"{name}-private"
+    def provision_vpc(self, stack_name: str, vpc: config.VPC):
+        self.public_subnet_name = f"{stack_name}-public"
+        self.private_subnet_name = f"{stack_name}-private"
         if not vpc.create:
             self.vpc = ec2.Vpc.from_lookup("Vpc", vpc_id=vpc.id)
             return
@@ -48,7 +48,7 @@ class DominoVpcProvisioner:
             },
             nat_gateway_provider=nat_provider,
         )
-        cdk.Tags.of(self.vpc).add("Name", name)
+        cdk.Tags.of(self.vpc).add("Name", stack_name)
         cdk.CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
@@ -58,7 +58,7 @@ class DominoVpcProvisioner:
             pod_subnet = ec2.PrivateSubnet(
                 self.scope,
                 # this can't be okay
-                f"{name}-pod-{c}",  # Can't use parameter/token in this name
+                f"{stack_name}-pod-{c}",  # Can't use parameter/token in this name
                 vpc_id=self.vpc.vpc_id,
                 availability_zone=az,
                 cidr_block=f"100.64.{c}.0/18",

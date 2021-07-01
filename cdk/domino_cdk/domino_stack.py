@@ -10,6 +10,9 @@ from domino_cdk.provisioners import (
     DominoS3Provisioner,
     DominoVpcProvisioner,
 )
+from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
+    DominoEksK8sIamRolesProvisioner,
+)
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -38,9 +41,14 @@ class DominoStack(cdk.Stack):
             self.vpc_stack.private_subnet_name,
             self.vpc_stack.bastion_sg,
             self.cfg.route53.zone_ids,
-            self.s3_stack.policy,
             nest,
+            # Do not pass list of buckets to Eks provisioner if we are not using S3 access per node
+            self.s3_stack.buckets if cfg.create_iam_roles_for_service_accounts is False else [],
         )
+
+        if cfg.create_iam_roles_for_service_accounts:
+            DominoEksK8sIamRolesProvisioner(self).provision(self.name, self.eks_stack.cluster, self.s3_stack.buckets)
+
         self.efs_stack = DominoEfsProvisioner(
             self,
             "EfsStack",
@@ -53,9 +61,7 @@ class DominoStack(cdk.Stack):
         # At least until we get the lambda working, this has to live in the eks stack's scope
         # as there is some implicit token used to construct the magically auto-generated kubectl
         # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
-        DominoAwsConfigurator(
-            self.eks_stack.scope, self.eks_stack.cluster, self.vpc_stack.vpc, self.s3_stack.s3_api_statement
-        )
+        DominoAwsConfigurator(self.eks_stack.scope, self.eks_stack.cluster, self.vpc_stack.vpc)
 
         self.generate_outputs()
 

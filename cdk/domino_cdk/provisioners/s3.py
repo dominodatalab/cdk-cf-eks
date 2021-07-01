@@ -12,20 +12,9 @@ class DominoS3Provisioner:
     def __init__(self, parent: cdk.Construct, construct_id: str, name: str, s3: List[config.S3], nest: bool, **kwargs):
         self.parent = parent
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
-
-        self.s3_api_statement = iam.PolicyStatement(
-            actions=[
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:DeleteObject",
-                "s3:ListMultipartUploadParts",
-                "s3:AbortMultipartUpload",
-            ]
-        )
         self.provision_buckets(name, s3)
-        self.provision_iam_policy(name)
 
-    def provision_buckets(self, name: str, s3: List[config.S3]):
+    def provision_buckets(self, stack_name: str, s3: List[config.S3]):
         self.buckets = {}
         for bucket, attrs in s3.buckets.items():
             use_sse_kms_key = False
@@ -36,7 +25,7 @@ class DominoS3Provisioner:
             self.buckets[bucket] = Bucket(
                 self.scope,
                 bucket,
-                bucket_name=f"{name}-{bucket}",
+                bucket_name=f"{stack_name}-{bucket}",
                 auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
                 removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
                 enforce_ssl=True,
@@ -72,23 +61,5 @@ class DominoS3Provisioner:
                     conditions={"Null": {"s3:x-amz-server-side-encryption": "true"}},
                 )
             )
-            self.s3_api_statement.add_resources(f"{self.buckets[bucket].bucket_arn}*")
-            cdk.CfnOutput(self.parent, f"{bucket}-output", value=self.buckets[bucket].bucket_name)
 
-    def provision_iam_policy(self, name: str):
-        self.policy = iam.ManagedPolicy(
-            self.scope,
-            "S3",
-            managed_policy_name=f"{name}-S3",
-            statements=[
-                iam.PolicyStatement(
-                    actions=[
-                        "s3:ListBucket",
-                        "s3:GetBucketLocation",
-                        "s3:ListBucketMultipartUploads",
-                    ],
-                    resources=["*"],
-                ),
-                self.s3_api_statement,
-            ],
-        )
+            cdk.CfnOutput(self.parent, f"{bucket}-output", value=self.buckets[bucket].bucket_name)

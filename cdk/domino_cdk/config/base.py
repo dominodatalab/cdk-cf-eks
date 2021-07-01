@@ -29,6 +29,8 @@ class DominoCDKConfig:
 
     tags: Dict[str, str] = field_property(default={})
 
+    create_iam_roles_for_service_accounts: bool = False
+
     vpc: VPC = None
     efs: EFS = None
     route53: Route53 = None
@@ -58,6 +60,7 @@ class DominoCDKConfig:
                 aws_region=c.pop("aws_region"),
                 aws_account_id=c.pop("aws_account_id"),
                 tags=c.pop("tags", {}),
+                create_iam_roles_for_service_accounts=False,
                 install=c.pop("install", {}),
                 vpc=VPC.from_0_0_0({**c.pop("vpc"), **{"availability_zones": c.pop("availability_zones", [])}}),
                 efs=EFS.from_0_0_0(c.pop("efs")),
@@ -78,6 +81,7 @@ class DominoCDKConfig:
                 aws_region=c.pop("aws_region"),
                 aws_account_id=c.pop("aws_account_id"),
                 tags=c.pop("tags", {}),
+                create_iam_roles_for_service_accounts=c.pop("create_iam_roles_for_service_accounts", False),
                 install=c.pop("install", {}),
                 vpc=VPC.from_0_0_1(c.pop("vpc")),
                 efs=EFS.from_0_0_0(c.pop("efs")),

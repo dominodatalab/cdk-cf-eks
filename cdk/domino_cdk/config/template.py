@@ -152,6 +152,7 @@ def config_template(
         aws_region=fill,
         aws_account_id=fill,
         tags={"domino-infrastructure": "true"},
+        create_iam_roles_for_service_accounts=False,
         install=install,
         vpc=vpc,
         efs=efs,

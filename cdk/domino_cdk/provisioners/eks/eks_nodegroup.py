@@ -15,7 +15,7 @@ class DominoEksNodegroupProvisioner:
         scope: cdk.Construct,
         cluster: eks.Cluster,
         ng_role: iam.Role,
-        name: str,
+        stack_name: str,
         eks_cfg: config.EKS,
         eks_version: eks.KubernetesVersion,
         vpc: ec2.Vpc,
@@ -25,7 +25,7 @@ class DominoEksNodegroupProvisioner:
         self.scope = scope
         self.cluster = cluster
         self.ng_role = ng_role
-        self.name = name
+        self.stack_name = stack_name
         self.eks_cfg = eks_cfg
         self.eks_version = eks_version
         self.vpc = vpc
@@ -60,7 +60,7 @@ class DominoEksNodegroupProvisioner:
             self.cluster,
             f"LaunchTemplate{name}",
             key_name=ng.key_name,
-            launch_template_name=f"{self.name}-{name}",
+            launch_template_name=f"{self.stack_name}-{name}",
             block_devices=[
                 ec2.BlockDevice(
                     device_name="/dev/xvda",
@@ -77,8 +77,8 @@ class DominoEksNodegroupProvisioner:
 
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             self.cluster.add_nodegroup_capacity(
-                f"{self.name}-{name}-{i}",
-                nodegroup_name=f"{self.name}-{name}-{az}",
+                f"{self.stack_name}-{name}-{i}",
+                nodegroup_name=f"{self.stack_name}-{name}-{az}",
                 capacity_type=eks.CapacityType.SPOT if ng.spot else eks.CapacityType.ON_DEMAND,
                 min_size=ng.min_size,
                 max_size=ng.max_size,
@@ -112,7 +112,7 @@ class DominoEksNodegroupProvisioner:
                 self.scope,
                 "UnmanagedSG",
                 vpc=self.vpc,
-                security_group_name=f"{self.name}-sharedNodeSG",
+                security_group_name=f"{self.stack_name}-sharedNodeSG",
                 allow_all_outbound=False,
             )
 
@@ -130,10 +130,10 @@ class DominoEksNodegroupProvisioner:
         scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
-            indexed_name = f"{self.name}-{name}-{az}"
+            indexed_name = f"{self.stack_name}-{name}-{az}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
-                f"{self.name}-{name}-{i}",
+                f"{self.stack_name}-{name}-{i}",
                 auto_scaling_group_name=indexed_name,
                 instance_type=ec2.InstanceType(ng.instance_types[0]),
                 machine_image=machine_image,
@@ -264,7 +264,7 @@ class DominoEksNodegroupProvisioner:
                                 ud,
                                 {
                                     "NodegroupName": name,
-                                    "StackName": self.name,
+                                    "StackName": self.stack_name,
                                     "ClusterName": self.cluster.cluster_name,
                                 },
                             ),

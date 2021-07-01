@@ -15,7 +15,7 @@ class DominoEfsProvisioner:
         self,
         parent: cdk.Construct,
         construct_id: str,
-        name: str,
+        stack_name: str,
         cfg: config.EFS,
         vpc: ec2.Vpc,
         security_group: ec2.SecurityGroup,
@@ -25,17 +25,17 @@ class DominoEfsProvisioner:
         self.parent = parent
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
-        self.provision_efs(name, cfg, vpc, security_group)
+        self.provision_efs(stack_name, cfg, vpc, security_group)
         if cfg.backup.enable:
-            self.provision_backup_vault(name, cfg.backup)
+            self.provision_backup_vault(stack_name, cfg.backup)
 
-    def provision_efs(self, name: str, cfg: config.EFS, vpc: ec2.Vpc, security_group: ec2.SecurityGroup):
+    def provision_efs(self, stack_name: str, cfg: config.EFS, vpc: ec2.Vpc, security_group: ec2.SecurityGroup):
         self.efs = efs.FileSystem(
             self.scope,
             "Efs",
             vpc=vpc,
             # encrypted=True,
-            file_system_name=name,
+            file_system_name=stack_name,
             # kms_key,
             # lifecycle_policy,
             performance_mode=efs.PerformanceMode.MAX_IO,
@@ -61,18 +61,18 @@ class DominoEfsProvisioner:
             ),
         )
 
-    def provision_backup_vault(self, name: str, efs_backup: config.EFS.Backup):
+    def provision_backup_vault(self, stack_name: str, efs_backup: config.EFS.Backup):
         vault = backup.BackupVault(
             self.scope,
             "efs_backup",
-            backup_vault_name=f'{name}-efs',
+            backup_vault_name=f'{stack_name}-efs',
             removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
         )
         cdk.CfnOutput(self.parent, "backup-vault", value=vault.backup_vault_name)
         plan = backup.BackupPlan(
             self.scope,
             "efs_backup_plan",
-            backup_plan_name=f"{name}-efs",
+            backup_plan_name=f"{stack_name}-efs",
             backup_plan_rules=[
                 backup.BackupPlanRule(
                     backup_vault=vault,
@@ -92,7 +92,7 @@ class DominoEfsProvisioner:
             self.scope,
             "efs_backup_role",
             assumed_by=iam.ServicePrincipal("backup.amazonaws.com"),
-            role_name=f"{name}-efs-backup",
+            role_name=f"{stack_name}-efs-backup",
         )
         backup.BackupSelection(
             self.scope,
@@ -100,6 +100,6 @@ class DominoEfsProvisioner:
             backup_plan=plan,
             resources=[backup.BackupResource.from_efs_file_system(self.efs)],
             allow_restores=False,
-            backup_selection_name=f"{name}-efs",
+            backup_selection_name=f"{stack_name}-efs",
             role=backupRole,
         )

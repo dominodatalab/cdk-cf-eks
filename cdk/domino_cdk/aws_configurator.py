@@ -4,7 +4,6 @@ from re import split as re_split
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
-import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 from requests import get as requests_get
 from yaml import safe_load as yaml_safe_load
@@ -22,13 +21,10 @@ manifests = [
 # deprovisoning efs backups/route53, tagging the eks cluster until
 # the CloudFormation api supports it, etc.)
 class DominoAwsConfigurator:
-    def __init__(
-        self, scope: cdk.Construct, eks_cluster: eks.Cluster, vpc: ec2.Vpc, s3_api_statement: iam.PolicyStatement
-    ):
+    def __init__(self, scope: cdk.Construct, eks_cluster: eks.Cluster, vpc: ec2.Vpc):
         self.scope = scope
         self.eks_cluster = eks_cluster
         self.vpc = vpc
-        self.s3_api_statement = s3_api_statement
 
         self.install_calico()
 
