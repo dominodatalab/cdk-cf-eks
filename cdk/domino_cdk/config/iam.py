@@ -131,6 +131,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         "Action": [
             "states:CreateStateMachine",
             "states:DeleteStateMachine",
+            "states:DescribeStateMachine",
             "states:TagResource",
             "states:UntagResource",
             "states:UpdateStateMachine",
@@ -243,6 +244,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "kms:RetireGrant",
             "kms:ScheduleKeyDeletion",
             "kms:TagResource",
+            "kms:UpdateAlias",
         ],
         **from_cf_condition,
         "Resource": "*",
@@ -323,6 +325,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "elasticfilesystem:TagResource",
             "elasticfilesystem:UntagResource",
             "iam:GetRole",
+            "iam:GetRolePolicy",
         ],
         **do_cf(),
         "Resource": "*",

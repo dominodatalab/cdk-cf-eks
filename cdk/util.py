@@ -13,7 +13,7 @@ from domino_cdk.config.template import config_template
 from domino_cdk.util import DominoCdkUtil
 
 DEFAULT_TF_MODULE_PATH = (
-    "https://github.com/dominodatalab/cdk-cf-eks/releases/download/v0.0.1rc1/domino-cdk-terraform-0.0.1rc1.tar.gz"
+    "https://github.com/dominodatalab/cdk-cf-eks/releases/download/v0.0.1rc2/domino-cdk-terraform-0.0.1-rc2.tar.gz"
 )
 
 
@@ -124,8 +124,9 @@ def parse_args():
     )
     tf_bootstrap_parser.add_argument(
         "--iam-policy-path",
-        help="IAM policy file to provision as role and assign to CloudFormation stack (optional)",
-        default=None,
+        help="IAM policy file(s) to provision and attach to role and assign to CloudFormation stack. Can be specified multiple times for multiple policies.  (optional)",
+        action="append",
+        default=[],
     )
     tf_bootstrap_parser.set_defaults(func=generate_terraform_bootstrap)
 

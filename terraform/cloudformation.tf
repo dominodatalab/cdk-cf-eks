@@ -6,7 +6,7 @@ resource "aws_cloudformation_stack" "cdk_stack" {
   ]
   parameters         = var.parameters
   template_url       = "https://${aws_s3_bucket.cf_asset_bucket.bucket_regional_domain_name}/${var.template_filename}"
-  iam_role_arn       = var.iam_policy_path != "" ? aws_iam_role.deployment[0].arn : var.iam_role_arn
+  iam_role_arn       = length(var.iam_policy_paths) != 0 ? aws_iam_role.deployment[0].arn : var.iam_role_arn
   depends_on         = [aws_s3_bucket_object.assets]
   timeout_in_minutes = var.cloudformation_timeout_in_minutes
 
@@ -32,7 +32,7 @@ resource "local_file" "agent_template" {
 
 resource "null_resource" "kubeconfig" {
   provisioner "local-exec" {
-    command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${var.output_dir}/kubeconfig")}"
+    command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${var.output_dir}/kubeconfig")} && chmod 600 ${abspath("${var.output_dir}/kubeconfig")}"
   }
 
   depends_on = [aws_cloudformation_stack.cdk_stack]

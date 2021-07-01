@@ -5,6 +5,7 @@ from os.path import basename, isfile
 from os.path import join as path_join
 from subprocess import run
 from time import time
+from typing import List
 from urllib.parse import urlparse
 
 
@@ -63,7 +64,7 @@ class DominoCdkUtil:
         output_dir: str,
         disable_random_templates: bool = False,
         iam_role_arn: str = "",
-        iam_policy_path: str = "",
+        iam_policy_paths: List[str] = None,
     ):
         cfg = cls.load_manifest(path_join(asset_dir, "manifest.json"))
         stack_name = cfg["name"]
@@ -102,7 +103,7 @@ class DominoCdkUtil:
                     "aws_region": aws_region,
                     "name": stack_name,
                     "iam_role_arn": iam_role_arn,
-                    "iam_policy_path": iam_policy_path,
+                    "iam_policy_paths": iam_policy_paths,
                     "parameters": asset_parameters,
                     "template_filename": basename(template_filename),
                     "output_dir": output_dir,
