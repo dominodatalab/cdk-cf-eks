@@ -244,6 +244,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "kms:RetireGrant",
             "kms:ScheduleKeyDeletion",
             "kms:TagResource",
+            "kms:UpdateAlias",
         ],
         **from_cf_condition,
         "Resource": "*",
