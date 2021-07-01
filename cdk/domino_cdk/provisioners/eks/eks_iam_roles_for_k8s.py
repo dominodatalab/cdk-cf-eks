@@ -61,16 +61,16 @@ ecr_write_permisions = [
 # Roles. The roles are the collection of the policies.
 roles = {
     # E.g. nucleus needs this role
-    "write_blobs_read_logs": [
+    "blobs-write--logs-read": [
         "blobs:write",
         "logs:read",
     ],
     # E.g. executor needs this role
-    "write_blobs": [
+    "blobs-write": [
         "blobs:write",
     ],
     # E.g. builder needs this role
-    "write_images": [
+    "images-write": [
         "ecr:write",
     ],
 }
