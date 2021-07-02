@@ -21,7 +21,6 @@ def config_template(
     destroy_on_destroy = False
     disk_size = 1000
     platform_instance_type = "m5.2xlarge"
-
     if dev_defaults:
         max_nodegroup_azs = 1
         destroy_on_destroy = True
