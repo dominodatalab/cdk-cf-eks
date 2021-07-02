@@ -21,17 +21,16 @@ def config_template(
     destroy_on_destroy = False
     disk_size = 1000
     platform_instance_type = "m5.2xlarge"
-    platform_min_size = 3
+
     if dev_defaults:
         max_nodegroup_azs = 1
         destroy_on_destroy = True
         disk_size = 100
         platform_instance_type = "m5.4xlarge"
-        platform_min_size = 1
 
     unmanaged_nodegroups = {}
 
-    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=disk_size, taints=None, gpu=False):
+    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=100, taints=None, gpu=False):
         for i in range(0, count):
             unmanaged_nodegroups[f"{name}-{i}"] = EKS.UnmanagedNodegroup(
                 gpu=gpu,
@@ -52,7 +51,7 @@ def config_template(
     add_nodegroups(
         "platform",
         platform_nodegroups,
-        platform_min_size,
+        1,
         [platform_instance_type],
         {"dominodatalab.com/node-pool": "platform"},
     )
@@ -62,6 +61,7 @@ def config_template(
         0,
         ["m5.2xlarge"],
         {"dominodatalab.com/node-pool": "default"},
+        disk_size=disk_size,
     )
     add_nodegroups(
         "gpu",
@@ -71,6 +71,7 @@ def config_template(
         {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
         taints={"nvidia.com/gpu": "true:NoSchedule"},
         gpu=True,
+        disk_size=disk_size,
     )
 
     vpc = VPC(
