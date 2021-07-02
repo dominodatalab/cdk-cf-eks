@@ -1,0 +1,7 @@
+[run]
+source=
+    domino_cdk/
+omit=
+    */venv/*
+    */.venv/*
+    */tests/*

@@ -1,37 +1,14 @@
-from typing import Any, Dict, Optional
-from unittest import TestCase
-
 from aws_cdk.assertions import TemplateAssertions
 from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.config import S3
 from domino_cdk.provisioners.s3 import DominoS3Provisioner
 
-
-def find_resource(template: Dict, typ: str, matchers: Dict = None) -> Optional[Dict]:
-    return next(
-        (
-            res
-            for _, res in template.get("Resources", {}).items()
-            if res["Type"] == typ and all(m in res.items() for m in (matchers or {}).items())
-        ),
-        None,
-    )
+from . import TestCase
 
 
 class TestDominoS3Provisioner(TestCase):
-    def assertPartialMatch(self, obj: Any, matchers: Any) -> None:
-        self.assertEqual(type(obj), type(matchers))
-
-        if isinstance(obj, list):
-            self.assertEqual(len(obj), len(matchers))
-            for i, left in enumerate(obj):
-                self.assertPartialMatch(left, matchers[i])
-        elif isinstance(obj, dict):
-            for m in matchers.items():
-                self.assertIn(m, obj.items())
-        else:
-            self.assertEqual(obj, matchers)
+    KMS_KEY_ARN = "arn:aws-us-gov:kms:us-west-2:1234567890:key/this-is-my-key-id"
 
     def test_monitoring_bucket(self):
         app = App()
@@ -73,7 +50,7 @@ class TestDominoS3Provisioner(TestCase):
         )
 
         assertion.resource_count_is("AWS::S3::BucketPolicy", 1)
-        policy = find_resource(template, "AWS::S3::BucketPolicy")
+        policy = self.find_resource(template, "AWS::S3::BucketPolicy")
 
         statements = policy["Properties"]["PolicyDocument"]["Statement"]
         self.assertPartialMatch(
@@ -107,4 +84,198 @@ class TestDominoS3Provisioner(TestCase):
                     "Sid": "AWSLogDeliveryCheck",
                 },
             ],
+        )
+
+    def test_monitoring_kms_key(self):
+        app = App()
+        stack = Stack(app, "S3", env=Environment(region="us-west-2"))
+        s3_config = S3(
+            buckets={},
+            monitoring_bucket=S3.Bucket(True, True, self.KMS_KEY_ARN),
+        )
+
+        DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
+
+        assertion = TemplateAssertions.from_stack(stack)
+        assertion.resource_count_is("AWS::S3::Bucket", 1)
+        assertion.has_resource_properties(
+            "AWS::S3::Bucket",
+            {
+                "BucketName": "test-s3-monitoring",
+                "BucketEncryption": {
+                    "ServerSideEncryptionConfiguration": [
+                        {
+                            "BucketKeyEnabled": True,
+                            "ServerSideEncryptionByDefault": {
+                                "KMSMasterKeyID": self.KMS_KEY_ARN,
+                                "SSEAlgorithm": "aws:kms",
+                            },
+                        }
+                    ]
+                },
+            },
+        )
+
+    def test_buckets(self):
+        buckets = [
+            (
+                "retain",
+                S3.Bucket(False, False, ""),
+                {
+                    "Properties": {
+                        "BucketName": "test-s3-retain",
+                        "BucketEncryption": {
+                            "ServerSideEncryptionConfiguration": [
+                                {"ServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}
+                            ]
+                        },
+                        "PublicAccessBlockConfiguration": {
+                            "BlockPublicAcls": True,
+                            "BlockPublicPolicy": True,
+                            "IgnorePublicAcls": True,
+                            "RestrictPublicBuckets": True,
+                        },
+                        "VersioningConfiguration": {"Status": "Enabled"},
+                    },
+                    "UpdateReplacePolicy": "Retain",
+                    "DeletionPolicy": "Retain",
+                },
+            ),
+            (
+                "cmk",
+                S3.Bucket(False, False, self.KMS_KEY_ARN),
+                {
+                    "Properties": {
+                        "BucketName": "test-s3-cmk",
+                        "BucketEncryption": {
+                            "ServerSideEncryptionConfiguration": [
+                                {
+                                    "BucketKeyEnabled": True,
+                                    "ServerSideEncryptionByDefault": {
+                                        "KMSMasterKeyID": self.KMS_KEY_ARN,
+                                        "SSEAlgorithm": "aws:kms",
+                                    },
+                                }
+                            ]
+                        },
+                        "PublicAccessBlockConfiguration": {
+                            "BlockPublicAcls": True,
+                            "BlockPublicPolicy": True,
+                            "IgnorePublicAcls": True,
+                            "RestrictPublicBuckets": True,
+                        },
+                        "VersioningConfiguration": {"Status": "Enabled"},
+                    },
+                    "UpdateReplacePolicy": "Retain",
+                    "DeletionPolicy": "Retain",
+                },
+            ),
+            (
+                "destroy",
+                S3.Bucket(True, True, ""),
+                {
+                    "Properties": {
+                        "BucketName": "test-s3-destroy",
+                        "BucketEncryption": {
+                            "ServerSideEncryptionConfiguration": [
+                                {"ServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}
+                            ]
+                        },
+                        "PublicAccessBlockConfiguration": {
+                            "BlockPublicAcls": True,
+                            "BlockPublicPolicy": True,
+                            "IgnorePublicAcls": True,
+                            "RestrictPublicBuckets": True,
+                        },
+                        "VersioningConfiguration": {"Status": "Enabled"},
+                    },
+                    "UpdateReplacePolicy": "Delete",
+                    "DeletionPolicy": "Delete",
+                },
+                {
+                    "Action": ["s3:GetBucket*", "s3:List*", "s3:DeleteObject*"],
+                    "Effect": "Allow",
+                },
+            ),
+        ]
+
+        for (name, bucket, resource_defn, *policies) in buckets:
+            app = App()
+            stack = Stack(app, "S3", env=Environment(region="us-west-2"))
+            s3_config = S3(
+                buckets={name: bucket},
+                monitoring_bucket=None,
+            )
+
+            DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
+
+            assertion = TemplateAssertions.from_stack(stack)
+            assertion.resource_count_is("AWS::S3::Bucket", 1)
+            assertion.has_resource_definition("AWS::S3::Bucket", resource_defn)
+
+            assertion.resource_count_is("AWS::S3::BucketPolicy", 1)
+
+            template = app.synth().get_stack("S3").template
+            policy = self.find_resource(template, "AWS::S3::BucketPolicy")
+
+            statements = policy["Properties"]["PolicyDocument"]["Statement"]
+            self.assertPartialMatch(
+                statements,
+                [
+                    {
+                        "Action": "s3:*",
+                        "Condition": {"Bool": {"aws:SecureTransport": "false"}},
+                        "Effect": "Deny",
+                        "Principal": "*",
+                    },
+                    *policies,
+                    {
+                        "Action": "s3:PutObject",
+                        "Condition": {
+                            "StringNotEquals": {
+                                "s3:x-amz-server-side-encryption": "aws:kms" if bucket.sse_kms_key_id else "AES256"
+                            }
+                        },
+                        "Effect": "Deny",
+                        "Principal": "*",
+                        "Sid": "DenyIncorrectEncryptionHeader",
+                    },
+                    {
+                        "Action": "s3:PutObject",
+                        "Condition": {"Null": {"s3:x-amz-server-side-encryption": "true"}},
+                        "Effect": "Deny",
+                        "Principal": "*",
+                        "Sid": "DenyUnEncryptedObjectUploads",
+                    },
+                ],
+            )
+
+    def test_buckets_access_logging(self):
+        app = App()
+        stack = Stack(app, "S3", env=Environment(region="us-west-2"))
+        s3_config = S3(
+            buckets={"logged": S3.Bucket(False, False, "")},
+            monitoring_bucket=S3.Bucket(False, False, ""),
+        )
+
+        DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
+
+        assertion = TemplateAssertions.from_stack(stack)
+        assertion.resource_count_is("AWS::S3::Bucket", 2)
+        assertion.has_resource_properties(
+            "AWS::S3::Bucket",
+            {
+                "BucketName": "test-s3-monitoring",
+            },
+        )
+
+        assertion.has_resource_properties(
+            "AWS::S3::Bucket",
+            {
+                "BucketName": "test-s3-logged",
+                "LoggingConfiguration": {
+                    "DestinationBucketName": {"Ref": "monitoringF4BD3810"},
+                    "LogFilePrefix": "test-s3-logged/",
+                },
+            },
         )

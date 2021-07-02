@@ -8,6 +8,9 @@ from domino_cdk.config.util import from_loader
 class S3:
     """
     Map of buckets to create and provide IAM access from the EKS cluster.
+
+    The monitoring bucket is optionally created to store various operational logs: VPC flow logs, S3 and ELB access logs.
+
     Bucket parameters:
     auto_delete_objects: true/false - Delete entire contents of bucket when destroying the CloudFormation stack
     removal_policy_destroy: true/false - Delete bucket when destroying stack. If auto_delete_objects is false,
