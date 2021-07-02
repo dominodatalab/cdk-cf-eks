@@ -19,7 +19,7 @@ class DominoVpcProvisioner:
         name: str,
         vpc: config.VPC,
         nest: bool,
-        flow_log_bucket: Optional[s3.Bucket],
+        monitoring_bucket: Optional[s3.Bucket],
         **kwargs,
     ) -> None:
         self.parent = parent
@@ -27,10 +27,10 @@ class DominoVpcProvisioner:
 
         self._availability_zones = vpc.availability_zones
 
-        self.provision_vpc(name, vpc, flow_log_bucket)
+        self.provision_vpc(name, vpc, monitoring_bucket)
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
-    def provision_vpc(self, stack_name: str, vpc: config.VPC, flow_log_bucket: Optional[s3.Bucket]):
+    def provision_vpc(self, stack_name: str, vpc: config.VPC, monitoring_bucket: Optional[s3.Bucket]):
         self.public_subnet_name = f"{stack_name}-public"
         self.private_subnet_name = f"{stack_name}-private"
         if not vpc.create:
@@ -156,17 +156,16 @@ class DominoVpcProvisioner:
             )
 
         if vpc.flow_logging:
-            if not flow_log_bucket:
+            if not monitoring_bucket:
                 raise ValueError(
                     "VPC flow logging enabled without a corresponding S3 bucket destination. Ensure the `monitoring_bucket` is configured correctly."
                 )
 
-            if flow_log_bucket:
-                self.vpc.add_flow_log(
-                    "rejectFlowLogs",
-                    destination=ec2.FlowLogDestination.to_s3(flow_log_bucket),
-                    traffic_type=ec2.FlowLogTrafficType.REJECT,
-                )
+            self.vpc.add_flow_log(
+                "rejectFlowLogs",
+                destination=ec2.FlowLogDestination.to_s3(monitoring_bucket),
+                traffic_type=ec2.FlowLogTrafficType.REJECT,
+            )
 
     def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> Optional[ec2.SecurityGroup]:
         if not bastion.enabled:

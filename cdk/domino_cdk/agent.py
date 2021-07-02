@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from aws_cdk.aws_s3 import Bucket
 
@@ -10,6 +10,7 @@ def generate_install_config(
     pod_cidr: str,
     global_node_selectors: Dict[str, str],
     buckets: Dict[str, Bucket],
+    monitoring_bucket: Optional[Bucket],
     efs_fs_ap_id: str,
     r53_zone_ids: str,
     r53_owner_id: str,
@@ -112,12 +113,12 @@ def generate_install_config(
         }
     }
 
-    if mb := buckets.get("monitoring"):
+    if monitoring_bucket:
         agent_cfg["services"]["nginx_ingress"]["chart_values"].update(
             {
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-enabled": "true",
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-emit-interval": "5",
-                "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name": mb.bucket_name,
+                "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name": monitoring_bucket.bucket_name,
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix": "ELBAccessLogs",
             }
         )

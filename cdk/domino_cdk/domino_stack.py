@@ -99,6 +99,7 @@ class DominoStack(cdk.Stack):
             pod_cidr=self.vpc_stack.vpc.vpc_cidr_block,
             global_node_selectors=self.cfg.eks.global_node_labels,
             buckets=self.s3_stack.buckets,
+            monitoring_bucket=self.s3_stack.monitoring_bucket,
             efs_fs_ap_id=efs_fs_ap_id,
             r53_zone_ids=r53_zone_ids,
             r53_owner_id=r53_owner_id,

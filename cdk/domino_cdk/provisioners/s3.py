@@ -18,6 +18,7 @@ class DominoS3Provisioner:
     def __init__(self, parent: cdk.Construct, construct_id: str, name: str, s3: config.S3, nest: bool, **kwargs):
         self.parent = parent
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
+        self.monitoring_bucket: Optional[Bucket] = None
         self.provision_buckets(name, s3)
 
     def _provision_bucket(
@@ -32,7 +33,6 @@ class DominoS3Provisioner:
         use_sse_kms_key = False
         if attrs.sse_kms_key_id:
             use_sse_kms_key = True
-            # TODO: is this correct???
             sse_kms_key = Key.from_key_arn(self.scope, f"{bucket_id}-kms-key", attrs.sse_kms_key_id)
 
         bucket_name = f"{stack_name}-{bucket_id}"
@@ -86,11 +86,8 @@ class DominoS3Provisioner:
         return bucket
 
     def provision_buckets(self, stack_name: str, s3: config.S3):
-        monitoring_bucket: Optional[Bucket] = None
-        self.buckets = {}
-
         if s3.monitoring_bucket:
-            monitoring_bucket = self._provision_bucket(
+            self.monitoring_bucket = self._provision_bucket(
                 stack_name,
                 "monitoring",
                 s3.monitoring_bucket,
@@ -99,9 +96,11 @@ class DominoS3Provisioner:
             )
 
             region = cdk.Stack.of(self.scope).region
-            monitoring_bucket.grant_put(iam.AccountPrincipal(Fact.require_fact(region, FactName.ELBV2_ACCOUNT)), "*")
+            self.monitoring_bucket.grant_put(
+                iam.AccountPrincipal(Fact.require_fact(region, FactName.ELBV2_ACCOUNT)), "*"
+            )
 
-            monitoring_bucket.add_to_resource_policy(
+            self.monitoring_bucket.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="AWSLogDeliveryWrite",
                     effect=iam.Effect.ALLOW,
@@ -109,12 +108,12 @@ class DominoS3Provisioner:
                     actions=[
                         "s3:PutObject",
                     ],
-                    resources=[f"{monitoring_bucket.bucket_arn}/*"],
+                    resources=[f"{self.monitoring_bucket.bucket_arn}/*"],
                     conditions={"StringEquals": {"s3:x-amz-acl": "bucket-owner-full-control"}},
                 )
             )
 
-            monitoring_bucket.add_to_resource_policy(
+            self.monitoring_bucket.add_to_resource_policy(
                 iam.PolicyStatement(
                     sid="AWSLogDeliveryCheck",
                     effect=iam.Effect.ALLOW,
@@ -123,18 +122,16 @@ class DominoS3Provisioner:
                         "s3:GetBucketAcl",
                         "s3:ListBucket",
                     ],
-                    resources=[monitoring_bucket.bucket_arn],
+                    resources=[self.monitoring_bucket.bucket_arn],
                 )
             )
 
-            self.buckets["monitoring"] = monitoring_bucket
+            cdk.CfnOutput(self.parent, "monitoring-bucket-output", value=self.monitoring_bucket.bucket_name)
 
-        self.buckets.update(
-            {
-                bucket: self._provision_bucket(stack_name, bucket, attrs, server_access_logs_bucket=monitoring_bucket)
-                for bucket, attrs in s3.buckets.items()
-            }
-        )
+        self.buckets = {
+            bucket: self._provision_bucket(stack_name, bucket, attrs, server_access_logs_bucket=self.monitoring_bucket)
+            for bucket, attrs in s3.buckets.items()
+        }
 
         for bucket_id, bucket in self.buckets.items():
-            cdk.CfnOutput(self.parent, f"{bucket_id}-output", value=bucket.bucket_name)
+            cdk.CfnOutput(self.parent, f"{bucket_id}-bucket-output", value=bucket.bucket_name)
