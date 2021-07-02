@@ -10,19 +10,21 @@ from . import TestCase
 class TestDominoS3Provisioner(TestCase):
     KMS_KEY_ARN = "arn:aws-us-gov:kms:us-west-2:1234567890:key/this-is-my-key-id"
 
+    def setUp(self):
+        self.app = App()
+        self.stack = Stack(self.app, "S3", env=Environment(region="us-west-2"))
+
     def test_monitoring_bucket(self):
-        app = App()
-        stack = Stack(app, "S3", env=Environment(region="us-west-2"))
         s3_config = S3(
             buckets={},
             monitoring_bucket=S3.Bucket(True, True, ""),
         )
 
-        DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
+        DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
 
-        assertion = TemplateAssertions.from_stack(stack)
+        assertion = TemplateAssertions.from_stack(self.stack)
 
-        template = app.synth().get_stack("S3").template
+        template = self.app.synth().get_stack("S3").template
 
         assertion.resource_count_is("AWS::S3::Bucket", 1)
         assertion.has_resource_definition(
@@ -87,16 +89,14 @@ class TestDominoS3Provisioner(TestCase):
         )
 
     def test_monitoring_kms_key(self):
-        app = App()
-        stack = Stack(app, "S3", env=Environment(region="us-west-2"))
         s3_config = S3(
             buckets={},
             monitoring_bucket=S3.Bucket(True, True, self.KMS_KEY_ARN),
         )
 
-        DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
+        DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
 
-        assertion = TemplateAssertions.from_stack(stack)
+        assertion = TemplateAssertions.from_stack(self.stack)
         assertion.resource_count_is("AWS::S3::Bucket", 1)
         assertion.has_resource_properties(
             "AWS::S3::Bucket",
@@ -202,6 +202,7 @@ class TestDominoS3Provisioner(TestCase):
         for (name, bucket, resource_defn, *policies) in buckets:
             app = App()
             stack = Stack(app, "S3", env=Environment(region="us-west-2"))
+
             s3_config = S3(
                 buckets={name: bucket},
                 monitoring_bucket=None,
@@ -251,16 +252,14 @@ class TestDominoS3Provisioner(TestCase):
             )
 
     def test_buckets_access_logging(self):
-        app = App()
-        stack = Stack(app, "S3", env=Environment(region="us-west-2"))
         s3_config = S3(
             buckets={"logged": S3.Bucket(False, False, "")},
             monitoring_bucket=S3.Bucket(False, False, ""),
         )
 
-        DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
+        DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
 
-        assertion = TemplateAssertions.from_stack(stack)
+        assertion = TemplateAssertions.from_stack(self.stack)
         assertion.resource_count_is("AWS::S3::Bucket", 2)
         assertion.has_resource_properties(
             "AWS::S3::Bucket",
