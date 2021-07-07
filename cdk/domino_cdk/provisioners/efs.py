@@ -118,7 +118,7 @@ class DominoEfsProvisioner:
             environment={"stack_name": stack_name, "backup_vault": vault.backup_vault_name},
             resources=[
                 f"arn:{partition}:logs:*",
-                f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:backup-vault/{stack_name}-efs*",
+                f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:backup-vault:{stack_name}-efs",
             ],
             actions=[
                 "backup:ListRecoveryPointsByBackupVault",
