@@ -4,6 +4,8 @@ import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
+from aws_cdk.region_info import Fact, FactName
+
 
 # Permission groups
 
@@ -122,6 +124,7 @@ class DominoEksK8sIamRolesProvisioner:
                 iam_role.add_managed_policy(managed_policies[policy_group][policy_mode])
 
     def create_ecr_policy(self, stack_name: str, policy_name: str, actions: List[str]):
+        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
         external_policy_name = f"{stack_name}-ECR-{policy_name}"
         return iam.ManagedPolicy(
             self.scope,
@@ -137,7 +140,7 @@ class DominoEksK8sIamRolesProvisioner:
                     effect=iam.Effect.DENY,
                     actions=["ecr:*"],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
-                    resources=[f"arn:aws:ecr:*:{self.scope.account}:*"],
+                    resources=[f"arn:{partition}:ecr:*:{self.scope.account}:*"],
                 ),
             ],
         )

@@ -1,11 +1,14 @@
+import json
+from os import path
 from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
-import aws_cdk.aws_logs as logs
-import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
+from aws_cdk.region_info import Fact, FactName
+
+from domino_cdk.util import DominoCdkUtil
 
 
 class DominoEksClusterProvisioner:
@@ -24,7 +27,9 @@ class DominoEksClusterProvisioner:
         vpc: ec2.Vpc,
         bastion_sg: ec2.SecurityGroup,
         tags: Dict[str, str],
-    ):
+    ) -> eks.Cluster:
+        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
+
         eks_sg = ec2.SecurityGroup(
             self.scope,
             "EKSSG",
@@ -44,6 +49,24 @@ class DominoEksClusterProvisioner:
                 enable_key_rotation=True,
             )
 
+        log_cleanup = DominoCdkUtil.create_lambda(
+            scope=self.scope,
+            stack_name=stack_name,
+            dirname=path.dirname(path.abspath(__file__)),
+            name="cluster_post_deletion_tasks",
+            environment={
+                "cluster": stack_name,
+            },
+            resources=[
+                f"arn:{partition}:logs:{self.scope.region}:{self.scope.account}:log-group:/aws/lambda/{stack_name}*",
+                f"arn:{partition}:logs:{self.scope.region}:{self.scope.account}:log-group:*:log-stream:*",
+            ],
+            actions=[
+                "logs:DescribeLogGroups",
+                "logs:PutRetentionPolicy",
+            ],
+        )
+
         cluster = eks.Cluster(
             self.scope,
             "eks",
@@ -57,56 +80,29 @@ class DominoEksClusterProvisioner:
             secrets_encryption_key=key,
         )
 
-        params = {
-            "name": cluster.cluster_name,
-            "logging": {
-                "clusterLogging": [
-                    {
-                        "enabled": True,
-                        "types": ["api", "audit", "authenticator", "controllerManager", "scheduler"],
-                    },
-                ],
+        cluster.node.add_dependency(log_cleanup)  # make sure log cleanup is called after cluster cleanup
+
+        DominoCdkUtil.create_lambda(
+            scope=self.scope,
+            stack_name=stack_name,
+            dirname=path.dirname(path.abspath(__file__)),
+            name="cluster_post_creation_tasks",
+            environment={
+                "cluster": cluster.cluster_name,
+                "cluster_arn": cluster.cluster_arn,
+                "tags": json.dumps(tags),
             },
-        }
-
-        cr.AwsCustomResource(
-            self.scope,
-            "UpdateClusterConfigCustom",
-            timeout=cdk.Duration.minutes(10),  # defaults to 2 minutes
-            log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-            on_create=cr.AwsSdkCall(
-                action="updateClusterConfig",
-                service="EKS",
-                parameters=params,
-                physical_resource_id=cr.PhysicalResourceId.of("UpdateClusterConfigCustom"),
-                # If the cluster already has logging enabled, this call will return error "already in desired state"
-                # We ignore errors here. "..." is regexp for all 3-digit error codes because we cannot find what is the
-                # actual error code. It is not 2.. 3.. 4.. 5..
-                # We have a JIRA to explore this further: https://dominodatalab.atlassian.net/browse/PLAT-2439
-                ignore_error_codes_matching="...",
-            ),
-        )
-
-        params = {
-            "resourceArn": cdk.Arn.format(
-                cdk.ArnComponents(service="eks", resource=f"cluster/{cluster.cluster_name}"), cdk.Stack.of(self.scope)
-            ),
-            "tags": tags,
-        }
-
-        cr.AwsCustomResource(
-            self.scope,
-            "TagClusterCustom",
-            # timeout defaults to 2 minutes
-            log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
-            policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-            on_create=cr.AwsSdkCall(
-                action="tagResource",
-                service="EKS",
-                parameters=params,
-                physical_resource_id=cr.PhysicalResourceId.of("TagClusterCustom"),
-            ),
+            resources=[
+                f"arn:{partition}:logs:{self.scope.region}:{self.scope.account}:log-group:/aws/eks/{cluster.cluster_name}/cluster",
+                cluster.cluster_arn + "*",
+                f"arn:{partition}:logs:{self.scope.region}:{self.scope.account}:log-group:*:log-stream:*",
+            ],
+            actions=[
+                "logs:DescribeLogGroups",
+                "logs:PutRetentionPolicy",
+                "eks:TagResource",
+                "eks:UpdateClusterConfig",
+            ],
         )
 
         if bastion_sg:
