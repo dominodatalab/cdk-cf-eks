@@ -34,6 +34,7 @@ class DominoEksProvisioner:
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
             stack_name,
             eks_version,
+            eks_cfg.control_plane_access_cidrs,
             eks_cfg.private_api,
             eks_cfg.secrets_encryption_key_arn,
             vpc,

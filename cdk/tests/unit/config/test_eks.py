@@ -3,6 +3,7 @@ from copy import deepcopy
 from unittest.mock import patch
 
 from domino_cdk.config import EKS
+from domino_cdk.config.util import IngressRule
 
 eks_0_0_0_cfg = {
     "version": "1.19",
@@ -49,6 +50,8 @@ eks_0_0_0_cfg = {
 }
 
 eks_0_0_1_cfg = deepcopy(eks_0_0_0_cfg)
+eks_0_0_1_cfg["control_plane_access_cidrs"] = []
+eks_0_0_1_cfg["nodegroup_ingress_ports"] = None
 eks_0_0_1_cfg["unmanaged_nodegroups"] = eks_0_0_1_cfg["nodegroups"]
 eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["imdsv2_required"] = False
 eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["imdsv2_required"] = False
@@ -105,10 +108,12 @@ unmanaged_ngs = {
 
 eks_object = EKS(
     version="1.19",
+    control_plane_access_cidrs=[],
     private_api=True,
     max_nodegroup_azs=1,
     global_node_labels={"dominodatalab.com/domino-node": "true"},
     global_node_tags={"k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node": "true"},
+    nodegroup_ingress_ports=None,
     managed_nodegroups=managed_ngs,
     unmanaged_nodegroups=unmanaged_ngs,
     secrets_encryption_key_arn=None,
@@ -138,11 +143,14 @@ class TestConfigEKS(unittest.TestCase):
             self.assertEqual(eks.unmanaged_nodegroups, unmanaged_ngs)
             self.assertEqual(eks, eks_object)
 
-    def test_from_0_0_1_with_wrong_schema(self):
+    def test_from_0_0_1_with_wrong_nodegroup_schema(self):
         with patch("domino_cdk.config.util.log.warning") as warn:
-            eks = EKS.from_0_0_1(deepcopy(eks_0_0_0_cfg))
+            eks_cfg = deepcopy(eks_0_0_1_cfg)
+            eks_cfg["nodegroups"] = eks_cfg["unmanaged_nodegroups"]
+            del eks_cfg["unmanaged_nodegroups"]
+            eks = EKS.from_0_0_1(deepcopy(eks_cfg))
             warn.assert_called_with(
-                f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_0_cfg['nodegroups']}}}"
+                f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_1_cfg['unmanaged_nodegroups']}}}"
             )
             self.assertEqual(eks.managed_nodegroups, managed_ngs)
 
@@ -161,6 +169,33 @@ class TestConfigEKS(unittest.TestCase):
         eks_old = EKS.from_0_0_0(deepcopy(eks_0_0_0_cfg))
         eks_new = EKS.from_0_0_1(deepcopy(eks_0_0_1_cfg))
         self.assertEqual(eks_old, eks_new)
+
+    def test_nodegroup_ingress_ports(self):
+        eks_cfg = deepcopy(eks_0_0_1_cfg)
+        eks_cfg["nodegroup_ingress_ports"] = [
+            {
+                "name": "ssh",
+                "from_port": 22,
+                "to_port": 22,
+                "protocol": "TCP",
+                "ip_cidrs": ["0.0.0.0/0"],
+            },
+            {
+                "name": "some-ports",
+                "from_port": 32000,
+                "to_port": 32999,
+                "protocol": "TCP",
+                "ip_cidrs": ["1.1.1.1/32", "2.2.2.2/16"],
+            },
+        ]
+        eks = EKS.from_0_0_1(eks_cfg)
+        self.assertEqual(
+            eks.nodegroup_ingress_ports,
+            [
+                IngressRule("ssh", 22, 22, "TCP", ["0.0.0.0/0"]),
+                IngressRule("some-ports", 32000, 32999, "TCP", ["1.1.1.1/32", "2.2.2.2/16"]),
+            ],
+        )
 
     def test_empty_nodegroups(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)

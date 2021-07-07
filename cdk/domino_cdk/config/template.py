@@ -21,7 +21,6 @@ def config_template(
     destroy_on_destroy = False
     disk_size = 1000
     platform_instance_type = "m5.2xlarge"
-
     if dev_defaults:
         max_nodegroup_azs = 1
         destroy_on_destroy = True
@@ -104,11 +103,13 @@ def config_template(
 
     eks = EKS(
         version="1.20",
+        control_plane_access_cidrs=[],
         private_api=private_api,
         secrets_encryption_key_arn=secrets_encryption_key_arn,
         max_nodegroup_azs=max_nodegroup_azs,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={},
+        nodegroup_ingress_ports=None,
         managed_nodegroups={},
         unmanaged_nodegroups=unmanaged_nodegroups,
     )

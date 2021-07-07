@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
@@ -19,6 +19,7 @@ class DominoEksClusterProvisioner:
         self,
         stack_name: str,
         eks_version: eks.KubernetesVersion,
+        control_plane_access_cidrs: List[str],
         private_api: bool,
         secrets_encryption_key_arn: str,
         vpc: ec2.Vpc,
@@ -44,12 +45,18 @@ class DominoEksClusterProvisioner:
                 enable_key_rotation=True,
             )
 
+        endpoint_access = (
+            eks.EndpointAccess.PRIVATE
+            if private_api
+            else eks.EndpointAccess.PUBLIC_AND_PRIVATE.only_from(*control_plane_access_cidrs)
+        )
+
         cluster = eks.Cluster(
             self.scope,
             "eks",
             cluster_name=stack_name,
             vpc=vpc,
-            endpoint_access=eks.EndpointAccess.PRIVATE if private_api else None,
+            endpoint_access=endpoint_access,
             vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE)],
             version=eks_version,
             default_capacity=0,

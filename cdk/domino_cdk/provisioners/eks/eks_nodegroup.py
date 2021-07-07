@@ -7,6 +7,7 @@ from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
 
 from domino_cdk import config
+from domino_cdk.config.util import IngressRule
 
 
 class DominoEksNodegroupProvisioner:
@@ -30,7 +31,6 @@ class DominoEksNodegroupProvisioner:
         self.eks_version = eks_version
         self.vpc = vpc
         self.private_subnet_name = private_subnet_name
-        self.bastion_sg = bastion_sg
 
         max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
 
@@ -45,6 +45,7 @@ class DominoEksNodegroupProvisioner:
                     }
                 prov_func(name, ng, max_nodegroup_azs)
 
+        self.provision_security_group(bastion_sg, eks_cfg.nodegroup_ingress_ports)
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
@@ -75,6 +76,7 @@ class DominoEksNodegroupProvisioner:
             ],
             machine_image=machine_image,
             user_data=mime_user_data,
+            security_group=self.nodegroup_sg,
         )
         lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
 
@@ -111,26 +113,6 @@ class DominoEksNodegroupProvisioner:
             )
         )
 
-        if not hasattr(self, "unmanaged_sg"):
-            self.unmanaged_sg = ec2.SecurityGroup(
-                self.scope,
-                "UnmanagedSG",
-                vpc=self.vpc,
-                security_group_name=f"{self.stack_name}-sharedNodeSG",
-                allow_all_outbound=False,
-            )
-
-        if self.bastion_sg:
-            self.unmanaged_sg.add_ingress_rule(
-                peer=self.bastion_sg,
-                connection=ec2.Port(
-                    protocol=ec2.Protocol("TCP"),
-                    string_representation="ssh",
-                    from_port=22,
-                    to_port=22,
-                ),
-            )
-
         scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
@@ -149,7 +131,7 @@ class DominoEksNodegroupProvisioner:
                     availability_zones=[az],
                 ),
                 role=self.ng_role,
-                security_group=self.unmanaged_sg,
+                security_group=self.nodegroup_sg,
             )
             for k, v in (
                 {
@@ -187,7 +169,7 @@ class DominoEksNodegroupProvisioner:
                     key_name=ng.key_name,
                     machine_image=machine_image,
                     user_data=mime_user_data,
-                    security_group=self.unmanaged_sg,
+                    security_group=self.nodegroup_sg,
                 )
                 # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
                 lt.connections.add_security_group(self.cluster.cluster_security_group)
@@ -236,6 +218,39 @@ class DominoEksNodegroupProvisioner:
                 options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
+
+    def provision_security_group(self, bastion_sg: ec2.SecurityGroup, ingress_ports: List[IngressRule]):
+        self.nodegroup_sg = ec2.SecurityGroup(
+            self.scope,
+            "UnmanagedSG",
+            vpc=self.vpc,
+            security_group_name=f"{self.stack_name}-sharedNodeSG",
+            allow_all_outbound=False,
+        )
+
+        if bastion_sg:
+            self.nodegroup_sg.add_ingress_rule(
+                peer=self.bastion_sg,
+                connection=ec2.Port(
+                    protocol=ec2.Protocol("TCP"),
+                    string_representation="ssh",
+                    from_port=22,
+                    to_port=22,
+                ),
+            )
+
+        if ingress_ports:
+            for rule in ingress_ports:
+                for ip_cidr in rule.ip_cidrs:
+                    self.nodegroup_sg.add_ingress_rule(
+                        peer=ec2.Peer.ipv4(ip_cidr),
+                        connection=ec2.Port(
+                            protocol=ec2.Protocol(rule.protocol),
+                            string_representation=rule.name,
+                            from_port=rule.from_port,
+                            to_port=rule.to_port,
+                        ),
+                    )
 
     def _handle_user_data(
         self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]

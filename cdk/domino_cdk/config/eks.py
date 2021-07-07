@@ -1,19 +1,28 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
-from domino_cdk.config.util import check_leavins, from_loader
+from domino_cdk.config.util import IngressRule, check_leavins, from_loader
 
 
 @dataclass
 class EKS:
     """
     version: "1.20" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+    control_plane_access_cidrs: ["0.0.0.0/0", ...] - List of CIDRs with access to the control plane
+                                                     Only valid when private_api is flase
     private_api: true/false - Limits Kubernetes API access to the VPC. Access must be through a
                               bastion, peered network, or other in-VPC resource.
     max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
     global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes
     global_node_tags: some-tags: "true"  - Labels to apply to all kubernetes nodes
     secrets_encryption_key_arn: ARN  - KMS key arn to encrypt kubernetes secrets. A new key will be created if omitted.
+    nodegroup_ingress_ports: List of ingress rules to nodegroup instances in the following format:
+                             - name: API
+                               from_port: 22
+                               to_port: 22
+                               protocol: TCP
+                               ip_cidrs:
+                               - 0.0.0.0/0
     """
 
     @dataclass
@@ -26,6 +35,7 @@ class EKS:
         # starting the empty lines with comments. Just personally bugs me.
         """
         Nodegroup Configuration:
+        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         disk_size: 1000 - Size in GB for disk on nodes in nodegroup
         key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
         min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
@@ -51,7 +61,6 @@ class EKS:
         ...
         Unmanaged nodegroup-specific options:
         gpu: true/false - Setup GPU instance support
-        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)
         """
@@ -110,11 +119,13 @@ class EKS:
             return out
 
     version: str
+    control_plane_access_cidrs: List[str]
     private_api: bool
     max_nodegroup_azs: int
     global_node_labels: Dict[str, str]
     global_node_tags: Dict[str, str]
     secrets_encryption_key_arn: str
+    nodegroup_ingress_ports: List[IngressRule]
     managed_nodegroups: Dict[str, ManagedNodegroup]
     unmanaged_nodegroups: Dict[str, UnmanagedNodegroup]
 
@@ -141,6 +152,9 @@ class EKS:
             error_name = f"Unmanaged nodegroup [{name}]"
             check_ami_exceptions(error_name, ng.ami_id, ng.user_data, (ng.ssm_agent or ng.labels or ng.taints))
 
+        if self.control_plane_access_cidrs and self.private_api:
+            errors.append("Cannot use 'control_plane_access_cidrs' with 'private_api'")
+
         if errors:
             raise ValueError(errors)
 
@@ -155,10 +169,12 @@ class EKS:
             "config.eks",
             EKS(
                 version=c.pop("version"),
+                control_plane_access_cidrs=[],
                 private_api=c.pop("private_api"),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),
+                nodegroup_ingress_ports=None,
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(remap_mi(ng))
                     for name, ng in c.pop("managed_nodegroups", {}).items()
@@ -178,11 +194,15 @@ class EKS:
             "config.eks",
             EKS(
                 version=c.pop("version"),
+                control_plane_access_cidrs=c.pop("control_plane_access_cidrs"),
                 private_api=c.pop("private_api"),
                 secrets_encryption_key_arn=c.pop("secrets_encryption_key_arn", None),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),
+                nodegroup_ingress_ports=IngressRule.load_rules(
+                    "config.eks.nodegroup_ingress_ports", c.pop("nodegroup_ingress_ports")
+                ),
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
                 },

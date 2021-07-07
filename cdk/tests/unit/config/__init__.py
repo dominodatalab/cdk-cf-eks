@@ -48,10 +48,12 @@ default_config = DominoCDKConfig(
     route53=Route53(zone_ids=[]),
     eks=EKS(
         version="1.20",
+        control_plane_access_cidrs=[],
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={},
+        nodegroup_ingress_ports=None,
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform-0': EKS.UnmanagedNodegroup(
@@ -225,10 +227,12 @@ legacy_config = DominoCDKConfig(
     route53=Route53(zone_ids=[]),
     eks=EKS(
         version="1.19",
+        control_plane_access_cidrs=[],
         private_api=True,
         max_nodegroup_azs=1,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node': 'true'},
+        nodegroup_ingress_ports=None,
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform-0': EKS.UnmanagedNodegroup(
