@@ -25,6 +25,7 @@ default_config = DominoCDKConfig(
         cidr='10.0.0.0/16',
         availability_zones=[],
         max_azs=3,
+        flow_logging=True,
         bastion=VPC.Bastion(
             enabled=False,
             key_name=None,
@@ -46,7 +47,7 @@ default_config = DominoCDKConfig(
     ),
     route53=Route53(zone_ids=[]),
     eks=EKS(
-        version="1.19",
+        version="1.20",
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
@@ -54,9 +55,9 @@ default_config = DominoCDKConfig(
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform-0': EKS.UnmanagedNodegroup(
-                disk_size=1000,
+                disk_size=100,
                 key_name=None,
-                min_size=3,
+                min_size=1,
                 max_size=10,
                 ami_id=None,
                 user_data=None,
@@ -71,12 +72,12 @@ default_config = DominoCDKConfig(
             'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
                 key_name=None,
-                min_size=1,
+                min_size=0,
                 max_size=10,
                 ami_id=None,
                 user_data=None,
                 instance_types=['m5.2xlarge'],
-                labels={'dominodatalab.com/node-pool': 'default', 'domino/build-node': 'true'},
+                labels={'dominodatalab.com/node-pool': 'default'},
                 tags={},
                 gpu=False,
                 imdsv2_required=False,
@@ -107,7 +108,8 @@ default_config = DominoCDKConfig(
             'logs': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
             'backups': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
             'registry': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
-        }
+        },
+        monitoring_bucket=S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
     ),
     schema='0.0.1-rc2',
 )
@@ -205,6 +207,7 @@ legacy_config = DominoCDKConfig(
         cidr='10.0.0.0/16',
         availability_zones=[],
         max_azs=3,
+        flow_logging=False,
         bastion=VPC.Bastion(
             enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None
         ),
@@ -282,7 +285,8 @@ legacy_config = DominoCDKConfig(
             'logs': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
             'backups': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
             'registry': S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
-        }
+        },
+        monitoring_bucket=None,
     ),
     schema='0.0.1-rc2',
 )

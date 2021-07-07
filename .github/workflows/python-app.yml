@@ -11,7 +11,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,9 +29,7 @@ jobs:
       run: npm install -g aws-cdk@1.110.1
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        pip install flake8 pytest
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -r requirements.txt
     - name: Lint with flake8/black/isort
       run: |
         export FILES=(*.py domino_cdk tests)
@@ -44,7 +41,11 @@ jobs:
         isort ${FILES[@]} --check
     - name: Test with pytest
       run: |
-        pytest tests
+        coverage run -m pytest tests
+
+    - name: Coverage report
+      run: |
+        coverage report
     - name: Create/lint default config
       run: |
         ./util.py generate_config_template | sed -e 's/aws_region: __FILL__/aws_region: us-west-2/' -e 's/aws_account_id: __FILL__/aws_account_id: null/' > config.yaml

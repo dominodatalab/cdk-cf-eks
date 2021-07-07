@@ -21,7 +21,8 @@ s3_0_0_0_cfg = {
 }
 
 s3_obj = S3(
-    buckets={"bucket1": S3.Bucket(True, True, sse_kms_key_id), "bucket2": S3.Bucket(True, True, sse_kms_key_id)}
+    buckets={"bucket1": S3.Bucket(True, True, sse_kms_key_id), "bucket2": S3.Bucket(True, True, sse_kms_key_id)},
+    monitoring_bucket=None,
 )
 
 
@@ -39,4 +40,4 @@ class TestConfigS3(unittest.TestCase):
         self.assertEqual(s3, s3_obj_defaults)
 
     def test_no_buckets(self):
-        self.assertEqual(S3.from_0_0_0({"buckets": {}}), S3(buckets={}))
+        self.assertEqual(S3.from_0_0_0({"buckets": {}}), S3(buckets={}, monitoring_bucket=None))

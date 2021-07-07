@@ -48,8 +48,10 @@ class DominoEksProvisioner:
         )
 
         cdk.CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
+
+        region = cdk.Stack.of(self.scope).region
         cdk.CfnOutput(
             parent,
             "eks_kubeconfig_cmd",
-            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {self.scope.region} --role-arn {self.cluster.kubectl_role.role_arn}",
+            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {region} --role-arn {self.cluster.kubectl_role.role_arn}",
         )

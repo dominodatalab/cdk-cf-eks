@@ -31,7 +31,11 @@ class DominoStack(cdk.Stack):
             cdk.Tags.of(self).add(str(k), str(v))
 
         self.s3_stack = DominoS3Provisioner(self, "S3Stack", self.name, self.cfg.s3, nest)
-        self.vpc_stack = DominoVpcProvisioner(self, "VpcStack", self.name, self.cfg.vpc, nest)
+
+        self.vpc_stack = DominoVpcProvisioner(
+            self, "VpcStack", self.name, self.cfg.vpc, nest, monitoring_bucket=self.s3_stack.monitoring_bucket
+        )
+
         self.eks_stack = DominoEksProvisioner(
             self,
             "EksStack",
@@ -95,6 +99,7 @@ class DominoStack(cdk.Stack):
             pod_cidr=self.vpc_stack.vpc.vpc_cidr_block,
             global_node_selectors=self.cfg.eks.global_node_labels,
             buckets=self.s3_stack.buckets,
+            monitoring_bucket=self.s3_stack.monitoring_bucket,
             efs_fs_ap_id=efs_fs_ap_id,
             r53_zone_ids=r53_zone_ids,
             r53_owner_id=r53_owner_id,

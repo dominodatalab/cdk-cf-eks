@@ -34,15 +34,14 @@ class DominoEfsProvisioner:
             self.scope,
             "Efs",
             vpc=vpc,
-            # encrypted=True,
+            encrypted=True,
             file_system_name=stack_name,
             # kms_key,
             # lifecycle_policy,
-            performance_mode=efs.PerformanceMode.MAX_IO,
-            provisioned_throughput_per_second=cdk.Size.mebibytes(100),  # TODO: dev/nondev sizing
             removal_policy=cdk.RemovalPolicy.DESTROY if cfg.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
             security_group=security_group,
-            throughput_mode=efs.ThroughputMode.PROVISIONED,
+            performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
+            throughput_mode=efs.ThroughputMode.BURSTING,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
         )
 

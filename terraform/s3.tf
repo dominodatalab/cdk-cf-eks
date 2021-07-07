@@ -33,7 +33,7 @@ resource "aws_s3_bucket_policy" "ssl_only" {
       ]
       Condition = {
         Bool = {
-          "aws:SecureTransport" = false
+          "aws:SecureTransport" = "false"
         }
       }
     }]

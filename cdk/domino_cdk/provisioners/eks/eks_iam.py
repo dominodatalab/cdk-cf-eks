@@ -54,7 +54,11 @@ class DominoEksIamProvisioner:
                         "ecr:GetDownloadUrlForLayer",
                     ],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
-                    resources=[f"arn:aws:ecr:*:{self.scope.account}:*"],
+                    resources=[
+                        cdk.Arn.format(
+                            cdk.ArnComponents(region="*", service="ecr", resource="*"), cdk.Stack.of(self.scope)
+                        )
+                    ],
                 ),
             ],
         )
@@ -82,7 +86,7 @@ class DominoEksIamProvisioner:
             managed_policies=managed_policies,
         )
 
-    def provision_r53_policy(self, stack_name: str, r53_zone_ids: List[str]):
+    def provision_r53_policy(self, stack_name: str, r53_zone_ids: List[str]) -> iam.ManagedPolicy:
         return iam.ManagedPolicy(
             self.scope,
             "route53",
@@ -97,7 +101,15 @@ class DominoEksIamProvisioner:
                         "route53:ChangeResourceRecordSets",
                         "route53:ListResourceRecordSets",
                     ],
-                    resources=[f"arn:aws:route53:::hostedzone/{zone_id}" for zone_id in r53_zone_ids],
+                    resources=[
+                        cdk.Arn.format(
+                            cdk.ArnComponents(
+                                account="", region="", service="route53", resource=f"hostedzone/{zone_id}"
+                            ),
+                            cdk.Stack.of(self.scope),
+                        )
+                        for zone_id in r53_zone_ids
+                    ],
                 ),
             ],
         )

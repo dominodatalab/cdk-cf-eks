@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
@@ -34,7 +34,7 @@ class DominoEksNodegroupProvisioner:
 
         max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
 
-        def provision_nodegroup(nodegroup: config.EKS.NodegroupBase, prov_func):
+        def provision_nodegroup(nodegroup: Dict[str, config.EKS.NodegroupBase], prov_func):
             for name, ng in nodegroup.items():
                 if not ng.ami_id:
                     ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
@@ -51,8 +51,9 @@ class DominoEksNodegroupProvisioner:
     def provision_managed_nodegroup(
         self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
     ) -> None:
+        region = cdk.Stack.of(self.scope).region
         machine_image: Optional[ec2.IMachineImage] = (
-            ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id}) if ng.ami_id else None
+            ec2.MachineImage.generic_linux({region: ng.ami_id}) if ng.ami_id else None
         )
         mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data])
 
@@ -63,9 +64,11 @@ class DominoEksNodegroupProvisioner:
             launch_template_name=f"{self.stack_name}-{name}",
             block_devices=[
                 ec2.BlockDevice(
-                    device_name="/dev/xvda",
+                    device_name="/dev/xvda",  # TODO: this only works for AL2
                     volume=ec2.BlockDeviceVolume.ebs(
                         ng.disk_size,
+                        delete_on_termination=True,
+                        encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
                     ),
                 )
@@ -97,8 +100,9 @@ class DominoEksNodegroupProvisioner:
     def provision_unmanaged_nodegroup(
         self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
     ) -> None:
+        region = cdk.Stack.of(self.scope).region
         machine_image = (
-            ec2.MachineImage.generic_linux({self.scope.region: ng.ami_id})
+            ec2.MachineImage.generic_linux({region: ng.ami_id})
             if ng.ami_id
             else eks.EksOptimizedImage(
                 cpu_arch=eks.CpuArch.X86_64,
@@ -172,6 +176,8 @@ class DominoEksNodegroupProvisioner:
                             device_name="/dev/xvda",
                             volume=ec2.BlockDeviceVolume.ebs(
                                 ng.disk_size,
+                                delete_on_termination=True,
+                                encrypted=True,
                                 volume_type=ec2.EbsDeviceVolumeType.GP2,
                             ),
                         )

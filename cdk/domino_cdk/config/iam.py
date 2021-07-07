@@ -1,6 +1,10 @@
+from aws_cdk.region_info import Fact, FactName
+
+
 # Future TODO item: Incorporate IAM reqs into the provisioning
 # classes so we can generate exact perms for a given deployment
-def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use_bastion: bool = False):
+def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool = False, use_bastion: bool = False):
+    partition = Fact.require_fact(region, FactName.PARTITION)
 
     if manual:
         asset_bucket = "*"
@@ -32,17 +36,17 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         ],
         "Resource": [
             # f"arn:aws:cloudformation:*:{aws_account_id}:stack/{stack_name}-eks-stack/*",
-            f"arn:aws:cloudformation:*:{aws_account_id}:stack/{stack_name}*",
+            f"arn:{partition}:cloudformation:*:{aws_account_id}:stack/{stack_name}*",
         ],
     }
 
     if not manual:
-        cloudformation["Resource"].append(f"arn:aws:cloudformation:*:{aws_account_id}:stack/CDKToolkit/*")
+        cloudformation["Resource"].append(f"arn:{partition}:cloudformation:*:{aws_account_id}:stack/CDKToolkit/*")
 
     asset_bucket = {
         "Effect": "Allow",
         "Action": ["s3:*Object", "s3:GetBucketLocation", "s3:ListBucket"],
-        "Resource": [f"arn:aws:s3:::{asset_bucket}"],
+        "Resource": [f"arn:{partition}:s3:::{asset_bucket}"],
     }
 
     s3 = {
@@ -52,13 +56,19 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "s3:DeleteBucket",
             "s3:DeleteBucketPolicy",
             "s3:GetBucketLocation",
+            "s3:GetBucketPolicy",
             "s3:ListBucket",
+            "s3:PutAccountPublicAccessBlock",
+            "s3:PutBucketAcl",
+            "s3:PutBucketLogging",
             "s3:PutBucketPolicy",
             "s3:PutBucketTagging",
+            "s3:PutBucketVersioning",
+            "s3:PutBucketPublicAccessBlock",
             "s3:PutEncryptionConfiguration",
         ],
         **do_cf(),
-        "Resource": [f"arn:aws:s3:::{stack_name}-*"],
+        "Resource": [f"arn:{partition}:s3:::{stack_name}-*"],
     }
 
     iam = {
@@ -68,9 +78,11 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "iam:AttachRolePolicy",
             "iam:CreateInstanceProfile",
             "iam:CreatePolicy",
+            "iam:CreatePolicyVersion",
             "iam:CreateRole",
             "iam:DeleteInstanceProfile",
             "iam:DeletePolicy",
+            "iam:DeletePolicyVersion",
             "iam:DeleteRole",
             "iam:DeleteRolePolicy",
             "iam:DetachRolePolicy",
@@ -85,9 +97,9 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         ],
         **do_cf(),
         "Resource": [
-            f"arn:aws:iam::{aws_account_id}:policy/{stack_name}-*",
-            f"arn:aws:iam::{aws_account_id}:role/{stack_name}-*",
-            f"arn:aws:iam::{aws_account_id}:instance-profile/{stack_name}-*",
+            f"arn:{partition}:iam::{aws_account_id}:policy/{stack_name}-*",
+            f"arn:{partition}:iam::{aws_account_id}:role/{stack_name}-*",
+            f"arn:{partition}:iam::{aws_account_id}:instance-profile/{stack_name}-*",
         ],
     }
 
@@ -100,7 +112,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         {
             "Effect": "Allow",
             "Action": ["lambda:InvokeFunction"],
-            "Resource": [f"arn:aws:lambda:*:{aws_account_id}:function:{stack_name}-*"],
+            "Resource": [f"arn:{partition}:lambda:*:{aws_account_id}:function:{stack_name}-*"],
         }
     ]
 
@@ -118,11 +130,12 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "lambda:GetLayerVersionPolicy",
             "lambda:InvokeFunction",
             "lambda:PublishLayerVersion",
+            "lambda:UpdateFunctionConfiguration",
         ],
         **from_cf_condition,
         "Resource": [
-            f"arn:aws:lambda:*:{aws_account_id}:function:{stack_name}-*",
-            f"arn:aws:lambda:*:{aws_account_id}:layer:*",
+            f"arn:{partition}:lambda:*:{aws_account_id}:function:{stack_name}-*",
+            f"arn:{partition}:lambda:*:{aws_account_id}:layer:*",
         ],
     }
 
@@ -137,7 +150,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "states:UpdateStateMachine",
         ],
         **from_cf_condition,
-        "Resource": [f"arn:aws:states:*:{aws_account_id}:stateMachine:Provider*"],
+        "Resource": [f"arn:{partition}:states:*:{aws_account_id}:stateMachine:Provider*"],
     }
 
     # TODO: Below CF only
@@ -151,7 +164,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
                 "eks:TagResource",
                 "eks:UntagResource",
             ],
-            "Resource": [f"arn:aws:eks:*:{aws_account_id}:cluster/*"],
+            "Resource": [f"arn:{partition}:eks:*:{aws_account_id}:cluster/*"],
         }
     ]
 
@@ -167,13 +180,16 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "ssm:RemoveTagsFromResource",
         ],
         **from_cf_condition,
-        "Resource": [f"arn:aws:ssm:*:{aws_account_id}:parameter/CFN*"],
+        "Resource": [f"arn:{partition}:ssm:*:{aws_account_id}:parameter/CFN*"],
     }
 
     ssm = {
         "Effect": "Allow",
         "Action": ["ssm:GetParameters"],
-        "Resource": ["arn:aws:ssm:*::parameter/aws/service/eks/*"],
+        "Resource": [
+            f"arn:{partition}:ssm:*::parameter/aws/service/eks/*",
+            f"arn:{partition}:ssm:*::parameter/aws/service/ami-amazon-linux-latest/*",
+        ],
     }
 
     # TODO: TF-only version of this list
@@ -197,8 +213,8 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         ],
         **from_cf_condition,
         "Resource": [
-            f"arn:aws:backup:*:{aws_account_id}:backup-vault:{stack_name}-efs",
-            f"arn:aws:backup:*:{aws_account_id}:backup-plan:{backup_plan}",
+            f"arn:{partition}:backup:*:{aws_account_id}:backup-vault:{stack_name}-efs",
+            f"arn:{partition}:backup:*:{aws_account_id}:backup-plan:{backup_plan}",
         ],
     }
 
@@ -234,9 +250,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "kms:CreateGrant",
             "kms:CreateAlias",
             "kms:CreateKey",
-            "kms:Decrypt",
             "kms:DeleteAlias",
-            "kms:DeleteKey",
             "kms:DescribeKey",
             "kms:EnableKeyRotation",
             "kms:GenerateDataKey",
@@ -255,7 +269,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "Effect": "Allow",
             "Action": ["ecr:CreateRepository", "ecr:DeleteRepository"],
             "Condition": {"ForAnyValue:StringEquals": {"aws:CalledVia": ["cloudformation.amazonaws.com"]}},
-            "Resource": [f"arn:aws:ecr:*:{aws_account_id}:repository/{stack_name}*"],
+            "Resource": [f"arn:{partition}:ecr:*:{aws_account_id}:repository/{stack_name}*"],
         }
     ]
 
@@ -263,6 +277,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
         ecr = []
 
     bastion = []
+
     if use_bastion:
         bastion = [
             {
@@ -278,6 +293,19 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
                 },
             },
         ]
+
+    flow_logs = {
+        "Effect": "Allow",
+        "Action": [
+            "ec2:CreateFlowLogs",
+            "ec2:DescribeFlowLogs",
+            "ec2:DeleteFlowLogs",
+            "logs:CreateLogDelivery",
+            "logs:DeleteLogDelivery",
+        ],
+        **from_cf_condition,
+        "Resource": "*",
+    }
 
     general = {
         "Effect": "Allow",
@@ -304,11 +332,13 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "ec2:DescribeAccountAttributes",
             "ec2:DescribeAddresses",
             "ec2:DescribeAvailabilityZones",
+            "ec2:DescribeImages",
             "ec2:DescribeInstances",
             "ec2:DescribeLaunchTemplates",
             "ec2:DescribeSecurityGroups",
             "ec2:DisassociateAddress",
             "ec2:GetLaunchTemplateData",
+            "ec2:ModifyInstanceMetadataOptions",
             "ec2:ReleaseAddress",
             "ec2:RunInstances",
             "eks:CreateNodegroup",
@@ -316,6 +346,8 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
             "eks:DescribeNodegroup",
             "eks:TagResource",
             "eks:UntagResource",
+            "ec2:RevokeSecurityGroupEgress",
+            "ec2:RevokeSecurityGroupIngress",
             "elasticfilesystem:Backup",
             "elasticfilesystem:CreateMountTarget",
             "elasticfilesystem:DeleteMountTarget",
@@ -404,6 +436,7 @@ def generate_iam(stack_name: str, aws_account_id: str, manual: bool = False, use
                 *eks_nodegroups,
                 cfn_tagging,
                 ssm,
+                flow_logs,
             ],
         },
         {
