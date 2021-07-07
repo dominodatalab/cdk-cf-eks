@@ -239,17 +239,18 @@ class DominoEksNodegroupProvisioner:
                 ),
             )
 
-        for rule in ingress_ports:
-            for ip_cidr in rule.ip_cidrs:
-                self.nodegroup_sg.add_ingress_rule(
-                    peer=ec2.Peer.ipv4(ip_cidr),
-                    connection=ec2.Port(
-                        protocol=ec2.Protocol(rule.protocol),
-                        string_representation=rule.name,
-                        from_port=rule.from_port,
-                        to_port=rule.to_port,
-                    ),
-                )
+        if ingress_ports:
+            for rule in ingress_ports:
+                for ip_cidr in rule.ip_cidrs:
+                    self.nodegroup_sg.add_ingress_rule(
+                        peer=ec2.Peer.ipv4(ip_cidr),
+                        connection=ec2.Port(
+                            protocol=ec2.Protocol(rule.protocol),
+                            string_representation=rule.name,
+                            from_port=rule.from_port,
+                            to_port=rule.to_port,
+                        ),
+                    )
 
     def _handle_user_data(
         self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]
