@@ -202,7 +202,9 @@ class EKS:
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),
-                nodegroup_ingress_ports=IngressRule.load_rules("config.eks.nodegroup_ingress_ports", c.pop("nodegroup_ingress_ports")),
+                nodegroup_ingress_ports=IngressRule.load_rules(
+                    "config.eks.nodegroup_ingress_ports", c.pop("nodegroup_ingress_ports")
+                ),
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
                 },

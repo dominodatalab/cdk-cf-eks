@@ -189,10 +189,12 @@ class TestConfigEKS(unittest.TestCase):
             },
         ]
         eks = EKS.from_0_0_1(eks_cfg)
-        self.assertEqual(eks.nodegroup_ingress_ports, [
+        self.assertEqual(
+            eks.nodegroup_ingress_ports,
+            [
                 IngressRule("ssh", 22, 22, "TCP", ["0.0.0.0/0"]),
                 IngressRule("some-ports", 32000, 32999, "TCP", ["1.1.1.1/32", "2.2.2.2/16"]),
-            ]
+            ],
         )
 
     def test_empty_nodegroups(self):
