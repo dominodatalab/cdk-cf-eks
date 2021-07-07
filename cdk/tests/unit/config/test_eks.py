@@ -33,6 +33,7 @@ eks_0_0_0_cfg = {
             "instance_types": ["m5.2xlarge"],
             "labels": {"dominodatalab.com/node-pool": "platform"},
             "tags": {"dominodatalab.com/node-pool": "platform"},
+            "ingress_ports": {},
         },
         "nvidia": {
             "gpu": True,
@@ -44,14 +45,18 @@ eks_0_0_0_cfg = {
             "taints": {"nvidia.com/gpu": "true:NoSchedule"},
             "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
             "tags": {"dominodatalab.com/node-pool": "default-gpu"},
+            "ingress_ports": {},
         },
     },
 }
 
 eks_0_0_1_cfg = deepcopy(eks_0_0_0_cfg)
+eks_0_0_1_cfg["control_plane_access_cidrs"] = []
 eks_0_0_1_cfg["unmanaged_nodegroups"] = eks_0_0_1_cfg["nodegroups"]
 eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["imdsv2_required"] = False
+eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["ingress_ports"] = {}
 eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["imdsv2_required"] = False
+eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["ingress_ports"] = {}
 del eks_0_0_1_cfg["nodegroups"]
 
 managed_ngs = {
@@ -85,6 +90,7 @@ unmanaged_ngs = {
         imdsv2_required=False,
         ssm_agent=True,
         taints={},
+        ingress_ports=None,
     ),
     "nvidia": EKS.UnmanagedNodegroup(
         disk_size=100,
@@ -100,11 +106,13 @@ unmanaged_ngs = {
         imdsv2_required=False,
         ssm_agent=False,
         taints={"nvidia.com/gpu": "true:NoSchedule"},
+        ingress_ports=None,
     ),
 }
 
 eks_object = EKS(
     version="1.19",
+    control_plane_access_cidrs=[],
     private_api=True,
     max_nodegroup_azs=1,
     global_node_labels={"dominodatalab.com/domino-node": "true"},
@@ -138,11 +146,14 @@ class TestConfigEKS(unittest.TestCase):
             self.assertEqual(eks.unmanaged_nodegroups, unmanaged_ngs)
             self.assertEqual(eks, eks_object)
 
-    def test_from_0_0_1_with_wrong_schema(self):
+    def test_from_0_0_1_with_wrong_nodegroup_schema(self):
         with patch("domino_cdk.config.util.log.warning") as warn:
-            eks = EKS.from_0_0_1(deepcopy(eks_0_0_0_cfg))
+            eks_cfg = deepcopy(eks_0_0_1_cfg)
+            eks_cfg["nodegroups"] = eks_cfg["unmanaged_nodegroups"]
+            del eks_cfg["unmanaged_nodegroups"]
+            eks = EKS.from_0_0_1(deepcopy(eks_cfg))
             warn.assert_called_with(
-                f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_0_cfg['nodegroups']}}}"
+                f"Warning: Unused/unsupported config entries in config.eks: {{'nodegroups': {eks_0_0_1_cfg['unmanaged_nodegroups']}}}"
             )
             self.assertEqual(eks.managed_nodegroups, managed_ngs)
 

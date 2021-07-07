@@ -48,6 +48,7 @@ default_config = DominoCDKConfig(
     route53=Route53(zone_ids=[]),
     eks=EKS(
         version="1.20",
+        control_plane_access_cidrs=[],
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
@@ -68,6 +69,7 @@ default_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
+                ingress_ports=None,
             ),
             'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
@@ -83,6 +85,7 @@ default_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
+                ingress_ports=None,
             ),
             'gpu-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
@@ -98,6 +101,7 @@ default_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
+                ingress_ports=None,
             ),
         },
         secrets_encryption_key_arn=None,
@@ -225,6 +229,7 @@ legacy_config = DominoCDKConfig(
     route53=Route53(zone_ids=[]),
     eks=EKS(
         version="1.19",
+        control_plane_access_cidrs=[],
         private_api=True,
         max_nodegroup_azs=1,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
@@ -245,6 +250,7 @@ legacy_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
+                ingress_ports=None,
             ),
             'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
@@ -260,6 +266,7 @@ legacy_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
+                ingress_ports=None,
             ),
             'gpu-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
@@ -275,6 +282,7 @@ legacy_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
+                ingress_ports=None,
             ),
         },
         secrets_encryption_key_arn=None,
