@@ -1,13 +1,15 @@
 from dataclasses import dataclass
 from typing import Dict, List
 
-from domino_cdk.config.util import check_leavins, from_loader
+from domino_cdk.config.util import IngressRule, check_leavins, from_loader
 
 
 @dataclass
 class EKS:
     """
     version: "1.20" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+    control_plane_access_cidrs: ["0.0.0.0/0", ...] - List of CIDRs with access to the control plane
+                                                     Only valid when private_api is flase
     private_api: true/false - Limits Kubernetes API access to the VPC. Access must be through a
                               bastion, peered network, or other in-VPC resource.
     max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
@@ -51,9 +53,18 @@ class EKS:
         ...
         Unmanaged nodegroup-specific options:
         gpu: true/false - Setup GPU instance support
+        nodegroup_access_cidrs: ["x.x.x.x/x", ...] - CIDRs with SSH access to unmanaged nodes
+                                                     (adds to security group w/port 22)
         ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)
+        ingress_ports: List of ingress rules to nodegroup instances in the following format:
+                       - name: API
+                         from_port: 22
+                         to_port: 22
+                         protocol: TCP
+                         ip_cidrs:
+                         - 0.0.0.0/0
         """
 
         ssm_agent: bool
@@ -97,6 +108,7 @@ class EKS:
         gpu: bool
         imdsv2_required: bool
         taints: Dict[str, str]
+        ingress_ports: List[IngressRule]
 
         @classmethod
         def load(cls, ng):
@@ -105,11 +117,13 @@ class EKS:
                 gpu=ng.pop("gpu"),
                 imdsv2_required=ng.pop("imdsv2_required"),
                 taints=ng.pop("taints", {}),
+                ingress_ports=IngressRule.load_rules("config.eks.unmanaged_nodegroups", ng.pop("ingress_ports")),
             )
             check_leavins("unmanaged nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
             return out
 
     version: str
+    control_plane_access_cidrs: List[str]
     private_api: bool
     max_nodegroup_azs: int
     global_node_labels: Dict[str, str]
@@ -141,6 +155,9 @@ class EKS:
             error_name = f"Unmanaged nodegroup [{name}]"
             check_ami_exceptions(error_name, ng.ami_id, ng.user_data, (ng.ssm_agent or ng.labels or ng.taints))
 
+        if self.control_plane_access_cidrs and self.private_api:
+            errors.append("Cannot use 'control_plane_access_cidrs' with 'private_api'")
+
         if errors:
             raise ValueError(errors)
 
@@ -149,12 +166,14 @@ class EKS:
         def remap_mi(ng, unmanaged=False):
             if unmanaged:
                 ng["imdsv2_required"] = False
+                ng["ingress_ports"] = {}
             return {**ng.pop("machine_image", {}), **ng}
 
         return from_loader(
             "config.eks",
             EKS(
                 version=c.pop("version"),
+                control_plane_access_cidrs=[],
                 private_api=c.pop("private_api"),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
@@ -178,6 +197,7 @@ class EKS:
             "config.eks",
             EKS(
                 version=c.pop("version"),
+                control_plane_access_cidrs=c.pop("control_plane_access_cidrs"),
                 private_api=c.pop("private_api"),
                 secrets_encryption_key_arn=c.pop("secrets_encryption_key_arn", None),
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),

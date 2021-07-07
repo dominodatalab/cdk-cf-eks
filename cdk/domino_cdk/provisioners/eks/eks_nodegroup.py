@@ -120,16 +120,29 @@ class DominoEksNodegroupProvisioner:
                 allow_all_outbound=False,
             )
 
-        if self.bastion_sg:
-            self.unmanaged_sg.add_ingress_rule(
-                peer=self.bastion_sg,
-                connection=ec2.Port(
-                    protocol=ec2.Protocol("TCP"),
-                    string_representation="ssh",
-                    from_port=22,
-                    to_port=22,
-                ),
-            )
+            if self.bastion_sg:
+                self.unmanaged_sg.add_ingress_rule(
+                    peer=self.bastion_sg,
+                    connection=ec2.Port(
+                        protocol=ec2.Protocol("TCP"),
+                        string_representation="ssh",
+                        from_port=22,
+                        to_port=22,
+                    ),
+                )
+
+            if ng.ingress_ports:
+                for rule in ng.ingress_ports:
+                    for ip_cidr in rule.ip_cidrs:
+                        self.unmanaged_sg.add_ingress_rule(
+                            peer=ec2.Peer.ipv4(ip_cidr),
+                            connection=ec2.Port(
+                                protocol=ec2.Protocol(rule.protocol),
+                                string_representation=rule.name,
+                                from_port=rule.from_port,
+                                to_port=rule.to_port,
+                            ),
+                        )
 
         scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None

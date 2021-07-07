@@ -45,6 +45,7 @@ def config_template(
                 labels=labels,
                 tags={},
                 taints=taints or {},
+                ingress_ports=None,
             )
 
     add_nodegroups(
@@ -103,6 +104,7 @@ def config_template(
 
     eks = EKS(
         version="1.20",
+        control_plane_access_cidrs=None,
         private_api=private_api,
         secrets_encryption_key_arn=secrets_encryption_key_arn,
         max_nodegroup_azs=max_nodegroup_azs,
