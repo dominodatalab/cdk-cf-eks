@@ -177,7 +177,9 @@ class DominoVpcProvisioner:
                 user_data=ec2.UserData.custom(bastion.user_data),
             )
         else:
-            machine_image = ec2.AmazonLinuxImage()
+            machine_image = ec2.GenericSSMParameterImage(
+                "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2", ec2.OperatingSystemType.LINUX
+            )
 
         bastion_sg = ec2.SecurityGroup(
             self.scope,
