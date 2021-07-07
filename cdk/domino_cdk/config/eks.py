@@ -16,6 +16,13 @@ class EKS:
     global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes
     global_node_tags: some-tags: "true"  - Labels to apply to all kubernetes nodes
     secrets_encryption_key_arn: ARN  - KMS key arn to encrypt kubernetes secrets. A new key will be created if omitted.
+    nodegroup_ingress_ports: List of ingress rules to nodegroup instances in the following format:
+                             - name: API
+                               from_port: 22
+                               to_port: 22
+                               protocol: TCP
+                               ip_cidrs:
+                               - 0.0.0.0/0
     """
 
     @dataclass
@@ -54,17 +61,8 @@ class EKS:
         ...
         Unmanaged nodegroup-specific options:
         gpu: true/false - Setup GPU instance support
-        nodegroup_access_cidrs: ["x.x.x.x/x", ...] - CIDRs with SSH access to unmanaged nodes
-                                                     (adds to security group w/port 22)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)
-        ingress_ports: List of ingress rules to nodegroup instances in the following format:
-                       - name: API
-                         from_port: 22
-                         to_port: 22
-                         protocol: TCP
-                         ip_cidrs:
-                         - 0.0.0.0/0
         """
 
         ssm_agent: bool
