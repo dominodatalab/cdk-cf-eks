@@ -70,6 +70,7 @@ def generate_install_config(
                 "bucket": buckets["registry"].bucket_name,
             }
         },
+        "gpu": {"enabled": True},
         "services": {
             "nginx_ingress": {},
             "forge": {
