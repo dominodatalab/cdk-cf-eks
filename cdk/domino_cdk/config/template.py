@@ -45,7 +45,6 @@ def config_template(
                 labels=labels,
                 tags={},
                 taints=taints or {},
-                ingress_ports=None,
             )
 
     add_nodegroups(
@@ -110,6 +109,7 @@ def config_template(
         max_nodegroup_azs=max_nodegroup_azs,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={},
+        nodegroup_ingress_ports=None,
         managed_nodegroups={},
         unmanaged_nodegroups=unmanaged_nodegroups,
     )

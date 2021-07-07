@@ -53,6 +53,7 @@ default_config = DominoCDKConfig(
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={},
+        nodegroup_ingress_ports=None,
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform-0': EKS.UnmanagedNodegroup(
@@ -69,7 +70,6 @@ default_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
-                ingress_ports=None,
             ),
             'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
@@ -85,7 +85,6 @@ default_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
-                ingress_ports=None,
             ),
             'gpu-0': EKS.UnmanagedNodegroup(
                 disk_size=1000,
@@ -101,7 +100,6 @@ default_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
-                ingress_ports=None,
             ),
         },
         secrets_encryption_key_arn=None,
@@ -234,6 +232,7 @@ legacy_config = DominoCDKConfig(
         max_nodegroup_azs=1,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={'k8s.io/cluster-autoscaler/node-template/label/dominodatalab.com/domino-node': 'true'},
+        nodegroup_ingress_ports=None,
         managed_nodegroups={},
         unmanaged_nodegroups={
             'platform-0': EKS.UnmanagedNodegroup(
@@ -250,7 +249,6 @@ legacy_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
-                ingress_ports=None,
             ),
             'compute-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
@@ -266,7 +264,6 @@ legacy_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={},
-                ingress_ports=None,
             ),
             'gpu-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
@@ -282,7 +279,6 @@ legacy_config = DominoCDKConfig(
                 imdsv2_required=False,
                 ssm_agent=True,
                 taints={'nvidia.com/gpu': 'true:NoSchedule'},
-                ingress_ports=None,
             ),
         },
         secrets_encryption_key_arn=None,

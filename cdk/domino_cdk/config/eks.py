@@ -28,6 +28,7 @@ class EKS:
         # starting the empty lines with comments. Just personally bugs me.
         """
         Nodegroup Configuration:
+        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         disk_size: 1000 - Size in GB for disk on nodes in nodegroup
         key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
         min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
@@ -55,7 +56,6 @@ class EKS:
         gpu: true/false - Setup GPU instance support
         nodegroup_access_cidrs: ["x.x.x.x/x", ...] - CIDRs with SSH access to unmanaged nodes
                                                      (adds to security group w/port 22)
-        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)
         ingress_ports: List of ingress rules to nodegroup instances in the following format:
@@ -108,7 +108,6 @@ class EKS:
         gpu: bool
         imdsv2_required: bool
         taints: Dict[str, str]
-        ingress_ports: List[IngressRule]
 
         @classmethod
         def load(cls, ng):
@@ -117,7 +116,6 @@ class EKS:
                 gpu=ng.pop("gpu"),
                 imdsv2_required=ng.pop("imdsv2_required"),
                 taints=ng.pop("taints", {}),
-                ingress_ports=IngressRule.load_rules("config.eks.unmanaged_nodegroups", ng.pop("ingress_ports")),
             )
             check_leavins("unmanaged nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
             return out
@@ -129,6 +127,7 @@ class EKS:
     global_node_labels: Dict[str, str]
     global_node_tags: Dict[str, str]
     secrets_encryption_key_arn: str
+    nodegroup_ingress_ports: List[IngressRule]
     managed_nodegroups: Dict[str, ManagedNodegroup]
     unmanaged_nodegroups: Dict[str, UnmanagedNodegroup]
 
@@ -166,7 +165,6 @@ class EKS:
         def remap_mi(ng, unmanaged=False):
             if unmanaged:
                 ng["imdsv2_required"] = False
-                ng["ingress_ports"] = None
             return {**ng.pop("machine_image", {}), **ng}
 
         return from_loader(
@@ -178,6 +176,7 @@ class EKS:
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),
+                nodegroup_ingress_ports=None,
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(remap_mi(ng))
                     for name, ng in c.pop("managed_nodegroups", {}).items()
@@ -203,6 +202,7 @@ class EKS:
                 max_nodegroup_azs=c.pop("max_nodegroup_azs"),
                 global_node_labels=c.pop("global_node_labels"),
                 global_node_tags=c.pop("global_node_tags"),
+                nodegroup_ingress_ports=IngressRule.load_rules("config.eks.nodegroup_ingress_ports", c.pop("nodegroup_ingress_ports")),
                 managed_nodegroups={
                     name: EKS.ManagedNodegroup.load(ng) for name, ng in c.pop("managed_nodegroups", {}).items()
                 },
