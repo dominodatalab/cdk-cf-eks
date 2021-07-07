@@ -6,7 +6,6 @@ from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk.region_info import Fact, FactName
 
-
 # Permission groups
 
 s3_global_access_permissions = [
