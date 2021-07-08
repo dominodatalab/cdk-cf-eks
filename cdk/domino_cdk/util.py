@@ -1,19 +1,12 @@
 from filecmp import cmp
 from glob import glob
 from json import loads as json_loads
-from os import path
 from os.path import basename, isfile
 from os.path import join as path_join
 from subprocess import run
 from time import time
 from typing import Dict, List
 from urllib.parse import urlparse
-
-import aws_cdk.aws_iam as iam
-import aws_cdk.aws_lambda as lambda_
-import aws_cdk.aws_logs as logs
-import aws_cdk.custom_resources as cr
-from aws_cdk import core as cdk
 
 
 class ExternalCommandException(Exception):
@@ -153,60 +146,3 @@ class DominoCdkUtil:
             return {}
         base_dict = check_type(dictionaries[0])
         return base_dict if len(dictionaries) == 1 else overlay(base_dict, cls.deep_merge(*dictionaries[1:]))
-
-    @staticmethod
-    def create_lambda(
-        scope: cdk.Construct,
-        stack_name: str,
-        dirname: str,
-        name: str,
-        environment: Dict[str, str],
-        resources: List[str],
-        actions: List[str],
-    ) -> cdk.Construct:
-        with open(path.join(dirname, "lambda", name + ".py"), encoding="utf-8") as fp:
-            on_event_code_body = fp.read()
-        on_event = lambda_.Function(
-            scope,
-            name + "_on_event",
-            function_name=f"{stack_name}-{name}",
-            runtime=lambda_.Runtime.PYTHON_3_7,
-            handler="index.on_event",
-            code=lambda_.InlineCode(on_event_code_body),
-            environment=environment,
-            timeout=cdk.Duration.seconds(600),  # default is 3 seconds
-            log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
-        )
-        statement = iam.PolicyStatement()
-        for r in resources:
-            statement.add_resources(r)
-        for a in actions:
-            statement.add_actions(a)
-        on_event.add_to_role_policy(statement)
-
-        is_complete = None
-        try:
-            with open(path.join(dirname, "lambda", name + "_is_complete.py"), encoding="utf-8") as fp:
-                is_complete_code_body = fp.read()
-            is_complete = lambda_.Function(
-                scope,
-                name + "_is_complete",
-                runtime=lambda_.Runtime.PYTHON_3_7,
-                handler="index.is_complete",
-                code=lambda_.InlineCode(is_complete_code_body),
-                # timeout defaults to 2 minutes
-                log_retention=logs.RetentionDays.ONE_DAY,  # defaults to never delete logs
-            )
-            is_complete.add_to_role_policy(statement)
-        except FileNotFoundError:
-            pass
-
-        provider = cr.Provider(
-            scope,
-            name + "_provider",
-            on_event_handler=on_event,
-            is_complete_handler=is_complete,
-            log_retention=logs.RetentionDays.ONE_DAY,  # default is INFINITE
-        )
-
-        return cdk.CustomResource(scope, name + "_custom", service_token=provider.service_token)

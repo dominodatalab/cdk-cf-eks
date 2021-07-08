@@ -8,7 +8,7 @@ from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.region_info import Fact, FactName
 
-from domino_cdk.util import DominoCdkUtil
+from ..lambda_utils import create_lambda
 
 
 class DominoEksClusterProvisioner:
@@ -49,10 +49,9 @@ class DominoEksClusterProvisioner:
                 enable_key_rotation=True,
             )
 
-        log_cleanup = DominoCdkUtil.create_lambda(
+        log_cleanup = create_lambda(
             scope=self.scope,
             stack_name=stack_name,
-            dirname=path.dirname(path.abspath(__file__)),
             name="cluster_post_deletion_tasks",
             environment={
                 "cluster": stack_name,
@@ -82,10 +81,9 @@ class DominoEksClusterProvisioner:
 
         cluster.node.add_dependency(log_cleanup)  # make sure log cleanup is called after cluster cleanup
 
-        DominoCdkUtil.create_lambda(
+        create_lambda(
             scope=self.scope,
             stack_name=stack_name,
-            dirname=path.dirname(path.abspath(__file__)),
             name="cluster_post_creation_tasks",
             environment={
                 "cluster": cluster.cluster_name,

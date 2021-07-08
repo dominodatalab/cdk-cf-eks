@@ -9,7 +9,7 @@ from aws_cdk import core as cdk
 from aws_cdk.region_info import Fact, FactName
 
 from domino_cdk import config
-from domino_cdk.util import DominoCdkUtil
+from .lambda_utils import create_lambda
 
 _DominoEfsStack = None
 
@@ -110,15 +110,14 @@ class DominoEfsProvisioner:
             role=backupRole,
         )
 
-        DominoCdkUtil.create_lambda(
+        create_lambda(
             scope=self.scope,
             stack_name=stack_name,
-            dirname=path.dirname(path.abspath(__file__)),
             name="backup_post_creation_tasks",
             environment={"stack_name": stack_name, "backup_vault": vault.backup_vault_name},
             resources=[
                 f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:backup-vault:{stack_name}-efs",
-                # To limit the recovery pointsm we will need to add tag checking condition to the IAM policy for the
+                # To limit the recovery points, we will need to add tag checking condition to the IAM policy for the
                 # lambda. I think it will be a bit of overkill
                 f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:recovery-point:*",
             ],

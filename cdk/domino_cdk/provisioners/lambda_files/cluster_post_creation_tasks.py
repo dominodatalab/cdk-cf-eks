@@ -3,19 +3,19 @@ import os
 import time
 
 import boto3
+import requests
 
 
 def on_event(event, context):
     print('Debug: event: ', event)
     print('Debug: environ:', os.environ)
     request_type = event['RequestType']
+    response = {}
     if request_type == 'Create':
-        return on_create(event)
-    if request_type == 'Update':
-        return None
-    if request_type == 'Delete':
-        return None
-    raise Exception('Invalid request type: %s' % request_type)
+        response = on_create(event)
+    event.update(response)
+    event['Status'] = 'SUCCESS'
+    requests.put(event['ResponseURL'], data=json.dumps(event))
 
 
 def on_create(event):
@@ -52,5 +52,5 @@ def on_create(event):
         time.sleep(30)
     logs_client.put_retention_policy(logGroupName=log_group_name, retentionInDays=7)
 
-    physical_id = f'domino-cluster-{cluster_name}-log-retention'
+    physical_id = f'domino-cluster-{cluster_name}-eks-cluster-task'
     return {'PhysicalResourceId': physical_id}

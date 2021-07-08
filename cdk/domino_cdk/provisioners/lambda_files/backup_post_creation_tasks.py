@@ -1,6 +1,8 @@
+import json
 import os
 
 import boto3
+import requests
 
 client = boto3.client('backup')
 
@@ -9,13 +11,15 @@ def on_event(event, context):
     print('Debug: event: ', event)
     print('Debug: environ:', os.environ)
     request_type = event['RequestType']
+    response = {}
     if request_type == 'Create':
-        return on_create(event)
-    if request_type == 'Update':
-        return None
+        response = on_create(event)
     if request_type == 'Delete':
-        return on_delete(event)
-    raise Exception('Invalid request type: %s' % request_type)
+        response = on_delete(event)
+    if response:
+        event.update(response)
+    event['Status'] = 'SUCCESS'
+    requests.put(event['ResponseURL'], data=json.dumps(event))
 
 
 def on_create(event):
@@ -31,3 +35,4 @@ def on_delete(event):
         response = client.delete_recovery_point(
             BackupVaultName=backup_vault_name, RecoveryPointArn=rp['RecoveryPointArn']
         )
+    return {}
