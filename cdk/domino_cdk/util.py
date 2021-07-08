@@ -1,5 +1,6 @@
 from filecmp import cmp
 from glob import glob
+from io import BytesIO
 from json import loads as json_loads
 from os.path import basename, isfile
 from os.path import join as path_join
@@ -7,6 +8,8 @@ from subprocess import run
 from time import time
 from typing import List
 from urllib.parse import urlparse
+
+from ruamel.yaml import YAML
 
 
 class ExternalCommandException(Exception):
@@ -146,3 +149,9 @@ class DominoCdkUtil:
             return {}
         base_dict = check_type(dictionaries[0])
         return base_dict if len(dictionaries) == 1 else overlay(base_dict, cls.deep_merge(*dictionaries[1:]))
+
+    @staticmethod
+    def ruamel_dump(data: dict):
+        buf = BytesIO()
+        YAML().dump(data, buf)
+        return buf.getvalue().decode()
