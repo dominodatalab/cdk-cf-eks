@@ -5,7 +5,7 @@ from os.path import basename, isfile
 from os.path import join as path_join
 from subprocess import run
 from time import time
-from typing import Dict, List
+from typing import List
 from urllib.parse import urlparse
 
 

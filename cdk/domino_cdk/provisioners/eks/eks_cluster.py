@@ -1,5 +1,4 @@
 import json
-from os import path
 from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2

@@ -1,5 +1,3 @@
-from os import path
-
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
