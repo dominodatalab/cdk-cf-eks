@@ -7,6 +7,7 @@ from aws_cdk import core as cdk
 from aws_cdk.region_info import Fact, FactName
 
 from domino_cdk import config
+
 from .lambda_utils import create_lambda
 
 _DominoEfsStack = None
