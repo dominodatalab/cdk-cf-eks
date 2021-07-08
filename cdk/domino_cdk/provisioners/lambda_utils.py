@@ -15,7 +15,7 @@ def create_lambda(
     resources: List[str],
     actions: List[str],
 ) -> cdk.Construct:
-    dirname=path.dirname(path.abspath(__file__))
+    dirname = path.dirname(path.abspath(__file__))
     with open(path.join(dirname, "lambda_files", f"{name}.py"), encoding="utf-8") as fp:
         on_event_code_body = fp.read()
     on_event = lambda_.Function(
