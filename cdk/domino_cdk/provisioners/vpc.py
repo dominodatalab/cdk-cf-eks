@@ -1,6 +1,7 @@
 from typing import Optional
 
 import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.aws_s3 as s3
 import aws_cdk.custom_resources as cr
@@ -170,11 +171,36 @@ class DominoVpcProvisioner:
     def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> Optional[ec2.SecurityGroup]:
         if not bastion.enabled:
             return None
+
+        root_device_name = "/dev/xvda"  # This only works for AL2
+        root_device_size = 40
+
         if bastion.ami_id:
             region = cdk.Stack.of(self.scope).region
             machine_image = ec2.MachineImage.generic_linux(
                 {region: bastion.ami_id},
-                user_data=ec2.UserData.custom(bastion.user_data),
+                user_data=ec2.UserData.custom(bastion.user_data) if bastion.user_data else None,
+            )
+
+            root_device_name_cr = cr.AwsCustomResource(
+                self.scope,
+                "BastionImageRootDeviceName",
+                log_retention=logs.RetentionDays.ONE_DAY,
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+                on_update=cr.AwsSdkCall(
+                    action="describeImages",
+                    service="EC2",
+                    parameters={
+                        "ImageIds": [bastion.ami_id],
+                    },
+                    physical_resource_id=cr.PhysicalResourceId.of(f"BastionImageRootDeviceName-{bastion.ami_id}"),
+                ),
+            )
+
+            root_device_name = root_device_name_cr.get_response_field("Images.0.RootDeviceName")
+            root_device_size = max(
+                root_device_size,
+                int(root_device_name_cr.get_response_field("Images.0.BlockDeviceMappings.0.Ebs.VolumeSize")),
             )
         else:
             machine_image = ec2.GenericSSMParameterImage(
@@ -208,9 +234,9 @@ class DominoVpcProvisioner:
             instance_type=ec2.InstanceType(bastion.instance_type),
             block_devices=[
                 ec2.BlockDevice(
-                    device_name="/dev/xvda",  # TODO: this depends on the AMI
+                    device_name=root_device_name,
                     volume=ec2.BlockDeviceVolume.ebs(
-                        40,
+                        root_device_size,
                         delete_on_termination=True,
                         encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
@@ -225,6 +251,10 @@ class DominoVpcProvisioner:
             ),
         )
 
+        bastion_instance.role.add_managed_policy(
+            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"),
+        )
+
         ec2.CfnEIP(
             self.scope,
             "bastion_eip",
@@ -233,7 +263,7 @@ class DominoVpcProvisioner:
 
         cr.AwsCustomResource(
             self.scope,
-            "DisableBastionHTTPEndpoint",
+            "RequireBastionHTTPTokens",
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
             on_update=cr.AwsSdkCall(
@@ -241,10 +271,11 @@ class DominoVpcProvisioner:
                 service="EC2",
                 parameters={
                     "InstanceId": bastion_instance.instance_id,
-                    "HttpEndpoint": "disabled",
+                    "HttpTokens": "required",
+                    "HttpEndpoint": "enabled",
                 },
                 physical_resource_id=cr.PhysicalResourceId.of(
-                    f"DisableBastionHTTPEndpoint-{bastion_instance.instance_id}"
+                    f"RequireBastionHTTPTokens-{bastion_instance.instance_id}"
                 ),
             ),
         )

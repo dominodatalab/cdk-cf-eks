@@ -121,25 +121,24 @@ class EKS:
     def __post_init__(self):
         errors = []
 
-        def check_ami_exceptions(ng_name: str, ami_id: str, user_data: str, incompatible_options: bool = False):
-            if ami_id and not user_data:
-                errors.append(f"{ng_name}: User data must be provided when specifying a custom AMI")
-            if ami_id and incompatible_options:
+        def check_ami_exceptions(ng_name: str, ng: EKS.NodegroupBase, incompatible_options: List[str]):
+            if ng.ami_id and any(getattr(ng, attr) for attr in incompatible_options):
                 errors.append(
-                    f"{ng_name}: ssm_agent, labels and taints cannot be automatically configured when specifying a custom AMI. "
+                    f"{ng_name}: {' or '.join(incompatible_options)} cannot be automatically configured when specifying a custom AMI. "
                     "You need to configure all of this using user_data."
                 )
 
         for name, ng in self.managed_nodegroups.items():
             error_name = f"Managed nodegroup [{name}]"
-            check_ami_exceptions(error_name, ng.ami_id, ng.user_data, (ng.ssm_agent or ng.labels))
+            check_ami_exceptions(error_name, ng, ["labels", "ssm_agent"])
             if ng.min_size == 0:
                 errors.append(
                     f"Error: {error_name} has min_size of 0. Only unmanaged nodegroups support min_size of 0."
                 )
+
         for name, ng in self.unmanaged_nodegroups.items():
             error_name = f"Unmanaged nodegroup [{name}]"
-            check_ami_exceptions(error_name, ng.ami_id, ng.user_data, (ng.ssm_agent or ng.labels or ng.taints))
+            check_ami_exceptions(error_name, ng, ["ssm_agent"])
 
         if errors:
             raise ValueError(errors)

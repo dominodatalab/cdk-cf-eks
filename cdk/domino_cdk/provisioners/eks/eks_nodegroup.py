@@ -1,12 +1,16 @@
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
+import aws_cdk.aws_logs as logs
+import aws_cdk.custom_resources as cr
 from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
 
 from domino_cdk import config
+
+NodeGroup = TypeVar("NodeGroup", bound=config.EKS.NodegroupBase)
 
 
 class DominoEksNodegroupProvisioner:
@@ -34,7 +38,7 @@ class DominoEksNodegroupProvisioner:
 
         max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
 
-        def provision_nodegroup(nodegroup: Dict[str, config.EKS.NodegroupBase], prov_func):
+        def provision_nodegroup(nodegroup: Dict[str, NodeGroup], prov_func):
             for name, ng in nodegroup.items():
                 if not ng.ami_id:
                     ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
@@ -48,31 +52,17 @@ class DominoEksNodegroupProvisioner:
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
-    def provision_managed_nodegroup(
-        self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
-    ) -> None:
+    def provision_managed_nodegroup(self, name: str, ng: NodeGroup, max_nodegroup_azs: int) -> None:
         region = cdk.Stack.of(self.scope).region
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({region: ng.ami_id}) if ng.ami_id else None
         )
-        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data])
+        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(
+            name, bool(ng.ami_id), ng.ssm_agent, [ng.user_data]
+        )
 
-        lt = ec2.LaunchTemplate(
-            self.cluster,
-            f"LaunchTemplate{name}",
-            key_name=ng.key_name,
-            launch_template_name=f"{self.stack_name}-{name}",
-            block_devices=[
-                ec2.BlockDevice(
-                    device_name="/dev/xvda",  # TODO: this only works for AL2
-                    volume=ec2.BlockDeviceVolume.ebs(
-                        ng.disk_size,
-                        delete_on_termination=True,
-                        encrypted=True,
-                        volume_type=ec2.EbsDeviceVolumeType.GP2,
-                    ),
-                )
-            ],
+        lt = self._launch_template(
+            name, ng
             machine_image=machine_image,
             user_data=mime_user_data,
         )
@@ -97,9 +87,7 @@ class DominoEksNodegroupProvisioner:
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(
-        self, name: str, ng: Type[config.EKS.NodegroupBase], max_nodegroup_azs: int
-    ) -> None:
+    def provision_unmanaged_nodegroup(self, name: str, ng: NodeGroup, max_nodegroup_azs: int) -> None:
         region = cdk.Stack.of(self.scope).region
         machine_image = (
             ec2.MachineImage.generic_linux({region: ng.ami_id})
@@ -164,27 +152,14 @@ class DominoEksNodegroupProvisioner:
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
-            mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data, asg.user_data])
+            mime_user_data = self._handle_user_data(name, bool(ng.ami_id), ng.ssm_agent, [ng.user_data, asg.user_data])
 
             if not cfn_lt:
-                lt = ec2.LaunchTemplate(
-                    scope,
-                    f"LaunchTemplate{i}",
-                    launch_template_name=indexed_name,
-                    block_devices=[
-                        ec2.BlockDevice(
-                            device_name="/dev/xvda",
-                            volume=ec2.BlockDeviceVolume.ebs(
-                                ng.disk_size,
-                                delete_on_termination=True,
-                                encrypted=True,
-                                volume_type=ec2.EbsDeviceVolumeType.GP2,
-                            ),
-                        )
-                    ],
+                lt = self._launch_template(
+                    f"{name}-{az}",
+                    ng,
                     role=self.ng_role,
                     instance_type=ec2.InstanceType(ng.instance_types[0]),
-                    key_name=ng.key_name,
                     machine_image=machine_image,
                     user_data=mime_user_data,
                     security_group=self.unmanaged_sg,
@@ -219,23 +194,22 @@ class DominoEksNodegroupProvisioner:
                 ),
             )
 
-            options: dict[str, Any] = {
-                "bootstrap_enabled": ng.ami_id is None,
-            }
-            if not ng.ami_id:
-                extra_args: list[str] = []
-                if labels := ng.labels:
-                    extra_args.append(
-                        "--node-labels={}".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
-                    )
+            extra_args: list[str] = []
+            if labels := ng.labels:
+                extra_args.append(
+                    "--node-labels={}".format(",".join(["{}={}".format(k, v) for k, v in labels.items()]))
+                )
 
-                if taints := ng.taints:
-                    extra_args.append(
-                        "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
-                    )
-                options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
+            if taints := ng.taints:
+                extra_args.append(
+                    "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
+                )
 
-            self.cluster.connect_auto_scaling_group_capacity(asg, **options)
+            self.cluster.connect_auto_scaling_group_capacity(
+                asg,
+                bootstrap_enabled=True,
+                bootstrap_options=eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args)),
+            )
 
     def _handle_user_data(
         self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]
@@ -252,6 +226,7 @@ class DominoEksNodegroupProvisioner:
                     )
                 ),
             )
+
             # if not custom AMI, we can install ssm agent. If requested.
             if ssm_agent:
                 mime_user_data.add_part(
@@ -261,6 +236,7 @@ class DominoEksNodegroupProvisioner:
                         )
                     ),
                 )
+
         for ud in user_data_list:
             if isinstance(ud, str):
                 mime_user_data.add_part(
@@ -281,3 +257,48 @@ class DominoEksNodegroupProvisioner:
                 mime_user_data.add_part(ec2.MultipartBody.from_user_data(ud))
 
         return mime_user_data
+
+    def _launch_template(self, name: str, ng: NodeGroup, **opts) -> ec2.LaunchTemplate:
+        root_device_name = "/dev/xvda"  # This only works for AL2
+        root_device_size = ng.disk_size
+
+        if ng.ami_id:
+            root_device_name_cr = cr.AwsCustomResource(
+                self.scope,
+                "BastionImageRootDeviceName",
+                log_retention=logs.RetentionDays.ONE_DAY,
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+                on_update=cr.AwsSdkCall(
+                    action="describeImages",
+                    service="EC2",
+                    parameters={
+                        "ImageIds": [ng.ami_id],
+                    },
+                    physical_resource_id=cr.PhysicalResourceId.of(f"BastionImageRootDeviceName-{ng.ami_id}"),
+                ),
+            )
+
+            root_device_name = root_device_name_cr.get_response_field("Images.0.RootDeviceName")
+            root_device_size = max(
+                root_device_size,
+                int(root_device_name_cr.get_response_field("Images.0.BlockDeviceMappings.0.Ebs.VolumeSize")),
+            )
+
+        return ec2.LaunchTemplate(
+            self.cluster,
+            name,
+            key_name=ng.key_name,
+            launch_template_name=f"{self.stack_name}-{name}",
+            block_devices=[
+                ec2.BlockDevice(
+                    device_name=root_device_name,
+                    volume=ec2.BlockDeviceVolume.ebs(
+                        root_device_size,
+                        delete_on_termination=True,
+                        encrypted=True,
+                        volume_type=ec2.EbsDeviceVolumeType.GP2,
+                    ),
+                )
+            ],
+            **opts
+        )

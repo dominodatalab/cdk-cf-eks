@@ -31,17 +31,21 @@ def on_create(event):
     )
 
     print(f'Enable logging in cluster {cluster_arn}')
-    eks_client.update_cluster_config(
-        name=os.environ['cluster'],
-        logging={
-            "clusterLogging": [
-                {
-                    "enabled": True,
-                    "types": ["api", "audit", "authenticator", "controllerManager", "scheduler"],
-                },
-            ],
-        },
-    )
+    try:
+        eks_client.update_cluster_config(
+            name=os.environ['cluster'],
+            logging={
+                "clusterLogging": [
+                    {
+                        "enabled": True,
+                        "types": ["api", "audit", "authenticator", "controllerManager", "scheduler"],
+                    },
+                ],
+            },
+        )
+    except eks_client.exceptions.InvalidParameterException as e:
+        if "No changes needed for the logging config provided" not in e.response["Error"]["Message"]:
+            raise
 
     log_group_name = f'/aws/eks/{cluster_name}/cluster'
     print(f'Change retention of {log_group_name} log group')
