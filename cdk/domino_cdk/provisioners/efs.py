@@ -4,8 +4,11 @@ import aws_cdk.aws_efs as efs
 import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
+from aws_cdk.region_info import Fact, FactName
 
 from domino_cdk import config
+
+from .lambda_utils import create_lambda
 
 _DominoEfsStack = None
 
@@ -61,12 +64,15 @@ class DominoEfsProvisioner:
         )
 
     def provision_backup_vault(self, stack_name: str, efs_backup: config.EFS.Backup):
+        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
+
         vault = backup.BackupVault(
             self.scope,
             "efs_backup",
             backup_vault_name=f'{stack_name}-efs',
             removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
         )
+
         cdk.CfnOutput(self.parent, "backup-vault", value=vault.backup_vault_name)
         plan = backup.BackupPlan(
             self.scope,
@@ -101,4 +107,21 @@ class DominoEfsProvisioner:
             allow_restores=False,
             backup_selection_name=f"{stack_name}-efs",
             role=backupRole,
+        )
+
+        create_lambda(
+            scope=self.scope,
+            stack_name=stack_name,
+            name="backup_post_creation_tasks",
+            environment={"stack_name": stack_name, "backup_vault": vault.backup_vault_name},
+            resources=[
+                f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:backup-vault:{stack_name}-efs",
+                # To limit the recovery points, we will need to add tag checking condition to the IAM policy for the
+                # lambda. I think it will be a bit of overkill
+                f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:recovery-point:*",
+            ],
+            actions=[
+                "backup:ListRecoveryPointsByBackupVault",
+                "backup:DeleteRecoveryPoint",
+            ],
         )
