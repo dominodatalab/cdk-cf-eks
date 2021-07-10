@@ -1,5 +1,4 @@
 from aws_cdk import core as cdk
-from yaml import dump as yaml_dump
 
 from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
@@ -107,4 +106,5 @@ class DominoStack(cdk.Stack):
 
         merged_cfg = DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install)
 
-        cdk.CfnOutput(self, "agent_config", value=yaml_dump(merged_cfg))
+        cdk.CfnOutput(self, "agent_config", value=DominoCdkUtil.ruamel_dump(merged_cfg))
+        cdk.CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
