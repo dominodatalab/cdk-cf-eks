@@ -13,7 +13,13 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     author="Domino Data Lab",
-    packages=["domino_cdk", "domino_cdk.config", "domino_cdk.provisioners", "domino_cdk.provisioners.eks"],
+    packages=[
+        "domino_cdk",
+        "domino_cdk.config",
+        "domino_cdk.provisioners",
+        "domino_cdk.provisioners.eks",
+        "domino_cdk.provisioners.lambda_files",
+    ],
     package_data={"domino_cdk": ["config_template.yaml"]},
     data_files=[
         ("domino-cdk", ["app.py", "cdk.json", "util.py"]),
