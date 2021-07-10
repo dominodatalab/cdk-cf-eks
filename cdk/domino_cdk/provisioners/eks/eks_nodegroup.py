@@ -1,14 +1,14 @@
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, TypeVar, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-import aws_cdk.aws_logs as logs
-import aws_cdk.custom_resources as cr
 from aws_cdk import aws_autoscaling
 from aws_cdk import core as cdk
 
 from domino_cdk import config
+
+from ..ami import root_device_mapping
 
 NodeGroup = TypeVar("NodeGroup", bound=config.EKS.NodegroupBase)
 
@@ -62,7 +62,8 @@ class DominoEksNodegroupProvisioner:
         )
 
         lt = self._launch_template(
-            name, ng
+            name,
+            ng,
             machine_image=machine_image,
             user_data=mime_user_data,
         )
@@ -260,29 +261,8 @@ class DominoEksNodegroupProvisioner:
 
     def _launch_template(self, name: str, ng: NodeGroup, **opts) -> ec2.LaunchTemplate:
         root_device_name = "/dev/xvda"  # This only works for AL2
-        root_device_size = ng.disk_size
-
         if ng.ami_id:
-            root_device_name_cr = cr.AwsCustomResource(
-                self.scope,
-                "BastionImageRootDeviceName",
-                log_retention=logs.RetentionDays.ONE_DAY,
-                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-                on_update=cr.AwsSdkCall(
-                    action="describeImages",
-                    service="EC2",
-                    parameters={
-                        "ImageIds": [ng.ami_id],
-                    },
-                    physical_resource_id=cr.PhysicalResourceId.of(f"BastionImageRootDeviceName-{ng.ami_id}"),
-                ),
-            )
-
-            root_device_name = root_device_name_cr.get_response_field("Images.0.RootDeviceName")
-            root_device_size = max(
-                root_device_size,
-                int(root_device_name_cr.get_response_field("Images.0.BlockDeviceMappings.0.Ebs.VolumeSize")),
-            )
+            root_device_name = root_device_mapping(self.scope, ng.ami_id).name
 
         return ec2.LaunchTemplate(
             self.cluster,
@@ -293,12 +273,12 @@ class DominoEksNodegroupProvisioner:
                 ec2.BlockDevice(
                     device_name=root_device_name,
                     volume=ec2.BlockDeviceVolume.ebs(
-                        root_device_size,
+                        ng.disk_size,
                         delete_on_termination=True,
                         encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
                     ),
                 )
             ],
-            **opts
+            **opts,
         )

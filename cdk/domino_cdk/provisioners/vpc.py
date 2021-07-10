@@ -9,6 +9,8 @@ from aws_cdk import core as cdk
 
 from domino_cdk import config
 
+from .ami import root_device_mapping
+
 _DominoVpcStack = None
 
 
@@ -173,8 +175,6 @@ class DominoVpcProvisioner:
             return None
 
         root_device_name = "/dev/xvda"  # This only works for AL2
-        root_device_size = 40
-
         if bastion.ami_id:
             region = cdk.Stack.of(self.scope).region
             machine_image = ec2.MachineImage.generic_linux(
@@ -182,26 +182,7 @@ class DominoVpcProvisioner:
                 user_data=ec2.UserData.custom(bastion.user_data) if bastion.user_data else None,
             )
 
-            root_device_name_cr = cr.AwsCustomResource(
-                self.scope,
-                "BastionImageRootDeviceName",
-                log_retention=logs.RetentionDays.ONE_DAY,
-                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
-                on_update=cr.AwsSdkCall(
-                    action="describeImages",
-                    service="EC2",
-                    parameters={
-                        "ImageIds": [bastion.ami_id],
-                    },
-                    physical_resource_id=cr.PhysicalResourceId.of(f"BastionImageRootDeviceName-{bastion.ami_id}"),
-                ),
-            )
-
-            root_device_name = root_device_name_cr.get_response_field("Images.0.RootDeviceName")
-            root_device_size = max(
-                root_device_size,
-                int(root_device_name_cr.get_response_field("Images.0.BlockDeviceMappings.0.Ebs.VolumeSize")),
-            )
+            root_device_name = root_device_mapping(self.scope, bastion.ami_id).name
         else:
             machine_image = ec2.GenericSSMParameterImage(
                 "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2", ec2.OperatingSystemType.LINUX
@@ -236,7 +217,7 @@ class DominoVpcProvisioner:
                 ec2.BlockDevice(
                     device_name=root_device_name,
                     volume=ec2.BlockDeviceVolume.ebs(
-                        root_device_size,
+                        100,  # TODO: this requires the AMI volume be <= 100GiB already
                         delete_on_termination=True,
                         encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
