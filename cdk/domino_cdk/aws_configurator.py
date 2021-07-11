@@ -19,10 +19,6 @@ manifests = [
     },
 ]
 
-# Currently this just installs calico directly via manifest, but we might do it via lambda
-# Need to figure out
-# - how to make helm chart accessible by the CDK lambda, how to upload chart or make it part of lambda bundle
-
 
 class DominoAwsConfigurator:
     def __init__(self, scope: cdk.Construct, eks_cluster: eks.Cluster, vpc: ec2.Vpc):
