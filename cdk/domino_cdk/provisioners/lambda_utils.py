@@ -1,5 +1,5 @@
 from os import path
-from typing import Dict, List
+from typing import Any, Dict, List, Optional
 
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as lambda_
@@ -11,9 +11,10 @@ def create_lambda(
     scope: cdk.Construct,
     stack_name: str,
     name: str,
-    environment: Dict[str, str],
     resources: List[str],
     actions: List[str],
+    properties: Optional[Dict[str, Any]] = None,
+    environment: Optional[Dict[str, Any]] = None,
 ) -> cdk.Construct:
     dirname = path.dirname(path.abspath(__file__))
     with open(path.join(dirname, "lambda_files", f"{name}.py"), encoding="utf-8") as fp:
@@ -36,6 +37,4 @@ def create_lambda(
         statement.add_actions(a)
     on_event.add_to_role_policy(statement)
 
-    return cdk.CustomResource(
-        scope, f"{name}_custom", service_token=cdk.Token.as_string(on_event.node.default_child.get_att('Arn'))
-    )
+    return cdk.CustomResource(scope, f"{name}_custom", service_token=on_event.function_arn, properties=properties)
