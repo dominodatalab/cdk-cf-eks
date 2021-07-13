@@ -40,13 +40,12 @@ class DominoEksNodegroupProvisioner:
 
         def provision_nodegroup(nodegroup: Dict[str, NodeGroup], prov_func):
             for name, ng in nodegroup.items():
-                if not ng.ami_id:
-                    ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
-                    ng.tags = {
-                        **ng.tags,
-                        **self.eks_cfg.global_node_tags,
-                        **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
-                    }
+                ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
+                ng.tags = {
+                    **ng.tags,
+                    **self.eks_cfg.global_node_tags,
+                    **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
+                }
                 prov_func(name, ng, max_nodegroup_azs)
 
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
