@@ -1,4 +1,3 @@
-import json
 from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
@@ -48,12 +47,12 @@ class DominoEksClusterProvisioner:
                 enable_key_rotation=True,
             )
 
-        log_cleanup = create_lambda(
+        log_cleanup_lambda_resource = create_lambda(
             scope=self.scope,
             stack_name=stack_name,
             name="cluster_post_deletion_tasks",
-            environment={
-                "cluster": stack_name,
+            properties={
+                "cluster_name": stack_name,
             },
             resources=[
                 f"arn:{partition}:logs:{self.scope.region}:{self.scope.account}:log-group:/aws/lambda/{stack_name}*",
@@ -78,17 +77,14 @@ class DominoEksClusterProvisioner:
             secrets_encryption_key=key,
         )
 
-        cluster.node.add_dependency(log_cleanup)  # make sure log cleanup is called after cluster cleanup
+        # To make sure log cleanup is called after cluster cleanup: cluster depends on custom so custom is guaranteed
+        # to be created before the cluster and deleted after the cluster
+        cluster.node.add_dependency(log_cleanup_lambda_resource)
 
         create_lambda(
             scope=self.scope,
             stack_name=stack_name,
             name="cluster_post_creation_tasks",
-            environment={
-                "cluster": cluster.cluster_name,
-                "cluster_arn": cluster.cluster_arn,
-                "tags": json.dumps(tags),
-            },
             resources=[
                 f"arn:{partition}:logs:{self.scope.region}:{self.scope.account}:log-group:/aws/eks/{cluster.cluster_name}/cluster",
                 cluster.cluster_arn + "*",
@@ -100,6 +96,7 @@ class DominoEksClusterProvisioner:
                 "eks:TagResource",
                 "eks:UpdateClusterConfig",
             ],
+            properties={"cluster_name": cluster.cluster_name, "cluster_arn": cluster.cluster_arn, "tags": tags},
         )
 
         if bastion_sg:

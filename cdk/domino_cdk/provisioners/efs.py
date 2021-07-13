@@ -113,7 +113,7 @@ class DominoEfsProvisioner:
             scope=self.scope,
             stack_name=stack_name,
             name="backup_post_creation_tasks",
-            environment={"stack_name": stack_name, "backup_vault": vault.backup_vault_name},
+            properties={"stack_name": stack_name, "backup_vault": vault.backup_vault_name},
             resources=[
                 f"arn:{partition}:backup:{self.scope.region}:{self.scope.account}:backup-vault:{stack_name}-efs",
                 # To limit the recovery points, we will need to add tag checking condition to the IAM policy for the
