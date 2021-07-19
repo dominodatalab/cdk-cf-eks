@@ -60,8 +60,9 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.DOMINO_ARTIFACTS_ACCESS_KEY }}
         DOMINO_CDK_VERSION: ${{ github.sha }}
+        DATEDIR: "date +%Y%m%d"
       run: |
         cd ..
         make clean && make dist
-        aws s3 cp --acl=public-read ./dist/domino-cdk-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/
-        aws s3 cp --acl=public-read ./dist/domino-cdk-terraform-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/
+        aws s3 cp --acl=public-read ./dist/domino-cdk-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/$($DATEDIR)/
+        aws s3 cp --acl=public-read ./dist/domino-cdk-terraform-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/$($DATEDIR)/
