@@ -54,3 +54,8 @@ jobs:
       run: |
         cdk synth -q
         cdk synth --context nest=true -q
+    - name: Upload distribution artifacts
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
+      run: |
+        echo $AWS_ACCESS_KEY_ID | cut -c1-4
