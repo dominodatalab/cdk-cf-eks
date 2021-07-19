@@ -64,5 +64,8 @@ jobs:
       run: |
         cd ..
         make clean && make dist
-        aws s3 cp --acl=public-read ./dist/domino-cdk-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/$($DATEDIR)/
-        aws s3 cp --acl=public-read ./dist/domino-cdk-terraform-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/$($DATEDIR)/
+        for suffix in "" "-terraform"; do
+        filename="domino-cdk$suffix-$DOMINO_CDK_VERSION.tar.gz"
+        aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
+        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
+        done
