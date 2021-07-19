@@ -30,6 +30,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
+        pip install awscli
     - name: Lint with flake8/black/isort
       run: |
         export FILES=(*.py domino_cdk tests)
@@ -57,5 +58,10 @@ jobs:
     - name: Upload distribution artifacts
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DOMINO_ARTIFACTS_ACCESS_KEY }}
+        DOMINO_CDK_VERSION: ${{ github.sha }}
       run: |
-        echo $AWS_ACCESS_KEY_ID | cut -c1-4
+        cd ..
+        make clean && make dist
+        aws s3 cp --acl=public-read ./dist/domino-cdk-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/
+        aws s3 cp --acl=public-read ./dist/domino-cdk-terraform-$DOMINO_CDK_VERSION.tar.gz s3://domino-artifacts/cdk/
