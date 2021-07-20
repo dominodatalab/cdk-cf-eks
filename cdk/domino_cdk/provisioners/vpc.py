@@ -1,12 +1,15 @@
 from typing import Optional
 
 import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.aws_s3 as s3
 import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 
 from domino_cdk import config
+
+from .ami import root_device_mapping
 
 _DominoVpcStack = None
 
@@ -170,12 +173,16 @@ class DominoVpcProvisioner:
     def provision_bastion(self, name: str, bastion: config.VPC.Bastion) -> Optional[ec2.SecurityGroup]:
         if not bastion.enabled:
             return None
+
+        root_device_name = "/dev/xvda"  # This only works for AL2
         if bastion.ami_id:
             region = cdk.Stack.of(self.scope).region
             machine_image = ec2.MachineImage.generic_linux(
                 {region: bastion.ami_id},
-                user_data=ec2.UserData.custom(bastion.user_data),
+                user_data=ec2.UserData.custom(bastion.user_data) if bastion.user_data else None,
             )
+
+            root_device_name = root_device_mapping(self.scope, bastion.ami_id).name
         else:
             machine_image = ec2.GenericSSMParameterImage(
                 "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2", ec2.OperatingSystemType.LINUX
@@ -208,9 +215,9 @@ class DominoVpcProvisioner:
             instance_type=ec2.InstanceType(bastion.instance_type),
             block_devices=[
                 ec2.BlockDevice(
-                    device_name="/dev/xvda",  # TODO: this depends on the AMI
+                    device_name=root_device_name,
                     volume=ec2.BlockDeviceVolume.ebs(
-                        40,
+                        40,  # TODO: this requires the AMI volume be <= 40GiB already
                         delete_on_termination=True,
                         encrypted=True,
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
