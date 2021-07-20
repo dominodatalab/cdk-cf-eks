@@ -50,8 +50,10 @@ jobs:
     - name: Create/lint default config
       env:
         AWS_ACCOUNT_ID: ${{ secrets.INFRA_ACCOUNT_ID }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
-        ./util.py generate_config_template | sed -e "s/aws_region: __FILL__/aws_region: us-west-2/" -e "s/aws_account_id: __FILL__/aws_account_id: \"$AWS_ACCOUNT_ID\"/" > config.yaml
+        export NAME=cdk-deploy-$(echo $GITHUB_SHA | cut -c1-6)
+        ./util.py generate_config_template --name $NAME --dev | sed -e "s/aws_region: __FILL__/aws_region: us-west-2/" -e "s/aws_account_id: __FILL__/aws_account_id: \"$AWS_ACCOUNT_ID\"/" > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
       env:
