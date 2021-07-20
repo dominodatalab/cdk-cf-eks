@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, TypeVar
 
 from domino_cdk.config.util import check_leavins, from_loader
 
@@ -192,3 +192,7 @@ class EKS:
             ),
             c,
         )
+
+
+# This type enabled correct checking for managed / unmanaged Nodegroups
+T_NodegroupBase = TypeVar("T_NodegroupBase", bound=EKS.NodegroupBase)

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
@@ -9,8 +9,6 @@ from aws_cdk import core as cdk
 from domino_cdk import config
 
 from ..ami import root_device_mapping
-
-NodeGroup = TypeVar("NodeGroup", bound=config.EKS.NodegroupBase)
 
 
 class DominoEksNodegroupProvisioner:
@@ -38,7 +36,7 @@ class DominoEksNodegroupProvisioner:
 
         max_nodegroup_azs = self.eks_cfg.max_nodegroup_azs
 
-        def provision_nodegroup(nodegroup: Dict[str, NodeGroup], prov_func):
+        def provision_nodegroup(nodegroup: Dict[str, config.eks.T_NodegroupBase], prov_func):
             for name, ng in nodegroup.items():
                 if not ng.ami_id:
                     ng.labels = {**ng.labels, **self.eks_cfg.global_node_labels}
@@ -52,7 +50,7 @@ class DominoEksNodegroupProvisioner:
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
-    def provision_managed_nodegroup(self, name: str, ng: NodeGroup, max_nodegroup_azs: int) -> None:
+    def provision_managed_nodegroup(self, name: str, ng: config.eks.T_NodegroupBase, max_nodegroup_azs: int) -> None:
         region = cdk.Stack.of(self.scope).region
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({region: ng.ami_id}) if ng.ami_id else None
@@ -87,7 +85,7 @@ class DominoEksNodegroupProvisioner:
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(self, name: str, ng: NodeGroup, max_nodegroup_azs: int) -> None:
+    def provision_unmanaged_nodegroup(self, name: str, ng: config.eks.T_NodegroupBase, max_nodegroup_azs: int) -> None:
         region = cdk.Stack.of(self.scope).region
         machine_image = (
             ec2.MachineImage.generic_linux({region: ng.ami_id})
@@ -261,7 +259,7 @@ class DominoEksNodegroupProvisioner:
 
         return mime_user_data
 
-    def _launch_template(self, scope, name: str, ng: NodeGroup, **opts) -> ec2.LaunchTemplate:
+    def _launch_template(self, scope, name: str, ng: config.eks.T_NodegroupBase, **opts) -> ec2.LaunchTemplate:
         if ng.ami_id:
             root_device_name = root_device_mapping(self.scope, ng.ami_id).name
         else:
