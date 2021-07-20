@@ -60,7 +60,8 @@ class DominoEksNodegroupProvisioner:
         mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data])
 
         lt = self._launch_template(
-            name,
+            self.cluster,
+            f"LaunchTemplate{name}",
             ng,
             machine_image=machine_image,
             user_data=mime_user_data,
@@ -155,8 +156,10 @@ class DominoEksNodegroupProvisioner:
 
             if not cfn_lt:
                 lt = self._launch_template(
-                    f"{name}-{az}",
+                    scope,
+                    f"LaunchTemplate{i}",
                     ng,
+                    launch_template_name=indexed_name,
                     role=self.ng_role,
                     instance_type=ec2.InstanceType(ng.instance_types[0]),
                     machine_image=machine_image,
@@ -258,17 +261,15 @@ class DominoEksNodegroupProvisioner:
 
         return mime_user_data
 
-    def _launch_template(self, name: str, ng: NodeGroup, **opts) -> ec2.LaunchTemplate:
+    def _launch_template(self, scope, name: str, ng: NodeGroup, **opts) -> ec2.LaunchTemplate:
         root_device_name = "/dev/xvda"  # This only works for AL2
         if ng.ami_id:
             root_device_name = root_device_mapping(self.scope, ng.ami_id).name
 
-        return ec2.LaunchTemplate(
-            self.cluster,
-            name,
-            key_name=ng.key_name,
-            launch_template_name=f"{self.stack_name}-{name}",
-            block_devices=[
+        opts = {
+            "key_name": ng.key_name,
+            "launch_template_name": f"{self.stack_name}-{name}",
+            "block_devices": [
                 ec2.BlockDevice(
                     device_name=root_device_name,
                     volume=ec2.BlockDeviceVolume.ebs(
@@ -279,5 +280,11 @@ class DominoEksNodegroupProvisioner:
                     ),
                 )
             ],
+            **opts,
+        }
+
+        return ec2.LaunchTemplate(
+            scope,
+            name,
             **opts,
         )
