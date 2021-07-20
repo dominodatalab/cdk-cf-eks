@@ -194,5 +194,5 @@ class EKS:
         )
 
 
-# This type enabled correct checking for managed / unmanaged Nodegroups
+# This enables correct type checking for managed / unmanaged Nodegroups
 T_NodegroupBase = TypeVar("T_NodegroupBase", bound=EKS.NodegroupBase)
