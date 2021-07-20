@@ -174,7 +174,6 @@ class DominoVpcProvisioner:
         if not bastion.enabled:
             return None
 
-        root_device_name = "/dev/xvda"  # This only works for AL2
         if bastion.ami_id:
             region = cdk.Stack.of(self.scope).region
             machine_image = ec2.MachineImage.generic_linux(
@@ -187,6 +186,8 @@ class DominoVpcProvisioner:
             machine_image = ec2.GenericSSMParameterImage(
                 "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2", ec2.OperatingSystemType.LINUX
             )
+
+            root_device_name = "/dev/xvda"  # This only works for AL2
 
         bastion_sg = ec2.SecurityGroup(
             self.scope,

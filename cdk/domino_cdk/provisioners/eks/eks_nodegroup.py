@@ -262,9 +262,10 @@ class DominoEksNodegroupProvisioner:
         return mime_user_data
 
     def _launch_template(self, scope, name: str, ng: NodeGroup, **opts) -> ec2.LaunchTemplate:
-        root_device_name = "/dev/xvda"  # This only works for AL2
         if ng.ami_id:
             root_device_name = root_device_mapping(self.scope, ng.ami_id).name
+        else:
+            root_device_name = "/dev/xvda"  # This only works for AL2
 
         opts = {
             "key_name": ng.key_name,
