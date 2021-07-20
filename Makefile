@@ -1,7 +1,11 @@
 DIST_DIR=dist
 TERRAFORM_DIST_NAME=domino-cdk-terraform
 
-VERSION := $(shell python -c "from cdk.domino_cdk import __version__; print(__version__)")
+ifdef DOMINO_CDK_VERSION
+    VERSION := $(DOMINO_CDK_VERSION)
+else
+    VERSION := $(shell python -c "from cdk.domino_cdk import __version__; print(__version__)")
+endif
 
 .PHONY: dist
 
