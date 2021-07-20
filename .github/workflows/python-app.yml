@@ -48,10 +48,15 @@ jobs:
       run: |
         coverage report
     - name: Create/lint default config
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.INFRA_ACCOUNT_ID }}
       run: |
-        ./util.py generate_config_template | sed -e 's/aws_region: __FILL__/aws_region: us-west-2/' -e 's/aws_account_id: __FILL__/aws_account_id: null/' > config.yaml
+        ./util.py generate_config_template | sed -e "s/aws_region: __FILL__/aws_region: us-west-2/" -e "s/aws_account_id: __FILL__/aws_account_id: \"$AWS_ACCOUNT_ID\"/" > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
         cdk synth --context singlestack=true -q
         cdk synth -q
@@ -69,3 +74,11 @@ jobs:
         aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
         echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
         done
+    - name: Deploy CDK
+      if: github.event.pull_request.draft == false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+      run: |
+        cdk deploy --require-approval never
+        cdk destroy --force
