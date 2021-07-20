@@ -53,8 +53,8 @@ jobs:
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
       run: |
+        cdk synth --context singlestack=true -q
         cdk synth -q
-        cdk synth --context nest=true -q
     - name: Upload distribution artifacts
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}

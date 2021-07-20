@@ -11,7 +11,7 @@ app = core.App()
 with open(app.node.try_get_context("config") or "config.yaml") as f:
     cfg = config_loader(yaml_load(f, Loader=SafeLoader))
 
-nest = app.node.try_get_context("nest") or False
+nest = app.node.try_get_context("singlestack") or True
 
 DominoStack(
     app,
