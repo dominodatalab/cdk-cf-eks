@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
