@@ -123,6 +123,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
         "Effect": "Allow",
         "Action": [
             "lambda:CreateFunction",
+            "lambda:UpdateFunctionCode",
             "lambda:DeleteFunction",
             "lambda:DeleteLayerVersion",
             "lambda:GetFunction",
