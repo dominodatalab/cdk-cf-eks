@@ -1,6 +1,7 @@
 from typing import Optional
 
 import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.aws_s3 as s3
 import aws_cdk.custom_resources as cr
@@ -225,6 +226,10 @@ class DominoVpcProvisioner:
             ),
         )
 
+        bastion_instance.role.add_managed_policy(
+            iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"),
+        )
+
         ec2.CfnEIP(
             self.scope,
             "bastion_eip",
@@ -233,7 +238,7 @@ class DominoVpcProvisioner:
 
         cr.AwsCustomResource(
             self.scope,
-            "DisableBastionHTTPEndpoint",
+            "RequireBastionHTTPTokens",
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
             on_update=cr.AwsSdkCall(
@@ -241,10 +246,11 @@ class DominoVpcProvisioner:
                 service="EC2",
                 parameters={
                     "InstanceId": bastion_instance.instance_id,
-                    "HttpEndpoint": "disabled",
+                    "HttpTokens": "required",
+                    "HttpEndpoint": "enabled",
                 },
                 physical_resource_id=cr.PhysicalResourceId.of(
-                    f"DisableBastionHTTPEndpoint-{bastion_instance.instance_id}"
+                    f"RequireBastionHTTPTokens-{bastion_instance.instance_id}"
                 ),
             ),
         )
