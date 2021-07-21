@@ -45,6 +45,9 @@ def parse_args():
         help="KMS Key arn to encrypt kubernetes secrets, generated if not provided",
         default=None,
     )
+    template_parser.add_argument("--registry-username", help="Quay.io Registry Username", default=None)
+    template_parser.add_argument("--registry-password", help="Quay.io Registry Password", default=None)
+    template_parser.add_argument("--gcr-json-creds", help="GCR Json Credentials", default=None)
     template_parser.set_defaults(func=generate_config_template)
 
     iam_parser = subparsers.add_parser(
@@ -154,6 +157,9 @@ def generate_config_template(args):
             private_api=args.private_api,
             dev_defaults=args.dev,
             istio_compatible=args.istio_compatible,
+            registry_username=args.registry_username,
+            registry_password=args.registry_password,
+            gcr_json_creds=args.gcr_json_creds,
         ).render(args.no_comments),
         stdout,
     )
