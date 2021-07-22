@@ -84,23 +84,28 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
-        GITHUB_SHA: ${{ github.sha }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        GCR_JSON_CREDS: ${{ secrets.GCR_JSON_CREDS }}
       run: |
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
-        export NAME=cdk-deploy-$(echo $GITHUB_SHA | cut -c1-6)
-        export KUBECONFIG=$(pwd)/kubeconfig
         cdk deploy --require-approval never --outputs-file outputs.json
-        $(jq -r ".[\"$NAME\"].ekskubeconfigcmd" outputs.json) --kubeconfig $KUBECONFIG
-        echo ls'ing and cat'ting $KUBECONFIG
-        ls -alh $KUBECONFIG
-        cat $KUBECONFIG
-        jq -r ".[\"$NAME\"].agentconfig" outputs.json > agent_template.yaml
-        touch domino.yml && chmod 666 domino.yml kubeconfig
+    - name: Prepare Domino Install
+      if: github.event.pull_request.draft == false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+      run: |
+        $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
+        jq -r ".[].agentconfig" outputs.json > agent_template.yaml
         docker run --rm -v $(pwd):/cdk quay.io/domino/deployer:v42 python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
-        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
+    - name: Install Domino
+      if: github.event.pull_request.draft == false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+      run: |
+        #docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 cat /cdk/domino.yml
     - name: Destroy CDK
       if: always() && github.event.pull_request.draft == false
       env:
