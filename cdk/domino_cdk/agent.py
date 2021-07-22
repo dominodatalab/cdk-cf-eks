@@ -2,9 +2,12 @@ from typing import Any, Dict, Optional
 
 from aws_cdk.aws_s3 import Bucket
 
+from domino_cdk.config import Install
+
 
 def generate_install_config(
     name: str,
+    install: Install,
     aws_region: str,
     eks_cluster_name: str,
     pod_cidr: str,
@@ -99,7 +102,7 @@ def generate_install_config(
                 "enabled": True,
                 "type": "LoadBalancer",
                 "annotations": {
-                    "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "__FILL__",  # TODO: Should we have an official config for this?
+                    "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": install.acm_cert_arn or "__FILL__",
                     "service.beta.kubernetes.io/aws-load-balancer-internal": False,
                     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                     "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
@@ -109,7 +112,7 @@ def generate_install_config(
                     #     "could-propagate-this-instead-of-create"
                 },
                 "targetPorts": {"http": "http", "https": "http"},
-                "loadBalancerSourceRanges": ["0.0.0.0/0"],  # TODO AF
+                "loadBalancerSourceRanges": access_list,
             },
         }
     }
@@ -123,5 +126,21 @@ def generate_install_config(
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix": "ELBAccessLogs",
             }
         )
+
+    if install.registry_username:
+        agent_cfg["private_docker_registry"] = {
+            "server": "quay.io",
+            "username": install.registry_username,
+            "password": install.registry_password,
+        }
+
+    if install.gcr_credentials:
+        agent_cfg["helm"] = {
+            "version": 3,
+            "host": "gcr.io",
+            "namespace": "domino-eng-service-artifacts",
+            "username": "_json_key",
+            "password": install.gcr_credentials,
+        }
 
     return agent_cfg

@@ -8,6 +8,7 @@ from ruamel.yaml.comments import CommentedMap
 from domino_cdk import __version__
 from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS
+from domino_cdk.config.install import Install
 from domino_cdk.config.route53 import Route53
 from domino_cdk.config.s3 import S3
 from domino_cdk.config.util import from_loader
@@ -37,7 +38,7 @@ class DominoCDKConfig:
     eks: EKS = None
     s3: S3 = None
 
-    install: dict = None
+    install: Install = None
 
     @field_property(tags)
     def get_tags(self) -> Dict[str, str]:
@@ -61,12 +62,12 @@ class DominoCDKConfig:
                 aws_account_id=c.pop("aws_account_id"),
                 tags=c.pop("tags", {}),
                 create_iam_roles_for_service_accounts=False,
-                install=c.pop("install", {}),
                 vpc=VPC.from_0_0_0({**c.pop("vpc"), **{"availability_zones": c.pop("availability_zones", [])}}),
                 efs=EFS.from_0_0_0(c.pop("efs")),
                 route53=Route53.from_0_0_0(c.pop("route53")),
                 eks=EKS.from_0_0_0(c.pop("eks")),
                 s3=S3.from_0_0_0(c.pop("s3")),
+                install=Install.from_0_0_0(c.pop("install")),
             ),
             c,
         )
@@ -82,12 +83,12 @@ class DominoCDKConfig:
                 aws_account_id=c.pop("aws_account_id"),
                 tags=c.pop("tags", {}),
                 create_iam_roles_for_service_accounts=c.pop("create_iam_roles_for_service_accounts", False),
-                install=c.pop("install", {}),
                 vpc=VPC.from_0_0_1(c.pop("vpc")),
                 efs=EFS.from_0_0_0(c.pop("efs")),
                 route53=Route53.from_0_0_0(c.pop("route53")),
                 eks=EKS.from_0_0_1(c.pop("eks")),
                 s3=S3.from_0_0_0(c.pop("s3")),
+                install=Install.from_0_0_1(c.pop("install")),
             ),
             c,
         )

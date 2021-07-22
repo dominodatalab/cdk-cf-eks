@@ -1,7 +1,7 @@
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from domino_cdk import __version__
-from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Route53
+from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Install, Route53
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -139,7 +139,15 @@ def config_template(
         ),
     )
 
-    install: Dict[Any, Any] = {}
+    install = Install(
+        access_list=["0.0.0.0/0"],
+        acm_cert_arn="__FILL__",
+        hostname="__FILL__",
+        gcr_credentials=gcr_json_creds,
+        registry_username=registry_username,
+        registry_password=registry_password,
+        overrides={}
+    )
 
     if istio_compatible:
         install = DominoCdkUtil.deep_merge(
@@ -192,23 +200,6 @@ def config_template(
                 }
             },
         )
-
-    # TODO: Rearrange install section so registry/gcr is templated in the agent template generation
-    if registry_username:
-        install["private_docker_registry"] = {
-            "server": "quay.io",
-            "username": registry_username,
-            "password": registry_password,
-        }
-
-    if gcr_json_creds:
-        install["helm"] = {
-            "version": 3,
-            "host": "gcr.io",
-            "namespace": "domino-eng-service-artifacts",
-            "username": "_json_key",
-            "password": gcr_json_creds,
-        }
 
     return DominoCDKConfig(
         name=name,

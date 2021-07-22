@@ -6,6 +6,7 @@ from domino_cdk import __version__
 from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS
+from domino_cdk.config.install import Install
 from domino_cdk.config.route53 import Route53
 from domino_cdk.config.s3 import S3
 from domino_cdk.config.util import IngressRule

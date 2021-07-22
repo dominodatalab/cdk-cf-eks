@@ -8,6 +8,7 @@ from domino_cdk.config import (
     VPC,
     DominoCDKConfig,
     IngressRule,
+    Install,
     Route53,
     config_loader,
 )
@@ -18,7 +19,15 @@ default_config = DominoCDKConfig(
     aws_region='__FILL__',
     aws_account_id='__FILL__',
     tags={'domino-infrastructure': 'true'},
-    install={},
+    install=Install(
+        access_list=["0.0.0.0/0"],
+        acm_cert_arn="__FILL__",
+        hostname="__FILL__",
+        gcr_credentials=None,
+        registry_username=None,
+        registry_password=None,
+        overrides={},
+    ),
     vpc=VPC(
         id=None,
         create=True,
@@ -205,7 +214,15 @@ legacy_config = DominoCDKConfig(
     aws_region='__FILL__',
     aws_account_id='__FILL__',
     tags={'domino-infrastructure': 'true'},
-    install={},
+    install=Install(
+        access_list=["0.0.0.0/0"],
+        acm_cert_arn=None,
+        hostname=None,
+        gcr_credentials=None,
+        registry_username=None,
+        registry_password=None,
+        overrides={},
+    ),
     vpc=VPC(
         id=None,
         create=True,
