@@ -48,6 +48,10 @@ def parse_args():
     template_parser.add_argument("--registry-username", help="Quay.io Registry Username", default=None)
     template_parser.add_argument("--registry-password", help="Quay.io Registry Password", default=None)
     template_parser.add_argument("--gcr-json-creds", help="GCR Json Credentials", default=None)
+    template_parser.add_argument("--acm-cert-arn", help="ACM Cert ARN", default="__FILL__")
+    template_parser.add_argument(
+        "--hostname", help="Hostname for deployement (ie domino.example.com)", default="__FILL__"
+    )
     template_parser.set_defaults(func=generate_config_template)
 
     iam_parser = subparsers.add_parser(
@@ -160,6 +164,8 @@ def generate_config_template(args):
             registry_username=args.registry_username,
             registry_password=args.registry_password,
             gcr_json_creds=args.gcr_json_creds,
+            acm_cert_arn=args.acm_cert_arn,
+            hostname=args.hostname,
         ).render(args.no_comments),
         stdout,
     )

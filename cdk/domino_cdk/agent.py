@@ -112,7 +112,7 @@ def generate_install_config(
                     #     "could-propagate-this-instead-of-create"
                 },
                 "targetPorts": {"http": "http", "https": "http"},
-                "loadBalancerSourceRanges": access_list,
+                "loadBalancerSourceRanges": install.access_list,
             },
         }
     }

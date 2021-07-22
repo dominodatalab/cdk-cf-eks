@@ -1,7 +1,16 @@
 from typing import Optional
 
 from domino_cdk import __version__
-from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Install, Route53
+from domino_cdk.config import (
+    EFS,
+    EKS,
+    S3,
+    VPC,
+    DominoCDKConfig,
+    IngressRule,
+    Install,
+    Route53,
+)
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -19,6 +28,8 @@ def config_template(
     registry_username: str = None,
     registry_password: str = None,
     gcr_json_creds: str = None,
+    acm_cert_arn: str = None,
+    hostname: str = None,
 ):
     fill = "__FILL__"
 
@@ -141,12 +152,12 @@ def config_template(
 
     install = Install(
         access_list=["0.0.0.0/0"],
-        acm_cert_arn="__FILL__",
-        hostname="__FILL__",
+        acm_cert_arn=acm_cert_arn,
+        hostname=hostname,
         gcr_credentials=gcr_json_creds,
         registry_username=registry_username,
         registry_password=registry_password,
-        overrides={}
+        overrides={},
     )
 
     if istio_compatible:

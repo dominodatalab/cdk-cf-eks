@@ -93,6 +93,7 @@ class DominoStack(cdk.Stack):
 
         agent_cfg = generate_install_config(
             name=self.name,
+            install=self.cfg.install,
             aws_region=self.cfg.aws_region,
             eks_cluster_name=self.eks_stack.cluster.cluster_name,
             pod_cidr=self.vpc_stack.vpc.vpc_cidr_block,
@@ -104,7 +105,7 @@ class DominoStack(cdk.Stack):
             r53_owner_id=r53_owner_id,
         )
 
-        merged_cfg = DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install)
+        merged_cfg = DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install.overrides)
 
         cdk.CfnOutput(self, "agent_config", value=DominoCdkUtil.ruamel_dump(merged_cfg))
         cdk.CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
