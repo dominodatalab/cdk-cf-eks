@@ -111,7 +111,7 @@ default_config = DominoCDKConfig(
         },
         monitoring_bucket=S3.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
     ),
-    schema='0.0.1-rc3',
+    schema='0.0.1-rc4',
 )
 
 legacy_template = {
@@ -288,7 +288,7 @@ legacy_config = DominoCDKConfig(
         },
         monitoring_bucket=None,
     ),
-    schema='0.0.1-rc3',
+    schema='0.0.1-rc4',
 )
 
 
