@@ -20,7 +20,7 @@ def generate_install_config(
 ) -> Dict:
     agent_cfg: Dict[str, Any] = {
         "name": name,
-        "hostname": "__FILL__",
+        "hostname": install.hostname,
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {

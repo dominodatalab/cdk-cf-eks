@@ -54,9 +54,11 @@ jobs:
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         GCR_JSON_CREDS: ${{ secrets.GCR_JSON_CREDS }}
+        ACM_CERT_ARN: ${{ secrets.ACM_CERT_ARN }}
+        BASE_DOMAIN: ${{ secrets.BASE_DOMAIN }}
       run: |
         export NAME=cdk-deploy-$(echo $GITHUB_SHA | cut -c1-6)
-        ./util.py generate_config_template --name $NAME --dev --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --gcr-json-creds $GCR_JSON_CREDS | sed -e "s/aws_region: __FILL__/aws_region: us-west-2/" -e "s/aws_account_id: __FILL__/aws_account_id: \"$AWS_ACCOUNT_ID\"/" > config.yaml
+        ./util.py generate_config_template --name $NAME --dev --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --gcr-json-creds $GCR_JSON_CREDS --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN | sed -e "s/aws_region: __FILL__/aws_region: us-west-2/" -e "s/aws_account_id: __FILL__/aws_account_id: \"$AWS_ACCOUNT_ID\"/" > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
       env:
@@ -104,8 +106,7 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
-        #docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
-        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 cat /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
     - name: Destroy CDK
       if: always() && github.event.pull_request.draft == false
       env:

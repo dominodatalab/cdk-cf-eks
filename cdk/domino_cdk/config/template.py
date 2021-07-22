@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from domino_cdk import __version__
 from domino_cdk.config import (
@@ -150,19 +150,11 @@ def config_template(
         ),
     )
 
-    install = Install(
-        access_list=["0.0.0.0/0"],
-        acm_cert_arn=acm_cert_arn,
-        hostname=hostname,
-        gcr_credentials=gcr_json_creds,
-        registry_username=registry_username,
-        registry_password=registry_password,
-        overrides={},
-    )
+    overrides: Dict[Any, Any] = {}
 
     if istio_compatible:
-        install = DominoCdkUtil.deep_merge(
-            install,
+        overrides = DominoCdkUtil.deep_merge(
+            overrides,
             {
                 "istio": {
                     "enabled": True,
@@ -193,8 +185,8 @@ def config_template(
         )
 
     if dev_defaults:
-        install = DominoCdkUtil.deep_merge(
-            install,
+        overrides = DominoCdkUtil.deep_merge(
+            overrides,
             {
                 "services": {
                     "nucleus": {
@@ -211,6 +203,16 @@ def config_template(
                 }
             },
         )
+
+    install = Install(
+        access_list=["0.0.0.0/0"],
+        acm_cert_arn=acm_cert_arn,
+        hostname=hostname,
+        gcr_credentials=gcr_json_creds,
+        registry_username=registry_username,
+        registry_password=registry_password,
+        overrides=overrides,
+    )
 
     return DominoCDKConfig(
         name=name,
