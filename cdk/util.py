@@ -52,6 +52,7 @@ def parse_args():
     template_parser.add_argument(
         "--hostname", help="Hostname for deployement (ie domino.example.com)", default="__FILL__"
     )
+    template_parser.add_argument("--disable-flow-logs", help="Disable monitoring bucket (temporary option)", action="store_true", default=False)
     template_parser.set_defaults(func=generate_config_template)
 
     iam_parser = subparsers.add_parser(
@@ -166,6 +167,7 @@ def generate_config_template(args):
             gcr_json_creds=args.gcr_json_creds,
             acm_cert_arn=args.acm_cert_arn,
             hostname=args.hostname,
+            disable_flow_logs=args.disable_flow_logs,
         ).render(args.no_comments),
         stdout,
     )

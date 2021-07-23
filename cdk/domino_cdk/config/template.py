@@ -30,6 +30,7 @@ def config_template(
     gcr_json_creds: str = None,
     acm_cert_arn: str = None,
     hostname: str = None,
+    disable_flow_logs: bool = False
 ):
     fill = "__FILL__"
 
@@ -93,7 +94,7 @@ def config_template(
         private_cidr_mask=19,
         availability_zones=[],
         max_azs=3,
-        flow_logging=True,
+        flow_logging=not disable_flow_logs,
         bastion=VPC.Bastion(
             enabled=bastion,
             key_name=keypair_name,
