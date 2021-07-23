@@ -1,0 +1,36 @@
+on:
+  push:
+    tags:
+    - 'v*'
+
+name: Upload Release Assets
+
+jobs:
+  build:
+    name: Upload Release Asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: pip install build
+      - name: Get tag name
+        env:
+          GITHUB_REF: ${{ github.ref }}
+        run: echo TAG=${GITHUB_REF:10} >> $GITHUB_ENV
+      - name: Build Release Artifacts
+        env:
+          DOMINO_CDK_VERSION: ${{ env.TAG }}
+        run: |
+          make clean && make dist
+      - name: Do Release
+        id: do_release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          artifacts: "dist/*.tar.gz"
+          token: ${{ secrets.GITHUB_TOKEN }}
