@@ -148,7 +148,9 @@ def config_template(
             auto_delete_objects=destroy_on_destroy,
             removal_policy_destroy=destroy_on_destroy,
             sse_kms_key_id=None,
-        ) if not disable_flow_logs else None,
+        )
+        if not disable_flow_logs
+        else None,
     )
 
     overrides: Dict[Any, Any] = {}
