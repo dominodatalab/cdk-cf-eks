@@ -107,6 +107,13 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
+    - name: Uninstall Domino
+      if: always() && github.event.pull_request.draft == false
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+      run: |
+        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent destroy -f /cdk/domino.yml
     - name: Destroy CDK
       if: always() && github.event.pull_request.draft == false
       env:
