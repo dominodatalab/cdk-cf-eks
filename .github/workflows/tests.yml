@@ -120,4 +120,5 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
+        sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
