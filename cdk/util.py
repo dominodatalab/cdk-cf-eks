@@ -52,7 +52,9 @@ def parse_args():
     template_parser.add_argument(
         "--hostname", help="Hostname for deployement (ie domino.example.com)", default="__FILL__"
     )
-    template_parser.add_argument("--disable-flow-logs", help="Disable monitoring bucket (temporary option)", action="store_true", default=False)
+    template_parser.add_argument(
+        "--disable-flow-logs", help="Disable monitoring bucket (temporary option)", action="store_true", default=False
+    )
     template_parser.set_defaults(func=generate_config_template)
 
     iam_parser = subparsers.add_parser(

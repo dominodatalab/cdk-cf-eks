@@ -30,7 +30,7 @@ def config_template(
     gcr_json_creds: str = None,
     acm_cert_arn: str = None,
     hostname: str = None,
-    disable_flow_logs: bool = False
+    disable_flow_logs: bool = False,
 ):
     fill = "__FILL__"
 
