@@ -90,7 +90,7 @@ jobs:
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
       run: |
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
-        cdk deploy --require-approval never --outputs-file outputs.json || cdk deploy --require-approval never --outputs-file outputs.json
+        cdk deploy --require-approval never --outputs-file outputs.json
     - name: Prepare Domino Install
       if: github.event.pull_request.draft == false
       env:
@@ -120,6 +120,4 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
-        if [ ! -f outputs.json ]; then echo waiting to destroy for 120 seconds && sleep 120; fi
-        while [ $(($(date +%s) - $(date +%s -r "outputs.json"))) -lt 120 ]; do echo waiting to destroy && sleep 5; done
         cdk destroy --force
