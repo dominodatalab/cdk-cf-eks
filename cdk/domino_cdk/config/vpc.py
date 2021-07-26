@@ -11,9 +11,9 @@ class VPC:
     id: vpc-abc123 - VPC id when using an existing VPC
     cidr: 10.0.0.0/16 - Primary CIDR range for VPC
                         NOTE: EKS needs _lots_ of IPs
-    private_cidr_mask: 19 - Size of private subnets. Should be large enough
+    private_cidr_mask: 19 - CIDR size of private subnets. Should be large enough
                             to accomodate all potential compute needs.
-    public_cidr_mask: 27 - Size of public subnets. Usually just houses NAT
+    public_cidr_mask: 27 - CIDR size of public subnets. Usually just houses NAT
                            gateways/bastions/public load balancers/etc.
     availability_zones: Specific availability zones to use with vpc (optional)
     max_azs: 3 - Maximum amount of availability zones to configure for the VPC
