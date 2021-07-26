@@ -11,6 +11,10 @@ class VPC:
     id: vpc-abc123 - VPC id when using an existing VPC
     cidr: 10.0.0.0/16 - Primary CIDR range for VPC
                         NOTE: EKS needs _lots_ of IPs
+    private_cidr_mask: 19 - Size of private subnets. Should be large enough
+                            to accomodate all potential compute needs.
+    public_cidr_mask: 27 - Size of public subnets. Usually just houses NAT
+                           gateways/bastions/public load balancers/etc.
     availability_zones: Specific availability zones to use with vpc (optional)
     max_azs: 3 - Maximum amount of availability zones to configure for the VPC
                  MUST have at least two for the EKS control plane to provision
@@ -47,6 +51,8 @@ class VPC:
     create: bool
     id: str
     cidr: str
+    private_cidr_mask: int
+    public_cidr_mask: int
     availability_zones: List[str]
     max_azs: int
     bastion: Bastion
@@ -68,6 +74,8 @@ class VPC:
                 create=c.pop("create"),
                 id=c.pop("id", None),
                 cidr=c.pop("cidr"),
+                private_cidr_mask=24,
+                public_cidr_mask=24,
                 availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
                 flow_logging=c.pop("flow_logging", False),
@@ -92,6 +100,8 @@ class VPC:
                 create=c.pop("create"),
                 id=c.pop("id", None),
                 cidr=c.pop("cidr"),
+                private_cidr_mask=c.pop("private_cidr_mask"),
+                public_cidr_mask=c.pop("public_cidr_mask"),
                 availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
                 flow_logging=c.pop("flow_logging", False),

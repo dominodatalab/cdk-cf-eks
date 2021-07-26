@@ -50,12 +50,12 @@ class DominoVpcProvisioner:
                 ec2.SubnetConfiguration(
                     subnet_type=ec2.SubnetType.PUBLIC,
                     name=self.public_subnet_name,
-                    cidr_mask=24,  # can't use token ids
+                    cidr_mask=vpc.public_cidr_mask,  # can't use token ids
                 ),
                 ec2.SubnetConfiguration(
                     subnet_type=ec2.SubnetType.PRIVATE,
                     name=self.private_subnet_name,
-                    cidr_mask=24,  # can't use token ids
+                    cidr_mask=vpc.private_cidr_mask,  # can't use token ids
                 ),
             ],
             gateway_endpoints={
