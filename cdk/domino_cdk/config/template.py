@@ -16,6 +16,8 @@ from domino_cdk.util import DominoCdkUtil
 
 def config_template(
     name: str = "domino",
+    aws_region: str = None,
+    aws_account_id: str = None,
     platform_nodegroups: int = 1,
     compute_nodegroups: int = 1,
     gpu_nodegroups: int = 1,
@@ -219,8 +221,8 @@ def config_template(
 
     return DominoCDKConfig(
         name=name,
-        aws_region=fill,
-        aws_account_id=fill,
+        aws_region=aws_region or fill,
+        aws_account_id=aws_account_id or fill,
         tags={"domino-infrastructure": "true"},
         create_iam_roles_for_service_accounts=False,
         install=install,

@@ -29,6 +29,8 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     template_parser.add_argument("--name", help="Name for deployment, will prefix all namespaces", default="domino")
+    template_parser.add_argument("--aws-region", help="AWS Region", default=None)
+    template_parser.add_argument("--aws-account-id", help="AWS Account ID", default=None)
     template_parser.add_argument("--dev", help="Use development (small) defaults", action="store_true")
     template_parser.add_argument("--bastion", help="Provision bastion", action="store_true")
     template_parser.add_argument("--private-api", help="Use private api with EKS", action="store_true")
@@ -155,6 +157,8 @@ def generate_config_template(args):
     YAML().dump(
         config_template(
             name=args.name,
+            aws_region=args.aws_region,
+            aws_account_id=args.aws_account_id,
             platform_nodegroups=args.platform_nodegroups,
             compute_nodegroups=args.compute_nodegroups,
             gpu_nodegroups=args.gpu_nodegroups,
