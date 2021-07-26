@@ -118,7 +118,18 @@ class DominoEksNodegroupProvisioner:
             )
 
         scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
-        cfn_lt = None
+        for k, v in (
+            {
+                **ng.tags,
+                **{
+                    f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
+                    "k8s.io/cluster-autoscaler/enabled": "true",
+                    "eks:cluster-name": self.cluster.cluster_name,
+                },
+            }
+        ).items():
+            cdk.Tags.of(scope).add(str(k), str(v), apply_to_launched_instances=True)
+
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
             indexed_name = f"{self.stack_name}-{name}-{az}"
             asg = aws_autoscaling.AutoScalingGroup(
@@ -137,46 +148,33 @@ class DominoEksNodegroupProvisioner:
                 role=self.ng_role,
                 security_group=self.unmanaged_sg,
             )
-            for k, v in (
-                {
-                    **ng.tags,
-                    **{
-                        f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
-                        "k8s.io/cluster-autoscaler/enabled": "true",
-                        "eks:cluster-name": self.cluster.cluster_name,
-                        "Name": indexed_name,
-                    },
-                }
-            ).items():
-                cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
             mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data, asg.user_data])
 
-            if not cfn_lt:
-                lt = self._launch_template(
-                    scope,
-                    f"LaunchTemplate{i}",
-                    ng,
-                    launch_template_name=indexed_name,
-                    role=self.ng_role,
-                    instance_type=ec2.InstanceType(ng.instance_types[0]),
-                    machine_image=machine_image,
-                    user_data=mime_user_data,
-                    security_group=self.unmanaged_sg,
-                )
-                # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
-                lt.connections.add_security_group(self.cluster.cluster_security_group)
-                cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
+            lt = self._launch_template(
+                scope,
+                f"LaunchTemplate{i}",
+                ng,
+                launch_template_name=indexed_name,
+                role=self.ng_role,
+                instance_type=ec2.InstanceType(ng.instance_types[0]),
+                machine_image=machine_image,
+                user_data=mime_user_data,
+                security_group=self.unmanaged_sg,
+            )
+            # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
+            lt.connections.add_security_group(self.cluster.cluster_security_group)
+            cfn_lt: ec2.CfnLaunchTemplate = lt.node.default_child
 
-                http_tokens = "required" if ng.imdsv2_required else "optional"
+            http_tokens = "required" if ng.imdsv2_required else "optional"
 
-                lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
-                    **cfn_lt.launch_template_data._values,
-                    metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
-                        http_endpoint="enabled", http_tokens=http_tokens, http_put_response_hop_limit=2
-                    ),
-                )
-                cfn_lt.launch_template_data = lt_data
+            lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
+                **cfn_lt.launch_template_data._values,
+                metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
+                    http_endpoint="enabled", http_tokens=http_tokens, http_put_response_hop_limit=2
+                ),
+            )
+            cfn_lt.launch_template_data = lt_data
 
             # https://github.com/aws/aws-cdk/issues/6734
             cfn_asg: aws_autoscaling.CfnAutoScalingGroup = asg.node.default_child
