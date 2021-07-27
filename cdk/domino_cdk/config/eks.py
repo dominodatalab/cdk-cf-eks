@@ -150,6 +150,7 @@ class EKS:
         def remap_mi(ng, unmanaged=False):
             if unmanaged:
                 ng["imdsv2_required"] = False
+                ng["spot"] = False
             return {**ng.pop("machine_image", {}), **ng}
 
         return from_loader(
