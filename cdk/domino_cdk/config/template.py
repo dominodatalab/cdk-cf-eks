@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from domino_cdk import __version__
 from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Route53
+from domino_cdk.util import DominoCdkUtil
 
 
 def config_template(
@@ -18,19 +19,10 @@ def config_template(
 ):
     fill = "__FILL__"
 
-    max_nodegroup_azs = 3
-    destroy_on_destroy = False
-    disk_size = 1000
-    platform_instance_type = "m5.2xlarge"
-
-    if dev_defaults:
-        max_nodegroup_azs = 1
-        destroy_on_destroy = True
-        disk_size = 100
-        platform_instance_type = "m5.4xlarge"
-
-    if istio_compatible:
-        platform_instance_type = "m5.4xlarge"
+    max_nodegroup_azs = 1 if dev_defaults else 3
+    destroy_on_destroy = True if dev_defaults else False
+    disk_size = 100 if dev_defaults else 1000
+    platform_instance_type = "m5.4xlarge" if dev_defaults or istio_compatible else "m5.2xlarge"
 
     unmanaged_nodegroups = {}
 
@@ -145,46 +137,56 @@ def config_template(
     install: Dict[Any, Any] = {}
 
     if istio_compatible:
-        install["istio"] = {
-            "enabled": True,
-            "install": True,
-            "cni": False,
-        }
+        install = DominoCdkUtil.deep_merge(
+            install,
+            {
+                "istio": {
+                    "enabled": True,
+                    "install": True,
+                    "cni": False,
+                },
+                "services": {
+                    "nginx_ingress": {
+                        "chart_values": {
+                            "controller": {
+                                "config": {
+                                    "use-proxy-protocol": "false",
+                                    # AWS ELBs don't like nginx-ingress's default cipher suite--connections just hang w/ override
+                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
+                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
+                                },
+                                "service": {
+                                    "targetPorts": {"http": "http", "https": "https"},
+                                    "annotations": {
+                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
+                                    },
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+        )
 
-        install["services"] = {
-            "nginx_ingress": {
-                "chart_values": {
-                    "controller": {
-                        "config": {
-                            "use-proxy-protocol": "false",
-                            # AWS ELBs don't like nginx-ingress's default cipher suite--connections just hang w/ override
-                            "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL  :!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
-                            "ssl-protocols": "TLSv1.2 TLSv1.3",
-                        },
-                        "service": {
-                            "targetPorts": {"http": "http", "https": "https"},
-                            "annotations": {"service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"},
+    if dev_defaults:
+        install = DominoCdkUtil.deep_merge(
+            install,
+            {
+                "services": {
+                    "nucleus": {
+                        "chart_values": {
+                            "replicaCount": {
+                                "dispatcher": 1,
+                                "frontend": 1,
+                            },
+                            "keycloak": {
+                                "createIntegrationTestUser": True,
+                            },
                         },
                     }
                 }
-            }
-        }
-
-    if dev_defaults:
-        if not install.get("services"):
-            install["services"] = {}
-
-        install["services"]["nucleus"] = {
-            "chart_values": {
-                "replicaCount": {
-                    "dispatcher": 1,
-                    "frontend": 1,
-                },
-                "keycloak": {
-                    "createIntegrationTestUser": True,
-                },
             },
-        }
+        )
 
     return DominoCDKConfig(
         name=name,

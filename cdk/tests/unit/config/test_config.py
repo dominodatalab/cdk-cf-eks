@@ -12,6 +12,8 @@ from . import default_config, legacy_config, legacy_template
 
 
 class TestConfig(unittest.TestCase):
+    maxDiff = None
+
     def test_default_template(self):
         c = config_template()
         self.assertEqual(c, default_config)
@@ -54,3 +56,115 @@ class TestConfig(unittest.TestCase):
         c["schema"] = suffixed_schema
         with self.assertRaisesRegex(ValueError, f"Invalid version string: '{suffixed_schema}'"):
             config_loader(c)
+
+    def test_istio(self):
+        c = config_template(istio_compatible=True)
+        self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
+        self.assertEqual(
+            c.install,
+            {
+                "istio": {
+                    "enabled": True,
+                    "install": True,
+                    "cni": False,
+                },
+                "services": {
+                    "nginx_ingress": {
+                        "chart_values": {
+                            "controller": {
+                                "config": {
+                                    "use-proxy-protocol": "false",
+                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
+                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
+                                },
+                                "service": {
+                                    "targetPorts": {"http": "http", "https": "https"},
+                                    "annotations": {
+                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
+                                    },
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+        )
+
+    def test_istio_dev(self):
+        c = config_template(istio_compatible=True, dev_defaults=True)
+        self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
+        self.assertEqual(
+            c.install,
+            {
+                "istio": {
+                    "enabled": True,
+                    "install": True,
+                    "cni": False,
+                },
+                "services": {
+                    "nucleus": {
+                        "chart_values": {
+                            "replicaCount": {
+                                "dispatcher": 1,
+                                "frontend": 1,
+                            },
+                            "keycloak": {
+                                "createIntegrationTestUser": True,
+                            },
+                        },
+                    },
+                    "nginx_ingress": {
+                        "chart_values": {
+                            "controller": {
+                                "config": {
+                                    "use-proxy-protocol": "false",
+                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
+                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
+                                },
+                                "service": {
+                                    "targetPorts": {"http": "http", "https": "https"},
+                                    "annotations": {
+                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
+                                    },
+                                },
+                            }
+                        }
+                    },
+                },
+            },
+        )
+
+    def test_dev(self):
+        c = config_template(dev_defaults=True)
+        self.assertEqual(c.eks.max_nodegroup_azs, 1)
+        self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
+        for ng in c.eks.unmanaged_nodegroups.values():
+            self.assertEqual(ng.disk_size, 100)
+        self.assertEqual(c.efs.backup.removal_policy, "DESTROY")
+        self.assertTrue(c.efs.removal_policy_destroy)
+
+        for b in c.s3.buckets.values():
+            self.assertTrue(b.auto_delete_objects)
+            self.assertTrue(b.removal_policy_destroy)
+
+        self.assertTrue(c.s3.monitoring_bucket.auto_delete_objects)
+        self.assertTrue(c.s3.monitoring_bucket.removal_policy_destroy)
+
+        self.assertEqual(
+            c.install,
+            {
+                "services": {
+                    "nucleus": {
+                        "chart_values": {
+                            "replicaCount": {
+                                "dispatcher": 1,
+                                "frontend": 1,
+                            },
+                            "keycloak": {
+                                "createIntegrationTestUser": True,
+                            },
+                        },
+                    }
+                },
+            },
+        )
