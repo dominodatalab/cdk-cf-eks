@@ -126,6 +126,24 @@ class DominoVpcProvisioner:
 
             c += 64
 
+        endpoint_sg = ec2.SecurityGroup(
+            self.scope,
+            "endpoints_sg",
+            vpc=self.vpc,
+            security_group_name=f"{stack_name}-endpoints",
+        )
+
+        for ip_cidr in [self.vpc.cidr, "100.64.0.0/16"]:
+            endpoint_sg.add_ingress_rule(
+                peer=ec2.Peer.ipv4(ip_cidr),
+                connection=ec2.Port(
+                    protocol=ec2.Protocol("TCP"),
+                    string_representation=f"HTTPS from {ip_cidr}",
+                    from_port=443,
+                    to_port=443,
+                ),
+            )
+
         for endpoint in [
             "ec2",  # Only these first three have predefined consts
             "sts",
@@ -137,8 +155,8 @@ class DominoVpcProvisioner:
                 self.scope,
                 f"{endpoint}-ENDPOINT",
                 vpc=self.vpc,
+                security_groups=[endpoint_sg],
                 service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
-                # private_dns_enabled=True,
                 subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
             )
 
