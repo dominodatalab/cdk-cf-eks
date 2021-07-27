@@ -66,6 +66,7 @@ class EKS:
         instance_types: List[str]
         labels: Dict[str, str]
         tags: Dict[str, str]
+        spot: bool
 
         def base_load(ng):
             return {
@@ -79,16 +80,16 @@ class EKS:
                 "instance_types": ng.pop("instance_types"),
                 "labels": ng.pop("labels"),
                 "tags": ng.pop("tags"),
+                "spot": ng.pop("spot", False),
             }
 
     @dataclass
     class ManagedNodegroup(NodegroupBase):
-        spot: bool
         desired_size: int
 
         @classmethod
         def load(cls, ng):
-            out = cls(**cls.base_load(ng), spot=ng.pop("spot"), desired_size=ng.pop("desired_size"))
+            out = cls(**cls.base_load(ng), desired_size=ng.pop("desired_size"))
             check_leavins("managed nodegroup attribute", "config.eks.unmanaged_nodegroups", ng)
             return out
 

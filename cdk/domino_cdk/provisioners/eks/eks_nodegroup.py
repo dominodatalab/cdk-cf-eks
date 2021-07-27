@@ -163,6 +163,7 @@ class DominoEksNodegroupProvisioner:
                     machine_image=machine_image,
                     user_data=mime_user_data,
                     security_group=self.unmanaged_sg,
+                    spot_options=ec2.LaunchTemplateSpotOptions() if ng.spot else None,
                 )
                 # mimic adding the security group via the ASG during connect_auto_scaling_group_capacity
                 lt.connections.add_security_group(self.cluster.cluster_security_group)
