@@ -34,7 +34,7 @@ def config_template(
         for i in range(0, count):
             unmanaged_nodegroups[f"{name}-{i}"] = EKS.UnmanagedNodegroup(
                 gpu=gpu,
-                imdsv2_required=False,
+                imdsv2_required=True,
                 ssm_agent=True,
                 disk_size=disk_size,
                 key_name=keypair_name,
@@ -46,6 +46,7 @@ def config_template(
                 labels=labels,
                 tags={},
                 taints=taints or {},
+                spot=False,
             )
 
     add_nodegroups(
