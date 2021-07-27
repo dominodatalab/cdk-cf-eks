@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from domino_cdk import __version__
 from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Route53
@@ -14,6 +14,7 @@ def config_template(
     bastion: bool = False,
     private_api: bool = False,
     dev_defaults: bool = False,
+    istio_compatible: bool = False,
 ):
     fill = "__FILL__"
 
@@ -26,6 +27,9 @@ def config_template(
         max_nodegroup_azs = 1
         destroy_on_destroy = True
         disk_size = 100
+        platform_instance_type = "m5.4xlarge"
+
+    if istio_compatible:
         platform_instance_type = "m5.4xlarge"
 
     unmanaged_nodegroups = {}
@@ -138,19 +142,46 @@ def config_template(
         ),
     )
 
-    install = {}
+    install: Dict[Any, Any] = {}
+
+    if istio_compatible:
+        install["istio"] = {
+            "enabled": True,
+            "install": True,
+            "cni": False,
+        }
+
+        install["services"] = {
+            "nginx_ingress": {
+                "chart_values": {
+                    "controller": {
+                        "config": {
+                            "use-proxy-protocol": "false",
+                            # AWS ELBs don't like nginx-ingress's default cipher suite--connections just hang w/ override
+                            "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL  :!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
+                            "ssl-protocols": "TLSv1.2 TLSv1.3",
+                        },
+                        "service": {
+                            "targetPorts": {"http": "http", "https": "https"},
+                            "annotations": {"service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"},
+                        },
+                    }
+                }
+            }
+        }
 
     if dev_defaults:
-        install["services"] = {
-            "nucleus": {
-                "chart_values": {
-                    "replicaCount": {
-                        "dispatcher": 1,
-                        "frontend": 1,
-                    },
-                    "keycloak": {
-                        "createIntegrationTestUser": True,
-                    },
+        if not install.get("services"):
+            install["services"] = {}
+
+        install["services"]["nucleus"] = {
+            "chart_values": {
+                "replicaCount": {
+                    "dispatcher": 1,
+                    "frontend": 1,
+                },
+                "keycloak": {
+                    "createIntegrationTestUser": True,
                 },
             },
         }
