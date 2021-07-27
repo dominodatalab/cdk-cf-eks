@@ -193,7 +193,9 @@ class DominoEksNodegroupProvisioner:
                     overrides=[cfn_asg.LaunchTemplateOverridesProperty(instance_type=it) for it in ng.instance_types],
                 ),
                 instances_distribution=cfn_asg.InstancesDistributionProperty(
-                    spot_allocation_strategy="capacity-optimized-prioritized"
+                    spot_allocation_strategy="capacity-optimized-prioritized",
+                    on_demand_percentage_above_base_capacity=0,  # all spot instances
+                    on_demand_base_capacity=0,
                 )
                 if ng.spot
                 else None,
