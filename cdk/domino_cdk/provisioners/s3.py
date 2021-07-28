@@ -53,6 +53,12 @@ class DominoS3Provisioner:
             **kwargs,
         )
 
+        # though the implicit dependency works well on bucket creation, it isn't respected
+        # on destroy so access logs for the destruction may cause a failure to delete all
+        # objects in the monitoring bucket
+        if server_access_logs_bucket:
+            bucket.node.add_dependency(server_access_logs_bucket)
+
         if require_encryption:
             bucket.add_to_resource_policy(
                 iam.PolicyStatement(
