@@ -35,6 +35,7 @@ class DominoVpcProvisioner:
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
     def provision_vpc(self, stack_name: str, vpc: config.VPC, monitoring_bucket: Optional[s3.Bucket]):
+        # Note: "SubnetN" is automatically appended to these names by CDK
         self.public_subnet_name = f"{stack_name}-Public"
         self.private_subnet_name = f"{stack_name}-Private"
         if not vpc.create:
