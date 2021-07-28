@@ -86,6 +86,7 @@ class DominoEksIamProvisioner:
         managed_policies = [
             ecr_policy,
             autoscaler_policy,
+            snapshot_policy,
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
