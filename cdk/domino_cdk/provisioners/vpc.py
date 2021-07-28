@@ -1,3 +1,4 @@
+from ipaddress import ip_network
 from typing import Optional
 
 import aws_cdk.aws_ec2 as ec2
@@ -34,8 +35,8 @@ class DominoVpcProvisioner:
         self.bastion_sg = self.provision_bastion(name, vpc.bastion)
 
     def provision_vpc(self, stack_name: str, vpc: config.VPC, monitoring_bucket: Optional[s3.Bucket]):
-        self.public_subnet_name = f"{stack_name}-public"
-        self.private_subnet_name = f"{stack_name}-private"
+        self.public_subnet_name = f"{stack_name}-Public"
+        self.private_subnet_name = f"{stack_name}-Private"
         if not vpc.create:
             self.vpc = ec2.Vpc.from_lookup(self.scope, vpc.id)
             return
@@ -106,16 +107,17 @@ class DominoVpcProvisioner:
         )
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
-        pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block="100.64.0.0/16")
-        c = 0
-        for az in self.vpc.availability_zones:
+        pod_cidr_block = ip_network("100.164.0.0/16")
+        pod_cidr_subnets = [str(x) for x in pod_cidr_block.subnets(prefixlen_diff=2)]
+        pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block=str(pod_cidr_block))
+        for c, az in enumerate(self.vpc.availability_zones):
             pod_subnet = ec2.PrivateSubnet(
                 self.scope,
                 # this can't be okay
-                f"{stack_name}-pod-{c}",  # Can't use parameter/token in this name
+                f"{stack_name}-PodSubnet{c+1}",  # Can't use parameter/token in this name
                 vpc_id=self.vpc.vpc_id,
                 availability_zone=az,
-                cidr_block=f"100.64.{c}.0/18",
+                cidr_block=pod_cidr_subnets[c],
             )
 
             pod_subnet.add_default_nat_route(
@@ -124,8 +126,6 @@ class DominoVpcProvisioner:
             pod_subnet.node.add_dependency(pod_cidr)
             # TODO: need to tag
 
-            c += 64
-
         endpoint_sg = ec2.SecurityGroup(
             self.scope,
             "endpoints_sg",
@@ -133,7 +133,7 @@ class DominoVpcProvisioner:
             security_group_name=f"{stack_name}-endpoints",
         )
 
-        for ip_cidr in [self.vpc.cidr, "100.64.0.0/16"]:
+        for ip_cidr in [self.vpc.vpc_cidr_block, str(pod_cidr_block)]:
             endpoint_sg.add_ingress_rule(
                 peer=ec2.Peer.ipv4(ip_cidr),
                 connection=ec2.Port(
