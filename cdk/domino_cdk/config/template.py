@@ -78,6 +78,8 @@ def config_template(
         id=None,
         create=True,
         cidr='10.0.0.0/16',
+        public_cidr_mask=27,
+        private_cidr_mask=19,
         availability_zones=[],
         max_azs=3,
         flow_logging=True,

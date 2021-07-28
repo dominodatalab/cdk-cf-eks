@@ -6,8 +6,15 @@ from domino_cdk.config import VPC, IngressRule
 
 vpc_0_0_0_cfg = {"create": True, "id": None, "cidr": "10.0.0.0/24", "max_azs": 3}
 
-vpc_0_0_1_cfg = deepcopy(vpc_0_0_0_cfg)
-vpc_0_0_1_cfg["availability_zones"] = []
+vpc_0_0_1_cfg = {
+    "create": True,
+    "id": None,
+    "cidr": "10.0.0.0/24",
+    "public_cidr_mask": 27,
+    "private_cidr_mask": 19,
+    "max_azs": 3,
+    "availability_zones": [],
+}
 vpc_0_0_1_cfg["bastion"] = {
     "enabled": False,
     "instance_type": None,
@@ -15,6 +22,7 @@ vpc_0_0_1_cfg["bastion"] = {
     "ami_id": None,
     "user_data": None,
 }
+
 bastion = {
     "enabled": True,
     "instance_type": "t2.micro",
@@ -35,6 +43,8 @@ vpc_object = VPC(
     create=True,
     id=None,
     cidr="10.0.0.0/24",
+    public_cidr_mask=27,
+    private_cidr_mask=19,
     availability_zones=[],
     max_azs=3,
     flow_logging=False,
@@ -42,6 +52,11 @@ vpc_object = VPC(
         enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None
     ),
 )
+
+legacy_vpc_object = deepcopy(vpc_object)
+legacy_vpc_object.public_cidr_mask = 24
+legacy_vpc_object.private_cidr_mask = 24
+
 bastion_object = VPC.Bastion(
     enabled=True,
     key_name=None,
@@ -57,7 +72,7 @@ class TestConfigVPC(unittest.TestCase):
         with patch("domino_cdk.config.util.log.warning") as warn:
             vpc = VPC.from_0_0_0(deepcopy(vpc_0_0_0_cfg))
             warn.assert_not_called()
-            self.assertEqual(vpc, vpc_object)
+            self.assertEqual(vpc, legacy_vpc_object)
 
     def test_from_0_0_1(self):
         with patch("domino_cdk.config.util.log.warning") as warn:
@@ -70,8 +85,11 @@ class TestConfigVPC(unittest.TestCase):
             VPC.from_0_0_1(deepcopy(vpc_0_0_0_cfg))
 
     def test_oldest_newest_loaders_identical_result(self):
+        new_vpc_cfg = deepcopy(vpc_0_0_1_cfg)
+        new_vpc_cfg["public_cidr_mask"] = 24
+        new_vpc_cfg["private_cidr_mask"] = 24
         vpc_old = VPC.from_0_0_0(deepcopy(vpc_0_0_0_cfg))
-        vpc_new = VPC.from_0_0_1(deepcopy(vpc_0_0_1_cfg))
+        vpc_new = VPC.from_0_0_1(new_vpc_cfg)
         self.assertEqual(vpc_old, vpc_new)
 
     def test_bastion(self):
