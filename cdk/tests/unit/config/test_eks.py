@@ -33,6 +33,7 @@ eks_0_0_0_cfg = {
             "instance_types": ["m5.2xlarge"],
             "labels": {"dominodatalab.com/node-pool": "platform"},
             "tags": {"dominodatalab.com/node-pool": "platform"},
+            "spot": False,
         },
         "nvidia": {
             "gpu": True,
@@ -44,6 +45,7 @@ eks_0_0_0_cfg = {
             "taints": {"nvidia.com/gpu": "true:NoSchedule"},
             "labels": {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
             "tags": {"dominodatalab.com/node-pool": "default-gpu"},
+            "spot": False,
         },
     },
 }
@@ -85,6 +87,7 @@ unmanaged_ngs = {
         imdsv2_required=False,
         ssm_agent=True,
         taints={},
+        spot=False,
     ),
     "nvidia": EKS.UnmanagedNodegroup(
         disk_size=100,
@@ -100,6 +103,7 @@ unmanaged_ngs = {
         imdsv2_required=False,
         ssm_agent=False,
         taints={"nvidia.com/gpu": "true:NoSchedule"},
+        spot=False,
     ),
 }
 
@@ -271,11 +275,10 @@ class TestConfigEKS(unittest.TestCase):
         test_group_cfg["user_data"] = "some-user-data"
 
         expected_base_result = deepcopy(test_group_cfg)
-        del expected_base_result["spot"]
         del expected_base_result["desired_size"]
         expected_base_result["ami_id"] = "ami-1234"
         expected_base_result["user_data"] = "some-user-data"
 
         base_ng_dict = EKS.NodegroupBase.base_load(test_group_cfg)
         self.assertEqual(base_ng_dict, expected_base_result)
-        self.assertEqual(test_group_cfg, {"spot": False, "desired_size": 1})
+        self.assertEqual(test_group_cfg, {"desired_size": 1})

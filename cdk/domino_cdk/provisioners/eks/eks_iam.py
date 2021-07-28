@@ -41,6 +41,26 @@ class DominoEksIamProvisioner:
             ],
         )
 
+        snapshot_policy = iam.ManagedPolicy(
+            self.scope,
+            "snapshot",
+            managed_policy_name=f"{stack_name}-snapshot",
+            statements=[
+                iam.PolicyStatement(
+                    actions=[
+                        "ec2:CreateSnapshot",
+                        "ec2:CreateTags",
+                        "ec2:DeleteSnapshot",
+                        "ec2:DeleteTags",
+                        "ec2:DescribeAvailabilityZones",
+                        "ec2:DescribeSnapshots",
+                        "ec2:DescribeTags",
+                    ],
+                    resources=["*"],
+                ),
+            ],
+        )
+
         ecr_policy = iam.ManagedPolicy(
             self.scope,
             f"{stack_name}-DominoEcrRestricted",
@@ -66,6 +86,7 @@ class DominoEksIamProvisioner:
         managed_policies = [
             ecr_policy,
             autoscaler_policy,
+            snapshot_policy,
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),

@@ -32,6 +32,7 @@ def parse_args():
     template_parser.add_argument("--dev", help="Use development (small) defaults", action="store_true")
     template_parser.add_argument("--bastion", help="Provision bastion", action="store_true")
     template_parser.add_argument("--private-api", help="Use private api with EKS", action="store_true")
+    template_parser.add_argument("--istio-compatible", help="Provision istio-compatible resources", action="store_true")
     template_parser.add_argument("--no-comments", help="Strip comments from template", action="store_true")
     template_parser.add_argument(
         "--platform-nodegroups", help="How many platform nodegroups per az", default=1, type=int
@@ -152,6 +153,7 @@ def generate_config_template(args):
             bastion=args.bastion,
             private_api=args.private_api,
             dev_defaults=args.dev,
+            istio_compatible=args.istio_compatible,
         ).render(args.no_comments),
         stdout,
     )
