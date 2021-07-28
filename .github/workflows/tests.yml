@@ -31,7 +31,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
-        pip install awscli build
+        pip install awscli==1.20.8 build
     - name: Lint with flake8/black/isort
       run: |
         export FILES=(*.py domino_cdk tests)
