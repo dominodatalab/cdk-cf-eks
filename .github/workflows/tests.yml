@@ -126,4 +126,5 @@ jobs:
     - name: Fail without deploy
       if: ${{ github.event.pull_request.draft == false && ! contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master' }}
       run: |
+        echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
         exit 1
