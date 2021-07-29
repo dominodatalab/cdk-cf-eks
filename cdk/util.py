@@ -52,7 +52,7 @@ def parse_args():
     template_parser.add_argument("--gcr-json-creds", help="GCR Json Credentials", default=None)
     template_parser.add_argument("--acm-cert-arn", help="ACM Cert ARN", default="__FILL__")
     template_parser.add_argument(
-        "--hostname", help="Hostname for deployement (ie domino.example.com)", default="__FILL__"
+        "--hostname", help="Hostname for deployment (ie domino.example.com)", default="__FILL__"
     )
     template_parser.add_argument(
         "--disable-flow-logs", help="Disable monitoring bucket (temporary option)", action="store_true", default=False
