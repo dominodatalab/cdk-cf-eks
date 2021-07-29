@@ -50,21 +50,21 @@ jobs:
         coverage report
     - name: Create/lint default config
       env:
-        AWS_ACCOUNT_ID: ${{ secrets.INFRA_ACCOUNT_ID }}
+        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
         GITHUB_SHA: ${{ github.sha }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         GCR_JSON_CREDS: ${{ secrets.GCR_JSON_CREDS }}
-        ACM_CERT_ARN: ${{ secrets.ACM_CERT_ARN }}
-        BASE_DOMAIN: ${{ secrets.BASE_DOMAIN }}
+        ACM_CERT_ARN: ${{ secrets.DELTA_ACM_CERT_ARN }}
+        BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
       run: |
         export NAME=cdk-deploy-$(echo $GITHUB_SHA | cut -c1-6)
         ./util.py generate_config_template --name $NAME --aws-region=us-west-2 --aws-account-id=$AWS_ACCOUNT_ID --dev --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --gcr-json-creds $GCR_JSON_CREDS --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         cdk synth --context singlestack=true -q
         cdk synth -q
@@ -85,8 +85,8 @@ jobs:
     - name: Deploy CDK
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
       run: |
@@ -95,8 +95,8 @@ jobs:
     - name: Prepare Domino Install
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
         jq -r ".[].agentconfig" outputs.json > agent_template.yaml
@@ -104,22 +104,22 @@ jobs:
     - name: Install Domino
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
     - name: Uninstall Domino
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent destroy -f /cdk/domino.yml
     - name: Destroy CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
