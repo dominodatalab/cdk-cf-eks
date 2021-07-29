@@ -11,7 +11,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  test-build-deploy:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -123,3 +123,7 @@ jobs:
       run: |
         sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
+    - name: Fail without deploy
+      if: ${{ ! contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master' }}
+      run: |
+        exit 1
