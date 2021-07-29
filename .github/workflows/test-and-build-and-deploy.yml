@@ -11,7 +11,8 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  test-and-build-and-deploy:
+    if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -83,7 +84,6 @@ jobs:
         echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
         done
     - name: Deploy CDK
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
@@ -93,7 +93,6 @@ jobs:
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
         cdk deploy --require-approval never --outputs-file outputs.json
     - name: Prepare Domino Install
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
@@ -102,21 +101,20 @@ jobs:
         jq -r ".[].agentconfig" outputs.json > agent_template.yaml
         docker run --rm -v $(pwd):/cdk quay.io/domino/deployer:v42 python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
     - name: Install Domino
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
     - name: Uninstall Domino
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      if: always()
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent destroy -f /cdk/domino.yml
     - name: Destroy CDK
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      if: always()
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.INFRA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.INFRA_ACCESS_KEY }}
