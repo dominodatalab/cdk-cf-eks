@@ -10,7 +10,7 @@ on:
 
 jobs:
   test-and-build:
-    if: ! contains(github.event.pull_request.labels.*.name, 'deploy-test')
+    if: ${{ ! contains(github.event.pull_request.labels.*.name, 'deploy-test') }}
     runs-on: ubuntu-latest
     defaults:
       run:
