@@ -138,13 +138,4 @@ def generate_install_config(
             "password": install.registry_password,
         }
 
-    if install.gcr_credentials:
-        agent_cfg["helm"] = {
-            "version": 3,
-            "host": "gcr.io",
-            "namespace": "domino-eng-service-artifacts",
-            "username": "_json_key",
-            "password": install.gcr_credentials,
-        }
-
     return agent_cfg

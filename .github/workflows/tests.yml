@@ -54,12 +54,11 @@ jobs:
         GITHUB_SHA: ${{ github.sha }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        GCR_JSON_CREDS: ${{ secrets.GCR_JSON_CREDS }}
         ACM_CERT_ARN: ${{ secrets.DELTA_ACM_CERT_ARN }}
         BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
       run: |
         export NAME=cdk-deploy-${GITHUB_SHA:0:6}
-        ./util.py generate_config_template --name $NAME --aws-region=us-west-2 --aws-account-id=$AWS_ACCOUNT_ID --dev --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --gcr-json-creds $GCR_JSON_CREDS --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
+        ./util.py generate_config_template --name $NAME --aws-region=us-west-2 --aws-account-id=$AWS_ACCOUNT_ID --dev --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
       env:
