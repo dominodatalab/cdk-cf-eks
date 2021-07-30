@@ -108,7 +108,7 @@ jobs:
         KUBECONFIG: ./kubeconfig
         LOG_DIR: k8s-cluster-state
       run: |
-        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
     - name: Collect diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
@@ -120,16 +120,17 @@ jobs:
         set +e
         mkdir -p $LOG_DIR
         for ns in domino-platform domino-compute domino-system kube-system; do
-          kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns-ingress.txt
-          kubectl -n $ns get po -o yaml > $LOG_DIR/$ns-pods.txt
-          kubectl -n $ns describe po -o yaml > $LOG_DIR/$ns-pods-described.txt
-          kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns-pvcs.txt
-          kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns-svcs.txt
-          kubectl -n $ns describe svc -o yaml > $LOG_DIR/$ns-svcs-described.txt
+          kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
+          kubectl -n $ns get po -o yaml > $LOG_DIR/$ns/pods.txt
+          kubectl -n $ns describe po > $LOG_DIR/$ns/pods-described.txt
+          kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns/pvcs.txt
+          kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns/svcs.txt
+          kubectl -n $ns describe svc > $LOG_DIR/$ns/svcs-described.txt
+          kubectl -n $ns get events > $LOG_DIR/$ns/events.txt
         done
         kubectl get pv -o yaml > $LOG_DIR/pvs.txt
         kubectl get no -o yaml > $LOG_DIR/nodes.txt
-        kubectl describe no -o yaml > $LOG_DIR/nodes-described.txt
+        kubectl describe no > $LOG_DIR/nodes-described.txt
     - name: Upload diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       uses: actions/upload-artifact@v2
