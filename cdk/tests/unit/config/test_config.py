@@ -61,7 +61,7 @@ class TestConfig(unittest.TestCase):
         c = config_template(istio_compatible=True)
         self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
         self.assertEqual(
-            c.install,
+            c.install.overrides,
             {
                 "istio": {
                     "enabled": True,
@@ -94,7 +94,7 @@ class TestConfig(unittest.TestCase):
         c = config_template(istio_compatible=True, dev_defaults=True)
         self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
         self.assertEqual(
-            c.install,
+            c.install.overrides,
             {
                 "istio": {
                     "enabled": True,
@@ -151,7 +151,7 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(c.s3.monitoring_bucket.removal_policy_destroy)
 
         self.assertEqual(
-            c.install,
+            c.install.overrides,
             {
                 "services": {
                     "nucleus": {

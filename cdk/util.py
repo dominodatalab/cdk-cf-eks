@@ -29,6 +29,8 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     template_parser.add_argument("--name", help="Name for deployment, will prefix all namespaces", default="domino")
+    template_parser.add_argument("--aws-region", help="AWS Region", default=None)
+    template_parser.add_argument("--aws-account-id", help="AWS Account ID", default=None)
     template_parser.add_argument("--dev", help="Use development (small) defaults", action="store_true")
     template_parser.add_argument("--bastion", help="Provision bastion", action="store_true")
     template_parser.add_argument("--private-api", help="Use private api with EKS", action="store_true")
@@ -44,6 +46,15 @@ def parse_args():
         "--secrets-encryption-key-arn",
         help="KMS Key arn to encrypt kubernetes secrets, generated if not provided",
         default=None,
+    )
+    template_parser.add_argument("--registry-username", help="Quay.io Registry Username", default=None)
+    template_parser.add_argument("--registry-password", help="Quay.io Registry Password", default=None)
+    template_parser.add_argument("--acm-cert-arn", help="ACM Cert ARN", default="__FILL__")
+    template_parser.add_argument(
+        "--hostname", help="Hostname for deployment (ie domino.example.com)", default="__FILL__"
+    )
+    template_parser.add_argument(
+        "--disable-flow-logs", help="Disable monitoring bucket (temporary option)", action="store_true", default=False
     )
     template_parser.set_defaults(func=generate_config_template)
 
@@ -145,6 +156,8 @@ def generate_config_template(args):
     YAML().dump(
         config_template(
             name=args.name,
+            aws_region=args.aws_region,
+            aws_account_id=args.aws_account_id,
             platform_nodegroups=args.platform_nodegroups,
             compute_nodegroups=args.compute_nodegroups,
             gpu_nodegroups=args.gpu_nodegroups,
@@ -154,6 +167,11 @@ def generate_config_template(args):
             private_api=args.private_api,
             dev_defaults=args.dev,
             istio_compatible=args.istio_compatible,
+            registry_username=args.registry_username,
+            registry_password=args.registry_password,
+            acm_cert_arn=args.acm_cert_arn,
+            hostname=args.hostname,
+            disable_flow_logs=args.disable_flow_logs,
         ).render(args.no_comments),
         stdout,
     )

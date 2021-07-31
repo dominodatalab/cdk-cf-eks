@@ -1,12 +1,23 @@
 from typing import Any, Dict, Optional
 
 from domino_cdk import __version__
-from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Route53
+from domino_cdk.config import (
+    EFS,
+    EKS,
+    S3,
+    VPC,
+    DominoCDKConfig,
+    IngressRule,
+    Install,
+    Route53,
+)
 from domino_cdk.util import DominoCdkUtil
 
 
 def config_template(
     name: str = "domino",
+    aws_region: str = None,
+    aws_account_id: str = None,
     platform_nodegroups: int = 1,
     compute_nodegroups: int = 1,
     gpu_nodegroups: int = 1,
@@ -16,6 +27,11 @@ def config_template(
     private_api: bool = False,
     dev_defaults: bool = False,
     istio_compatible: bool = False,
+    registry_username: str = None,
+    registry_password: str = None,
+    acm_cert_arn: str = None,
+    hostname: str = None,
+    disable_flow_logs: bool = False,
 ):
     fill = "__FILL__"
 
@@ -79,7 +95,7 @@ def config_template(
         private_cidr_mask=19,
         availability_zones=[],
         max_azs=3,
-        flow_logging=True,
+        flow_logging=not disable_flow_logs,
         bastion=VPC.Bastion(
             enabled=bastion,
             key_name=keypair_name,
@@ -133,14 +149,16 @@ def config_template(
             auto_delete_objects=destroy_on_destroy,
             removal_policy_destroy=destroy_on_destroy,
             sse_kms_key_id=None,
-        ),
+        )
+        if not disable_flow_logs
+        else None,
     )
 
-    install: Dict[Any, Any] = {}
+    overrides: Dict[Any, Any] = {}
 
     if istio_compatible:
-        install = DominoCdkUtil.deep_merge(
-            install,
+        overrides = DominoCdkUtil.deep_merge(
+            overrides,
             {
                 "istio": {
                     "enabled": True,
@@ -171,8 +189,8 @@ def config_template(
         )
 
     if dev_defaults:
-        install = DominoCdkUtil.deep_merge(
-            install,
+        overrides = DominoCdkUtil.deep_merge(
+            overrides,
             {
                 "services": {
                     "nucleus": {
@@ -190,10 +208,19 @@ def config_template(
             },
         )
 
+    install = Install(
+        access_list=["0.0.0.0/0"],
+        acm_cert_arn=acm_cert_arn,
+        hostname=hostname,
+        registry_username=registry_username,
+        registry_password=registry_password,
+        overrides=overrides,
+    )
+
     return DominoCDKConfig(
         name=name,
-        aws_region=fill,
-        aws_account_id=fill,
+        aws_region=aws_region or fill,
+        aws_account_id=aws_account_id or fill,
         tags={"domino-infrastructure": "true"},
         create_iam_roles_for_service_accounts=False,
         install=install,

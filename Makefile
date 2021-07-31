@@ -4,7 +4,7 @@ TERRAFORM_DIST_NAME=domino-cdk-terraform
 ifdef DOMINO_CDK_VERSION
     VERSION := $(DOMINO_CDK_VERSION)
 else
-    VERSION := $(shell python -c "from cdk.domino_cdk import __version__; print(__version__)")
+    VERSION := $(shell python -c 'from cdk.domino_cdk import __version__; print(__version__.replace("-", ""))')
 endif
 
 .PHONY: dist

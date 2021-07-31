@@ -1,0 +1,160 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Run tests / create artifacts
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
+    branches: [ master ]
+
+jobs:
+  test-build-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./cdk
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.8
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+    - name: Setup nodejs
+      uses: actions/setup-node@v2
+      with:
+        node-version: 16
+    - name: Install aws-cdk
+      run: npm install -g aws-cdk@1.110.1
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install awscli==1.20.8 build
+    - name: Lint with flake8/black/isort
+      run: |
+        export FILES=(*.py domino_cdk tests)
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 ${FILES[@]} --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings.
+        flake8 ${FILES[@]} --count --exit-zero --statistics
+        black ${FILES[@]} --check
+        isort ${FILES[@]} --check
+    - name: Test with pytest
+      run: |
+        coverage run -m pytest tests
+
+    - name: Coverage report
+      run: |
+        coverage report
+    - name: Create/lint default config
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
+        GITHUB_SHA: ${{ github.sha }}
+        REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+        REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        ACM_CERT_ARN: ${{ secrets.DELTA_ACM_CERT_ARN }}
+        BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
+      run: |
+        export NAME=cdk-deploy-${GITHUB_SHA:0:6}
+        ./util.py generate_config_template --name $NAME --aws-region=us-west-2 --aws-account-id=$AWS_ACCOUNT_ID --dev --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
+        ./util.py load_config -f ./config.yaml
+    - name: Test default config (single and nested stacks)
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+      run: |
+        cdk synth --context singlestack=true -q
+        cdk synth -q
+    - name: Upload distribution artifacts
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DOMINO_ARTIFACTS_ACCESS_KEY }}
+        DOMINO_CDK_VERSION: ${{ github.sha }}
+        DATEDIR: "date +%Y%m%d"
+      run: |
+        cd ..
+        make clean && make dist
+        for suffix in "" "-terraform"; do
+        filename="domino-cdk$suffix-$DOMINO_CDK_VERSION.tar.gz"
+        aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
+        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
+        done
+    - name: Deploy CDK
+      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+        REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+        REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+      run: |
+        docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
+        cdk deploy --require-approval never --outputs-file outputs.json
+    - name: Prepare Domino install
+      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+      run: |
+        $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
+        jq -r ".[].agentconfig" outputs.json > agent_template.yaml
+        docker run --rm -v $(pwd):/cdk quay.io/domino/deployer:v42 python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
+    - name: Install Domino
+      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+        KUBECONFIG: ./kubeconfig
+        LOG_DIR: k8s-cluster-state
+      run: |
+        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
+    - name: Collect diagnostic data
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+        KUBECONFIG: ./kubeconfig
+        LOG_DIR: k8s-cluster-state
+      run: |
+        set +e
+        for ns in domino-platform domino-compute domino-system kube-system; do
+          mkdir -p $LOG_DIR/$ns
+          kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
+          kubectl -n $ns get po -o yaml > $LOG_DIR/$ns/pods.txt
+          kubectl -n $ns describe po > $LOG_DIR/$ns/pods-described.txt
+          kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns/pvcs.txt
+          kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns/svcs.txt
+          kubectl -n $ns describe svc > $LOG_DIR/$ns/svcs-described.txt
+          kubectl -n $ns get events > $LOG_DIR/$ns/events.txt
+        done
+        kubectl get pv -o yaml > $LOG_DIR/pvs.txt
+        kubectl get no -o yaml > $LOG_DIR/nodes.txt
+        kubectl describe no > $LOG_DIR/nodes-described.txt
+    - name: Upload diagnostic data
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      uses: actions/upload-artifact@v2
+      with:
+        name: Diagnostic Data
+        path: ./
+        retention-days: 14
+    - name: Uninstall Domino
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+      run: |
+        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent destroy -f /cdk/domino.yml
+    - name: Destroy CDK
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
+      run: |
+        sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
+        cdk destroy --force
+    - name: Fail without deploy
+      if: ${{ github.event.pull_request.draft == false && ! contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master' }}
+      run: |
+        echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
+        exit 1

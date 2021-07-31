@@ -2,9 +2,12 @@ from typing import Any, Dict, Optional
 
 from aws_cdk.aws_s3 import Bucket
 
+from domino_cdk.config import Install
+
 
 def generate_install_config(
     name: str,
+    install: Install,
     aws_region: str,
     eks_cluster_name: str,
     pod_cidr: str,
@@ -17,7 +20,7 @@ def generate_install_config(
 ) -> Dict:
     agent_cfg: Dict[str, Any] = {
         "name": name,
-        "hostname": "__FILL__",
+        "hostname": install.hostname,
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {
@@ -71,6 +74,10 @@ def generate_install_config(
             }
         },
         "gpu": {"enabled": True},
+        "helm": {
+            "version": 3,
+            "cache_path": "charts",
+        },
         "services": {
             "nginx_ingress": {},
             "forge": {
@@ -99,7 +106,7 @@ def generate_install_config(
                 "enabled": True,
                 "type": "LoadBalancer",
                 "annotations": {
-                    "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "__FILL__",  # TODO: Should we have an official config for this?
+                    "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": install.acm_cert_arn or "__FILL__",
                     "service.beta.kubernetes.io/aws-load-balancer-internal": False,
                     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                     "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
@@ -109,7 +116,7 @@ def generate_install_config(
                     #     "could-propagate-this-instead-of-create"
                 },
                 "targetPorts": {"http": "http", "https": "http"},
-                "loadBalancerSourceRanges": ["0.0.0.0/0"],  # TODO AF
+                "loadBalancerSourceRanges": install.access_list,
             },
         }
     }
@@ -123,5 +130,12 @@ def generate_install_config(
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix": "ELBAccessLogs",
             }
         )
+
+    if install.registry_username:
+        agent_cfg["private_docker_registry"] = {
+            "server": "quay.io",
+            "username": install.registry_username,
+            "password": install.registry_password,
+        }
 
     return agent_cfg
