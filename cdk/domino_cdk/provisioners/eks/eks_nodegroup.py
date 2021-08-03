@@ -50,7 +50,9 @@ class DominoEksNodegroupProvisioner:
         provision_nodegroup(self.eks_cfg.managed_nodegroups, self.provision_managed_nodegroup)
         provision_nodegroup(self.eks_cfg.unmanaged_nodegroups, self.provision_unmanaged_nodegroup)
 
-    def provision_managed_nodegroup(self, name: str, ng: config.eks.T_NodegroupBase, max_nodegroup_azs: int) -> None:
+    def provision_managed_nodegroup(
+        self, name: str, ng: config.eks.EKS.ManagedNodegroup, max_nodegroup_azs: int
+    ) -> None:
         region = cdk.Stack.of(self.scope).region
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({region: ng.ami_id}) if ng.ami_id else None
@@ -85,7 +87,9 @@ class DominoEksNodegroupProvisioner:
                 node_role=self.ng_role,
             )
 
-    def provision_unmanaged_nodegroup(self, name: str, ng: config.eks.T_NodegroupBase, max_nodegroup_azs: int) -> None:
+    def provision_unmanaged_nodegroup(
+        self, name: str, ng: config.eks.EKS.UnmanagedNodegroup, max_nodegroup_azs: int
+    ) -> None:
         region = cdk.Stack.of(self.scope).region
         machine_image = (
             ec2.MachineImage.generic_linux({region: ng.ami_id})
@@ -96,6 +100,12 @@ class DominoEksNodegroupProvisioner:
                 node_type=eks.NodeType.GPU if ng.gpu else eks.NodeType.STANDARD,
             )
         )
+
+        if not ng.ami_id:
+            ng.tags = {
+                **ng.tags,
+                **{f"k8s.io/cluster-autoscaler/node-template/taint/{k}": v for k, v in ng.taints.items()},
+            }
 
         if not hasattr(self, "unmanaged_sg"):
             self.unmanaged_sg = ec2.SecurityGroup(

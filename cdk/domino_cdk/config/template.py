@@ -42,7 +42,7 @@ def config_template(
 
     unmanaged_nodegroups = {}
 
-    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=100, taints=None, gpu=False):
+    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=100, taints=None, gpu=False, tags=None):
         for i in range(0, count):
             unmanaged_nodegroups[f"{name}-{i}"] = EKS.UnmanagedNodegroup(
                 gpu=gpu,
@@ -56,7 +56,7 @@ def config_template(
                 user_data=None,
                 instance_types=instance_types,
                 labels=labels,
-                tags={},
+                tags=tags or {},
                 taints=taints or {},
                 spot=False,
             )
@@ -74,6 +74,7 @@ def config_template(
         0,
         ["m5.2xlarge"],
         {"dominodatalab.com/node-pool": "default"},
+        tags={"k8s.io/cluster-autoscaler/node-template/resources/smarter-devices/fuse": "20"},
         disk_size=disk_size,
     )
     add_nodegroups(
@@ -83,6 +84,7 @@ def config_template(
         ["p3.2xlarge"],
         {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
         taints={"nvidia.com/gpu": "true:NoSchedule"},
+        tags={"k8s.io/cluster-autoscaler/node-template/resources/smarter-devices/fuse": "20"},
         gpu=True,
         disk_size=disk_size,
     )
