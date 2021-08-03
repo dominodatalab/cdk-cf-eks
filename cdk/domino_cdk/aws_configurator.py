@@ -1,18 +1,17 @@
+from io import StringIO
 from os.path import isfile
-from re import MULTILINE
-from re import split as re_split
+from pathlib import Path
 
-import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 from aws_cdk import core as cdk
 from requests import get as requests_get
-from yaml import safe_load as yaml_safe_load
+from ruamel.yaml import YAML
 
 manifests = [
-    [
+    (
         "calico",
         "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
-    ]
+    )
 ]
 
 
@@ -21,12 +20,12 @@ manifests = [
 # deprovisoning efs backups/route53, tagging the eks cluster until
 # the CloudFormation api supports it, etc.)
 class DominoAwsConfigurator:
-    def __init__(self, scope: cdk.Construct, eks_cluster: eks.Cluster, vpc: ec2.Vpc):
+    def __init__(self, scope: cdk.Construct, eks_cluster: eks.Cluster):
         self.scope = scope
         self.eks_cluster = eks_cluster
-        self.vpc = vpc
 
         self.install_calico()
+        self.patch_vpc_cni_selinux()
 
     def install_calico(self):
         # This produces an obnoxious diff on every subsequent run
@@ -37,20 +36,23 @@ class DominoAwsConfigurator:
         # an option it also doesn't seem like there's a way to push
         # the chart with existing api calls.
         # Probably need to do some custom lambda thing.
-        for manifest in manifests:
-            filename = f"{manifest[0]}.yaml"
+        for (name, url) in manifests:
+            filename = f"{name}.yaml"
             if isfile(filename):
-                with open(filename) as f:
-                    manifest_text = f.read()
+                stream = Path(filename)
             else:
-                manifest_text = requests_get(manifest[1]).text
-            loaded_manifests = [yaml_safe_load(i) for i in re_split("^---$", manifest_text, flags=MULTILINE) if i]
+                stream = StringIO(requests_get(url).text)
+
+            yaml = YAML(typ="safe")
+            loaded_manifests = list(yaml.load_all(stream))
+
             crds = eks.KubernetesManifest(
                 self.scope,
                 "calico-crds",
                 cluster=self.eks_cluster,
                 manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"],
             )
+
             non_crds = eks.KubernetesManifest(
                 self.scope,
                 "calico",
@@ -58,3 +60,15 @@ class DominoAwsConfigurator:
                 manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"],
             )
             non_crds.node.add_dependency(crds)
+
+    # Until https://github.com/aws/amazon-vpc-cni-k8s/issues/1291 is resolved
+    def patch_vpc_cni_selinux(self):
+        eks.KubernetesPatch(
+            self.scope,
+            "vpc-cni-selinux",
+            cluster=self.eks_cluster,
+            resource_name="daemonset/aws-node",
+            resource_namespace="kube-system",
+            apply_patch={"spec": {"template": {"spec": {"securityContext": {"seLinuxOptions": {"type": "spc_t"}}}}}},
+            restore_patch={},
+        )

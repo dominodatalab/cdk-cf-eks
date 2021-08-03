@@ -25,7 +25,6 @@ setuptools.setup(
         ("domino-cdk", ["app.py", "cdk.json", "util.py"]),
     ],
     install_requires=[
-        "PyYAML~=5.4.1",
         "aws-cdk.assertions~=1.110.1",
         "aws-cdk.aws-backup~=1.110.1",
         "aws-cdk.aws-ec2~=1.110.1",
