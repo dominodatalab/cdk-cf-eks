@@ -156,38 +156,6 @@ def config_template(
 
     overrides: Dict[Any, Any] = {}
 
-    if istio_compatible:
-        overrides = DominoCdkUtil.deep_merge(
-            overrides,
-            {
-                "istio": {
-                    "enabled": True,
-                    "install": True,
-                    "cni": False,
-                },
-                "services": {
-                    "nginx_ingress": {
-                        "chart_values": {
-                            "controller": {
-                                "config": {
-                                    "use-proxy-protocol": "false",
-                                    # AWS ELBs don't like nginx-ingress's default cipher suite--connections just hang w/ override
-                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
-                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
-                                },
-                                "service": {
-                                    "targetPorts": {"http": "http", "https": "https"},
-                                    "annotations": {
-                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
-                                    },
-                                },
-                            }
-                        }
-                    }
-                },
-            },
-        )
-
     if dev_defaults:
         overrides = DominoCdkUtil.deep_merge(
             overrides,
@@ -214,6 +182,7 @@ def config_template(
         hostname=hostname,
         registry_username=registry_username,
         registry_password=registry_password,
+        istio_compatible=istio_compatible,
         overrides=overrides,
     )
 
