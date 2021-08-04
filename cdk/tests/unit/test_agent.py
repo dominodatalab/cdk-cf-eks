@@ -13,6 +13,12 @@ class TestAgent(TestCase):
     def setUp(self):
         self.app = App()
         self.stack = Stack(self.app, "VPC", env=Environment(region="us-west-2", account="1234567890"))
+        self.buckets = {
+            "blobs": Bucket(self.stack, "s3-blobs"),
+            "logs": Bucket(self.stack, "s3-logs"),
+            "backups": Bucket(self.stack, "s3-backups"),
+            "registry": Bucket(self.stack, "s3-registry"),
+        }
 
     def test_generate_intsall_config_istio(self):
         config = generate_install_config(
@@ -30,12 +36,7 @@ class TestAgent(TestCase):
             "test-cluster",
             "10.0.0.0/16",
             {},
-            {
-                "blobs": Bucket(self.stack, "s3-blobs"),
-                "logs": Bucket(self.stack, "s3-logs"),
-                "backups": Bucket(self.stack, "s3-backups"),
-                "registry": Bucket(self.stack, "s3-registry"),
-            },
+            self.buckets,
             None,
             "efs:ap-id",
             "ZONE-ABC",
@@ -87,12 +88,7 @@ class TestAgent(TestCase):
             "test-cluster",
             "10.0.0.0/16",
             {},
-            {
-                "blobs": Bucket(self.stack, "s3-blobs"),
-                "logs": Bucket(self.stack, "s3-logs"),
-                "backups": Bucket(self.stack, "s3-backups"),
-                "registry": Bucket(self.stack, "s3-registry"),
-            },
+            self.buckets,
             None,
             "efs:ap-id",
             "ZONE-ABC",

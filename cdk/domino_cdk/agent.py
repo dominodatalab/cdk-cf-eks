@@ -120,14 +120,15 @@ def generate_install_config(
     }
 
     if install.istio_compatible:
+        agent_cfg["istio"] = {
+            "enabled": True,
+            "install": True,
+            "cni": False,
+        }
+
         agent_cfg = DominoCdkUtil.deep_merge(
             agent_cfg,
             {
-                "istio": {
-                    "enabled": True,
-                    "install": True,
-                    "cni": False,
-                },
                 "services": {
                     "nginx_ingress": {
                         "chart_values": {
