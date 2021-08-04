@@ -26,6 +26,7 @@ class Install:
     registry_username: str
     registry_password: str
     overrides: dict
+    istio_compatible: bool
 
     @staticmethod
     def from_0_0_0(c: dict):
@@ -37,6 +38,7 @@ class Install:
                 hostname=None,
                 registry_username=None,
                 registry_password=None,
+                istio_compatible=False,
                 overrides=c,
             ),
             c,
@@ -53,6 +55,7 @@ class Install:
                 registry_username=c.pop("registry_username"),
                 registry_password=c.pop("registry_password"),
                 overrides=c.pop("overrides"),
+                istio_compatible=c.pop("istio_compatible", False),
             ),
             c,
         )

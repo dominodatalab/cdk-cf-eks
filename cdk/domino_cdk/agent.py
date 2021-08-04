@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional
 from aws_cdk.aws_s3 import Bucket
 
 from domino_cdk.config import Install
+from domino_cdk.util import DominoCdkUtil
 
 
 def generate_install_config(
@@ -101,7 +102,6 @@ def generate_install_config(
         "controller": {
             "kind": "Deployment",
             "hostNetwork": False,
-            "config": {"use-proxy-protocol": "true"},
             "service": {
                 "enabled": True,
                 "type": "LoadBalancer",
@@ -111,15 +111,70 @@ def generate_install_config(
                     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                     "service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "443",
                     "service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout": "3600",  # noqa
-                    "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
                     # "service.beta.kubernetes.io/aws-load-balancer-security-groups":
                     #     "could-propagate-this-instead-of-create"
                 },
-                "targetPorts": {"http": "http", "https": "http"},
                 "loadBalancerSourceRanges": install.access_list,
             },
         }
     }
+
+    if install.istio_compatible:
+        agent_cfg["istio"] = {
+            "enabled": True,
+            "install": True,
+            "cni": False,
+        }
+
+        agent_cfg = DominoCdkUtil.deep_merge(
+            agent_cfg,
+            {
+                "services": {
+                    "nginx_ingress": {
+                        "chart_values": {
+                            "controller": {
+                                "config": {
+                                    "use-proxy-protocol": "false",
+                                    # AWS ELBs don't like nginx-ingress's default cipher suite--connections just hang w/ override
+                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
+                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
+                                },
+                                "service": {
+                                    "targetPorts": {"http": "http", "https": "https"},
+                                    "annotations": {
+                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
+                                    },
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+        )
+
+    else:
+        agent_cfg = DominoCdkUtil.deep_merge(
+            agent_cfg,
+            {
+                "services": {
+                    "nginx_ingress": {
+                        "chart_values": {
+                            "controller": {
+                                "config": {
+                                    "use-proxy-protocol": "true",
+                                },
+                                "service": {
+                                    "targetPorts": {"http": "http", "https": "http"},
+                                    "annotations": {
+                                        "service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
+                                    },
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+        )
 
     if monitoring_bucket:
         agent_cfg["services"]["nginx_ingress"]["chart_values"].update(

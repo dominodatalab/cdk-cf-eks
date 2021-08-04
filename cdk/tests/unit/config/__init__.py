@@ -25,6 +25,7 @@ default_config = DominoCDKConfig(
         hostname=None,
         registry_username=None,
         registry_password=None,
+        istio_compatible=False,
         overrides={},
     ),
     vpc=VPC(
@@ -219,6 +220,7 @@ legacy_config = DominoCDKConfig(
         hostname=None,
         registry_username=None,
         registry_password=None,
+        istio_compatible=False,
         overrides={},
     ),
     vpc=VPC(

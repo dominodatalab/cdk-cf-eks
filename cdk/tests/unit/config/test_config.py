@@ -60,79 +60,10 @@ class TestConfig(unittest.TestCase):
     def test_istio(self):
         c = config_template(istio_compatible=True)
         self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
-        self.assertEqual(
-            c.install.overrides,
-            {
-                "istio": {
-                    "enabled": True,
-                    "install": True,
-                    "cni": False,
-                },
-                "services": {
-                    "nginx_ingress": {
-                        "chart_values": {
-                            "controller": {
-                                "config": {
-                                    "use-proxy-protocol": "false",
-                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
-                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
-                                },
-                                "service": {
-                                    "targetPorts": {"http": "http", "https": "https"},
-                                    "annotations": {
-                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
-                                    },
-                                },
-                            }
-                        }
-                    }
-                },
-            },
-        )
 
     def test_istio_dev(self):
         c = config_template(istio_compatible=True, dev_defaults=True)
         self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
-        self.assertEqual(
-            c.install.overrides,
-            {
-                "istio": {
-                    "enabled": True,
-                    "install": True,
-                    "cni": False,
-                },
-                "services": {
-                    "nucleus": {
-                        "chart_values": {
-                            "replicaCount": {
-                                "dispatcher": 1,
-                                "frontend": 1,
-                            },
-                            "keycloak": {
-                                "createIntegrationTestUser": True,
-                            },
-                        },
-                    },
-                    "nginx_ingress": {
-                        "chart_values": {
-                            "controller": {
-                                "config": {
-                                    "use-proxy-protocol": "false",
-                                    "ssl-ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA384:AES128-GCM-SHA256:AES128-SHA256:AES256-GCM-SHA384:AES256-SHA256:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA",  # noqa
-                                    "ssl-protocols": "TLSv1.2 TLSv1.3",
-                                },
-                                "service": {
-                                    "targetPorts": {"http": "http", "https": "https"},
-                                    "annotations": {
-                                        "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl"
-                                    },
-                                },
-                            }
-                        }
-                    },
-                },
-            },
-        )
 
     def test_dev(self):
         c = config_template(dev_defaults=True)
