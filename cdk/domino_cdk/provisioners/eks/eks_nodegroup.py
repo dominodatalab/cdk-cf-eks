@@ -44,6 +44,7 @@ class DominoEksNodegroupProvisioner:
                         **ng.tags,
                         **self.eks_cfg.global_node_tags,
                         **{f"k8s.io/cluster-autoscaler/node-template/label/{k}": v for k, v in ng.labels.items()},
+                        "k8s.io/cluster-autoscaler/node-template/resources/smarter-devices/fuse": "20",
                     }
                 prov_func(name, ng, max_nodegroup_azs)
 
