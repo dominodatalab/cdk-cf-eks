@@ -118,21 +118,13 @@ default_config = DominoCDKConfig(
     ),
     s3=S3(
         buckets=S3.BucketList(
-            blobs=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
-            logs=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
-            backups=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
-            registry=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
+            blobs=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
+            logs=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
+            backups=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
+            registry=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
             monitoring=S3.BucketList.Bucket(
                 auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            )
+            ),
         )
     ),
     schema='0.0.1-rc5',
@@ -318,18 +310,10 @@ legacy_config = DominoCDKConfig(
     ),
     s3=S3(
         buckets=S3.BucketList(
-            blobs=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
-            logs=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
-            backups=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
-            registry=S3.BucketList.Bucket(
-                auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None
-            ),
+            blobs=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
+            logs=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
+            backups=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
+            registry=S3.BucketList.Bucket(auto_delete_objects=False, removal_policy_destroy=False, sse_kms_key_id=None),
             monitoring=None,
         ),
     ),

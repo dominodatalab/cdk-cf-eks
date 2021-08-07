@@ -31,24 +31,22 @@ s3_0_0_0_cfg = {
 }
 
 s3_obj = S3(
-        buckets=S3.BucketList(
-            blobs=S3.BucketList.Bucket(
-                auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
-            ),
-            logs=S3.BucketList.Bucket(
-                auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
-            ),
-            backups=S3.BucketList.Bucket(
-                auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
-            ),
-            registry=S3.BucketList.Bucket(
-                auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
-            ),
-            monitoring=S3.BucketList.Bucket(
-                auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
-            )
-        )
+    buckets=S3.BucketList(
+        blobs=S3.BucketList.Bucket(
+            auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
+        ),
+        logs=S3.BucketList.Bucket(auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id),
+        backups=S3.BucketList.Bucket(
+            auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
+        ),
+        registry=S3.BucketList.Bucket(
+            auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
+        ),
+        monitoring=S3.BucketList.Bucket(
+            auto_delete_objects=True, removal_policy_destroy=True, sse_kms_key_id=sse_kms_key_id
+        ),
     )
+)
 
 
 class TestConfigS3(unittest.TestCase):

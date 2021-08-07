@@ -17,11 +17,7 @@ class TestDominoS3Provisioner(TestCase):
     def test_monitoring_bucket(self):
         s3_config = S3(
             buckets=S3.BucketList(
-                blobs=None,
-                logs=None,
-                backups=None,
-                registry=None,
-                monitoring=S3.BucketList.Bucket(True, True, "")
+                blobs=None, logs=None, backups=None, registry=None, monitoring=S3.BucketList.Bucket(True, True, "")
             )
         )
 
@@ -100,7 +96,7 @@ class TestDominoS3Provisioner(TestCase):
                 logs=None,
                 backups=None,
                 registry=None,
-                monitoring=S3.BucketList.Bucket(True, True, self.KMS_KEY_ARN)
+                monitoring=S3.BucketList.Bucket(True, True, self.KMS_KEY_ARN),
             )
         )
 

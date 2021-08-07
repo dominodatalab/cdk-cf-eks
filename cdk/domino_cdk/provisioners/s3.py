@@ -136,7 +136,8 @@ class DominoS3Provisioner:
 
         self.buckets = {
             bucket: self._provision_bucket(stack_name, bucket, attrs, server_access_logs_bucket=self.monitoring_bucket)
-            for bucket, attrs in vars(s3.buckets).items() if attrs and bucket != "monitoring"  # skipping NoneType bucket is for tests, config prevents loading
+            for bucket, attrs in vars(s3.buckets).items()
+            if attrs and bucket != "monitoring"  # skipping NoneType bucket is for tests, config prevents loading
         }
 
         for bucket_id, bucket in self.buckets.items():

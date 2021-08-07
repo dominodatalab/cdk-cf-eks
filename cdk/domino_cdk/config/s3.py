@@ -69,8 +69,6 @@ class S3:
     def from_0_0_0(c: dict):
         return from_loader(
             "config.s3",
-            S3(
-                buckets=S3.BucketList.load(c.pop("buckets"))
-            ),
+            S3(buckets=S3.BucketList.load(c.pop("buckets"))),
             c,
         )
