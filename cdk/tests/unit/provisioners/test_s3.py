@@ -16,8 +16,13 @@ class TestDominoS3Provisioner(TestCase):
 
     def test_monitoring_bucket(self):
         s3_config = S3(
-            buckets={},
-            monitoring_bucket=S3.Bucket(True, True, ""),
+            buckets=S3.BucketList(
+                blobs=None,
+                logs=None,
+                backups=None,
+                registry=None,
+                monitoring=S3.BucketList.Bucket(True, True, "")
+            )
         )
 
         DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
@@ -90,8 +95,13 @@ class TestDominoS3Provisioner(TestCase):
 
     def test_monitoring_kms_key(self):
         s3_config = S3(
-            buckets={},
-            monitoring_bucket=S3.Bucket(True, True, self.KMS_KEY_ARN),
+            buckets=S3.BucketList(
+                blobs=None,
+                logs=None,
+                backups=None,
+                registry=None,
+                monitoring=S3.BucketList.Bucket(True, True, self.KMS_KEY_ARN)
+            )
         )
 
         DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
@@ -120,7 +130,7 @@ class TestDominoS3Provisioner(TestCase):
         buckets = [
             (
                 "retain",
-                S3.Bucket(False, False, ""),
+                S3.BucketList.Bucket(False, False, "", "test-s3-retain"),
                 {
                     "Properties": {
                         "BucketName": "test-s3-retain",
@@ -143,7 +153,7 @@ class TestDominoS3Provisioner(TestCase):
             ),
             (
                 "cmk",
-                S3.Bucket(False, False, self.KMS_KEY_ARN),
+                S3.BucketList.Bucket(False, False, self.KMS_KEY_ARN, "test-s3-cmk"),
                 {
                     "Properties": {
                         "BucketName": "test-s3-cmk",
@@ -172,7 +182,7 @@ class TestDominoS3Provisioner(TestCase):
             ),
             (
                 "destroy",
-                S3.Bucket(True, True, ""),
+                S3.BucketList.Bucket(True, True, "", "test-s3-destroy"),
                 {
                     "Properties": {
                         "BucketName": "test-s3-destroy",
@@ -204,8 +214,13 @@ class TestDominoS3Provisioner(TestCase):
             stack = Stack(app, "S3", env=Environment(region="us-west-2"))
 
             s3_config = S3(
-                buckets={name: bucket},
-                monitoring_bucket=None,
+                buckets=S3.BucketList(
+                    blobs=bucket,
+                    logs=None,
+                    backups=None,
+                    registry=None,
+                    monitoring=None,
+                )
             )
 
             DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
@@ -253,8 +268,13 @@ class TestDominoS3Provisioner(TestCase):
 
     def test_buckets_access_logging(self):
         s3_config = S3(
-            buckets={"logged": S3.Bucket(False, False, "")},
-            monitoring_bucket=S3.Bucket(False, False, ""),
+            buckets=S3.BucketList(
+                blobs=None,
+                logs=S3.BucketList.Bucket(False, False, ""),
+                registry=None,
+                backups=None,
+                monitoring=S3.BucketList.Bucket(False, False, ""),
+            )
         )
 
         DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
@@ -271,10 +291,10 @@ class TestDominoS3Provisioner(TestCase):
         assertion.has_resource_properties(
             "AWS::S3::Bucket",
             {
-                "BucketName": "test-s3-logged",
+                "BucketName": "test-s3-logs",
                 "LoggingConfiguration": {
                     "DestinationBucketName": {"Ref": "monitoringF4BD3810"},
-                    "LogFilePrefix": "test-s3-logged/",
+                    "LogFilePrefix": "test-s3-logs/",
                 },
             },
         )
