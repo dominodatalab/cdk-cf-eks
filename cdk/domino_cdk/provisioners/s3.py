@@ -25,7 +25,7 @@ class DominoS3Provisioner:
         self,
         stack_name: str,
         bucket_id: str,
-        attrs: config.S3.Bucket,
+        attrs: config.S3.BucketList.Bucket,
         server_access_logs_bucket: Optional[Bucket] = None,
         require_encryption: bool = True,
         **kwargs,
@@ -35,7 +35,7 @@ class DominoS3Provisioner:
             use_sse_kms_key = True
             sse_kms_key = Key.from_key_arn(self.scope, f"{bucket_id}-kms-key", attrs.sse_kms_key_id)
 
-        bucket_name = f"{stack_name}-{bucket_id}"
+        bucket_name = attrs.name or f"{stack_name}-{bucket_id}"
         bucket = Bucket(
             self.scope,
             bucket_id,
@@ -92,11 +92,11 @@ class DominoS3Provisioner:
         return bucket
 
     def provision_buckets(self, stack_name: str, s3: config.S3):
-        if s3.monitoring_bucket:
+        if s3.buckets.monitoring:
             self.monitoring_bucket = self._provision_bucket(
                 stack_name,
                 "monitoring",
-                s3.monitoring_bucket,
+                s3.buckets.monitoring,
                 access_control=BucketAccessControl.LOG_DELIVERY_WRITE,
                 require_encryption=False,
             )
@@ -136,7 +136,7 @@ class DominoS3Provisioner:
 
         self.buckets = {
             bucket: self._provision_bucket(stack_name, bucket, attrs, server_access_logs_bucket=self.monitoring_bucket)
-            for bucket, attrs in s3.buckets.items()
+            for bucket, attrs in vars(s3.buckets).items() if attrs and bucket != "monitoring"  # skipping NoneType bucket is for tests, config prevents loading
         }
 
         for bucket_id, bucket in self.buckets.items():

@@ -129,13 +129,17 @@ class DominoCDKConfig:
         def r_vars(c, indent: int):
             indent += 2
             if is_dataclass(c):
-                cm = CommentedMap({(x if x != "_tags" else "tags"): r_vars(y, indent) for x, y in vars(c).items()})
+                hidden = getattr(c, "_hidden", [])
+                cm = CommentedMap({(x if x != "_tags" else "tags"): r_vars(y, indent) for x, y in vars(c).items() if x not in hidden or y})
                 if not disable_comments:
                     [
                         cm.yaml_set_comment_before_after_key(k, after=dedent(v.__doc__).strip(), after_indent=indent)
                         for k, v in vars(c).items()
-                        if is_dataclass(v) and getattr(v, "__doc__")
+                        if is_dataclass(v) and getattr(v, "__doc__") and not getattr(v, "_no_doc", False)
                     ]
+                else:
+                    print(getattr(c, "_no_doc", False))
+                    print(getattr(c, "__doc__"))
                 return cm
             elif type(c) == list:
                 return [r_vars(x, indent) for x in c]

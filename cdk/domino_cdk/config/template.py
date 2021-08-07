@@ -131,27 +131,25 @@ def config_template(
     route53 = Route53(zone_ids=[])
 
     s3 = S3(
-        buckets={
-            'blobs': S3.Bucket(
+        buckets=S3.BucketList(
+            blobs=S3.BucketList.Bucket(
                 auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
             ),
-            'logs': S3.Bucket(
+            logs=S3.BucketList.Bucket(
                 auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
             ),
-            'backups': S3.Bucket(
+            backups=S3.BucketList.Bucket(
                 auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
             ),
-            'registry': S3.Bucket(
+            registry=S3.BucketList.Bucket(
                 auto_delete_objects=destroy_on_destroy, removal_policy_destroy=destroy_on_destroy, sse_kms_key_id=None
             ),
-        },
-        monitoring_bucket=S3.Bucket(
-            auto_delete_objects=destroy_on_destroy,
-            removal_policy_destroy=destroy_on_destroy,
-            sse_kms_key_id=None,
+            monitoring=S3.BucketList.Bucket(
+                auto_delete_objects=destroy_on_destroy,
+                removal_policy_destroy=destroy_on_destroy,
+                sse_kms_key_id=None,
+            ) if not disable_flow_logs else None
         )
-        if not disable_flow_logs
-        else None,
     )
 
     overrides: Dict[Any, Any] = {}
