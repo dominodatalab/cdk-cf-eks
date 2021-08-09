@@ -61,10 +61,11 @@ class DominoStack(cdk.Stack):
             self.eks_stack.cluster.cluster_security_group,
             nest,
         )
+
         # At least until we get the lambda working, this has to live in the eks stack's scope
         # as there is some implicit token used to construct the magically auto-generated kubectl
         # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
-        DominoAwsConfigurator(self.eks_stack.scope, self.eks_stack.cluster, self.vpc_stack.vpc)
+        DominoAwsConfigurator(self.eks_stack.scope, self.eks_stack.cluster)
 
         self.generate_outputs()
 
