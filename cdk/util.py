@@ -7,14 +7,13 @@ from sys import stdout
 from ruamel.yaml import YAML, SafeLoader
 from ruamel.yaml import load as yaml_load
 
+from domino_cdk import __version__
 from domino_cdk.config import config_loader
 from domino_cdk.config.iam import generate_iam
 from domino_cdk.config.template import config_template
 from domino_cdk.util import DominoCdkUtil
 
-DEFAULT_TF_MODULE_PATH = (
-    "https://github.com/dominodatalab/cdk-cf-eks/releases/download/v0.0.1rc2/domino-cdk-terraform-0.0.1-rc2.tar.gz"
-)
+DEFAULT_TF_MODULE_PATH = f"https://github.com/dominodatalab/cdk-cf-eks/releases/download/v{__version__}/domino-cdk-terraform-{__version__}.tar.gz"
 
 
 def parse_args():
