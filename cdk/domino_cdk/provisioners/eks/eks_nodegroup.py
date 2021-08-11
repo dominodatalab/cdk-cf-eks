@@ -181,8 +181,27 @@ class DominoEksNodegroupProvisioner:
 
                 http_tokens = "required" if ng.imdsv2_required else "optional"
 
+                lt_vals = cfn_lt.launch_template_data._values
+                block_mapping = lt_vals["block_device_mappings"][0]
+                root_ebs = block_mapping.ebs
+                lt_vals["block_device_mappings"][0] = ec2.CfnLaunchTemplate.BlockDeviceMappingProperty(
+                    device_name=block_mapping.device_name,
+                    ebs=ec2.CfnLaunchTemplate.EbsProperty(
+                        delete_on_termination=root_ebs.delete_on_termination,
+                        encrypted=root_ebs.encrypted,
+                        iops=root_ebs.iops,
+                        kms_key_id="your_hardcoded_key_here",
+                        snapshot_id=root_ebs.snapshot_id,
+                        throughput=root_ebs.throughput,
+                        volume_size=root_ebs.volume_size,
+                        volume_type=root_ebs.volume_type,
+                    ),
+                    no_device=lt_vals["block_device_mappings"][0].no_device,
+                    virtual_name=lt_vals["block_device_mappings"][0].virtual_name,
+                )
+
                 lt_data = ec2.CfnLaunchTemplate.LaunchTemplateDataProperty(
-                    **cfn_lt.launch_template_data._values,
+                    **lt_vals,
                     metadata_options=ec2.CfnLaunchTemplate.MetadataOptionsProperty(
                         http_endpoint="enabled", http_tokens=http_tokens, http_put_response_hop_limit=2
                     ),
