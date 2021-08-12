@@ -45,6 +45,18 @@ class TestDominoVPCProvisioner(TestCase):
         assertion.resource_count_is("AWS::EC2::RouteTable", 9)
         assertion.resource_count_is("AWS::EC2::Instance", 1)
 
+        template = self.app.synth().get_stack("VPC").template
+        instance = self.find_resource(template, "AWS::EC2::Instance")
+        self.assertEqual(
+            [
+                {
+                    "DeviceName": "/dev/xvda",
+                    "Ebs": {"DeleteOnTermination": True, "Encrypted": True, "VolumeSize": 40, "VolumeType": "gp2"},
+                }
+            ],
+            instance["Properties"].get("BlockDeviceMappings"),
+        )
+
     def test_flow_logging_enabled_no_bucket(self):
         vpc_config = VPC(
             id=None,
@@ -118,3 +130,35 @@ class TestDominoVPCProvisioner(TestCase):
 
         assertion = TemplateAssertions.from_stack(self.stack)
         assertion.resource_count_is("AWS::EC2::VPC", 0)
+
+    def test_bastion_bring_your_own_ami(self):
+        vpc_config = VPC(
+            id=None,
+            create=True,
+            cidr="10.0.0.0/16",
+            public_cidr_mask=27,
+            private_cidr_mask=19,
+            availability_zones=[],
+            max_azs=3,
+            flow_logging=False,
+            bastion=VPC.Bastion(
+                enabled=True,
+                key_name="domino-test",
+                instance_type="t2.micro",
+                ami_id="ami-1234567890",
+                ingress_ports=[
+                    IngressRule(name="ssh", from_port=22, to_port=22, protocol="TCP", ip_cidrs=["0.0.0.0/0"])
+                ],
+                user_data=None,
+            ),
+        )
+
+        DominoVpcProvisioner(self.stack, "construct-1", "test-vpc", vpc_config, False, None)
+
+        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion.resource_count_is("AWS::EC2::Instance", 1)
+
+        template = self.app.synth().get_stack("VPC").template
+        instance = self.find_resource(template, "AWS::EC2::Instance")
+        self.assertIsNone(instance["Properties"].get("BlockDeviceMappings"))
+        self.assertEqual("ami-1234567890", instance["Properties"]["ImageId"])
