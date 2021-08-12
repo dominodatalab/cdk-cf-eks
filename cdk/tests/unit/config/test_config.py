@@ -74,12 +74,9 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(c.efs.backup.removal_policy, "DESTROY")
         self.assertTrue(c.efs.removal_policy_destroy)
 
-        for b in c.s3.buckets.values():
+        for b in vars(c.s3.buckets).values():
             self.assertTrue(b.auto_delete_objects)
             self.assertTrue(b.removal_policy_destroy)
-
-        self.assertTrue(c.s3.monitoring_bucket.auto_delete_objects)
-        self.assertTrue(c.s3.monitoring_bucket.removal_policy_destroy)
 
         self.assertEqual(
             c.install.overrides,
