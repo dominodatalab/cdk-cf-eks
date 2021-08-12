@@ -348,8 +348,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "eks:DescribeNodegroup",
             "eks:TagResource",
             "eks:UntagResource",
-            "ec2:RevokeSecurityGroupEgress",
-            "ec2:RevokeSecurityGroupIngress",
             "elasticfilesystem:Backup",
             "elasticfilesystem:CreateMountTarget",
             "elasticfilesystem:DeleteMountTarget",
