@@ -143,9 +143,6 @@ class DominoCDKConfig:
                         for k, v in vars(c).items()
                         if is_dataclass(v) and getattr(v, "__doc__") and not getattr(v, "_no_doc", False)
                     ]
-                else:
-                    print(getattr(c, "_no_doc", False))
-                    print(getattr(c, "__doc__"))
                 return cm
             elif type(c) == list:
                 return [r_vars(x, indent) for x in c]
