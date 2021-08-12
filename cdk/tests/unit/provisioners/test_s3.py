@@ -1,3 +1,5 @@
+from os import environ
+
 from aws_cdk.assertions import TemplateAssertions
 from aws_cdk.core import App, Environment, Stack
 
@@ -13,6 +15,7 @@ class TestDominoS3Provisioner(TestCase):
     def setUp(self):
         self.app = App()
         self.stack = Stack(self.app, "S3", env=Environment(region="us-west-2"))
+        environ["SKIP_UNDEFINED_BUCKETS"] = "True"
 
     def test_monitoring_bucket(self):
         s3_config = S3(
@@ -294,3 +297,7 @@ class TestDominoS3Provisioner(TestCase):
                 },
             },
         )
+
+    @classmethod
+    def teardown_class(cls):
+        del environ["SKIP_UNDEFINED_BUCKETS"]

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from os import getenv
 from typing import Dict, Optional
 
 from domino_cdk.config.util import check_leavins, from_loader
@@ -38,6 +39,7 @@ class S3:
         registry: Bucket
         monitoring: Bucket
         _no_doc = True
+        _testing = False
 
         @classmethod
         def load(cls, buckets: Dict[str, Bucket]):
@@ -70,7 +72,7 @@ class S3:
                 if not getattr(self, b):
                     errors.append(f"Error: No definition for {b} bucket")
 
-            if errors:
+            if errors and not getenv("SKIP_UNDEFINED_BUCKETS"):
                 raise ValueError(errors)
 
     buckets: BucketList
