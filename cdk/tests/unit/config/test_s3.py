@@ -27,6 +27,11 @@ s3_0_0_0_cfg = {
             "removal_policy_destroy": True,
             "sse_kms_key_id": sse_kms_key_id,
         },
+        "monitoring": {
+            "auto_delete_objects": True,
+            "removal_policy_destroy": True,
+            "sse_kms_key_id": sse_kms_key_id,
+        },
     }
 }
 
@@ -51,19 +56,25 @@ s3_obj = S3(
 
 class TestConfigS3(unittest.TestCase):
     def test_from_0_0_0(self):
-        return True
         s3 = S3.from_0_0_0(deepcopy(s3_0_0_0_cfg))
         self.assertEqual(s3, s3_obj)
 
-    def test_all_defaults(self):
-        return True
+    def test_bucket_defaults(self):
         s3_cfg = deepcopy(s3_0_0_0_cfg)
-        s3_cfg["buckets"]["bucket1"] = {}
+        s3_cfg["buckets"]["blobs"] = {}
+        s3_cfg["buckets"]["monitoring"] = None
         s3_obj_defaults = deepcopy(s3_obj)
-        s3_obj_defaults.buckets["bucket1"] = S3.Bucket(False, False, None)
+        s3_obj_defaults.buckets.blobs = S3.BucketList.Bucket(False, False, None, None)
+        s3_obj_defaults.buckets.monitoring = None
         s3 = S3.from_0_0_0(s3_cfg)
         self.assertEqual(s3, s3_obj_defaults)
 
     def test_no_buckets(self):
-        return True
-        self.assertEqual(S3.from_0_0_0({"buckets": {}}), S3(buckets={}, monitoring_bucket=None))
+        s3_cfg = deepcopy(s3_0_0_0_cfg)
+        s3_cfg["buckets"]["blobs"] = None
+        s3_cfg["buckets"]["logs"] = None
+        s3_cfg["buckets"]["backups"] = None
+        s3_cfg["buckets"]["registry"] = None
+
+        with self.assertRaisesRegex(ValueError, "No definition for blobs.*logs.*backups.*registry bucket"):
+            S3.from_0_0_0(s3_cfg)

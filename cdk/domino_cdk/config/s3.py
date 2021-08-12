@@ -42,7 +42,7 @@ class S3:
         @classmethod
         def load(cls, buckets: Dict[str, Bucket]):
             def _bucket(b: dict) -> S3.BucketList.Bucket:
-                if not b:
+                if b is None:
                     return
                 b_out = S3.BucketList.Bucket(
                     auto_delete_objects=b.pop("auto_delete_objects", False),
@@ -62,6 +62,16 @@ class S3:
             )
             check_leavins("s3 bucket", "config.s3.buckets", buckets)
             return out
+
+        def __post_init__(self):
+            errors = []
+
+            for b in ["blobs", "logs", "backups", "registry"]:
+                if not getattr(self, b):
+                    errors.append(f"Error: No definition for {b} bucket")
+
+            if errors:
+                raise ValueError(errors)
 
     buckets: BucketList
 
