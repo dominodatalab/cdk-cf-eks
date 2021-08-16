@@ -76,7 +76,6 @@ def generate_install_config(
         },
         "gpu": {"enabled": True},
         "helm": {
-            "version": 3,
             "cache_path": "charts",
         },
         "services": {
