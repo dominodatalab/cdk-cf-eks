@@ -2,7 +2,8 @@ from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
-import boto3
+import aws_cdk.aws_logs as logs
+import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.region_info import Fact, FactName
@@ -112,13 +113,33 @@ class DominoEksClusterProvisioner:
                 ),
             )
 
+        def addon_version(name: str, eks_version: str):
+            addon_cr = cr.AwsCustomResource(
+                self.scope,
+                f"EksAddon{name}Version",
+                log_retention=logs.RetentionDays.ONE_DAY,
+                policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
+                on_update=cr.AwsSdkCall(
+                    action="describeAddonVersions",
+                    service="EKS",
+                    parameters={
+                        "addonName": name,
+                        "kubernetesVersion": eks_version.version,
+                    },
+                    output_paths=["addons.0.addonVersions.0.addonVersion"],
+                    physical_resource_id=cr.PhysicalResourceId.of(f"EksAddon{name}Version"),
+                ),
+            )
+
+            return addon_cr.get_response_field("addons.0.addonVersions.0.addonVersion")
+
         eks.CfnAddon(
             self.scope,
             "kube-proxy",
             addon_name="kube-proxy",
             cluster_name=cluster.cluster_name,
             resolve_conflicts="OVERWRITE",
-            addon_version=self.addon_version("kube-proxy", eks_version),
+            addon_version=addon_version("kube-proxy", eks_version),
         )
         eks.CfnAddon(
             self.scope,
@@ -126,7 +147,7 @@ class DominoEksClusterProvisioner:
             addon_name="vpc-cni",
             cluster_name=cluster.cluster_name,
             resolve_conflicts="OVERWRITE",
-            addon_version=self.addon_version("vpc-cni", eks_version),
+            addon_version=addon_version("vpc-cni", eks_version),
         )
         eks.CfnAddon(
             self.scope,
@@ -134,21 +155,7 @@ class DominoEksClusterProvisioner:
             addon_name="coredns",
             cluster_name=cluster.cluster_name,
             resolve_conflicts="OVERWRITE",
-            addon_version=self.addon_version("coredns", eks_version),
+            addon_version=addon_version("coredns", eks_version),
         )
 
         return cluster
-
-    def addon_version(self, addon: str, eks_version: str):
-        if not self._addon_cache:
-            eks = boto3.client("eks", self.scope.region)
-            result = eks.describe_addon_versions()
-            self._addon_cache = {a["addonName"]: a for a in result["addons"]}
-
-        versions = [
-            v["addonVersion"]
-            for v in self._addon_cache[addon]["addonVersions"]
-            if eks_version.version in [c["clusterVersion"] for c in v["compatibilities"]]
-        ]
-
-        return sorted(versions)[-1]

@@ -1,18 +1,10 @@
 #!/usr/bin/env python3
-import boto3
 from aws_cdk import core
 from ruamel.yaml import SafeLoader
 from ruamel.yaml import load as yaml_load
 
 from domino_cdk.config import config_loader
 from domino_cdk.domino_stack import DominoStack
-
-sts = boto3.client("sts")
-try:
-    sts.get_caller_identity()
-except Exception:
-    print("WARNING: Domino CDK App requires valid AWS credentials!\n")
-    raise
 
 
 app = core.App()
