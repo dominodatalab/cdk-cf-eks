@@ -142,13 +142,12 @@ class DominoEksClusterProvisioner:
     def addon_version(self, addon: str, eks_version: str):
         if not self._addon_cache:
             eks = boto3.client("eks", self.scope.region)
-            result = eks.describe_addon_versions()
+            result = eks.describe_addon_versions(kubernetesVersion=eks_version.version)
             self._addon_cache = {a["addonName"]: a for a in result["addons"]}
 
         versions = [
             v["addonVersion"]
             for v in self._addon_cache[addon]["addonVersions"]
-            if eks_version.version in [c["clusterVersion"] for c in v["compatibilities"]]
         ]
 
         return sorted(versions)[-1]
