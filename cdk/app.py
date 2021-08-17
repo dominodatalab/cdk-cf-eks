@@ -6,7 +6,6 @@ from ruamel.yaml import load as yaml_load
 from domino_cdk.config import config_loader
 from domino_cdk.domino_stack import DominoStack
 
-
 app = core.App()
 
 with open(app.node.try_get_context("config") or "config.yaml") as f:
