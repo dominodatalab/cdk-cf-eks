@@ -145,9 +145,6 @@ class DominoEksClusterProvisioner:
             result = eks.describe_addon_versions(kubernetesVersion=eks_version.version)
             self._addon_cache = {a["addonName"]: a for a in result["addons"]}
 
-        versions = [
-            v["addonVersion"]
-            for v in self._addon_cache[addon]["addonVersions"]
-        ]
+        versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
 
         return sorted(versions)[-1]
