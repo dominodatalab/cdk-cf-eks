@@ -57,7 +57,7 @@ class TestDominoAwsConfigurator(TestCase):
         self.assertEqual(len(loads(noncrds_resource["Properties"]["Manifest"])), 1)
 
     def test_patch_vpc_cni_selinux(self):
-        return True # TODO: move this elsewhere
+        return True  # TODO: move this elsewhere
         DominoAwsConfigurator(self.stack, self.eks_cluster)
 
         assertion = TemplateAssertions.from_stack(self.stack)
