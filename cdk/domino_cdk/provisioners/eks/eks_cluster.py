@@ -112,6 +112,32 @@ class DominoEksClusterProvisioner:
                 ),
             )
 
+        self.setup_addons(cluster, eks_version.version)
+
+        return cluster
+
+    def setup_addons(self, cluster: eks.Cluster, eks_version: str) -> eks.CfnAddon:
+        def addon(addon: str) -> eks.CfnAddon:
+            if not self._addon_cache:
+                eks_client = boto3.client("eks", self.scope.region)
+                result = eks_client.describe_addon_versions(kubernetesVersion=eks_version)
+                self._addon_cache = {a["addonName"]: a for a in result["addons"]}
+
+            versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
+
+            return eks.CfnAddon(
+                self.scope,
+                addon,
+                addon_name=addon,
+                cluster_name=cluster.cluster_name,
+                resolve_conflicts="OVERWRITE",
+                addon_version=sorted(versions)[-1],
+            )
+
+        vpc_cni_addon = addon("vpc-cni")
+        addon("coredns")
+        addon("kube-proxy")
+
         # Until https://github.com/aws/amazon-vpc-cni-k8s/issues/1291 is resolved
         patch = eks.KubernetesPatch(
             self.scope,
@@ -123,25 +149,4 @@ class DominoEksClusterProvisioner:
             restore_patch={},
         )
 
-        patch.node.add_dependency(self.addon("vpc-cni", cluster.cluster_name, eks_version.version))
-        self.addon("coredns", cluster.cluster_name, eks_version.version)
-        self.addon("kube-proxy", cluster.cluster_name, eks_version.version)
-
-        return cluster
-
-    def addon(self, addon: str, cluster_name: str, eks_version: str) -> eks.CfnAddon:
-        if not self._addon_cache:
-            eks_client = boto3.client("eks", self.scope.region)
-            result = eks_client.describe_addon_versions(kubernetesVersion=eks_version)
-            self._addon_cache = {a["addonName"]: a for a in result["addons"]}
-
-        versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
-
-        return eks.CfnAddon(
-            self.scope,
-            addon,
-            addon_name=addon,
-            cluster_name=cluster_name,
-            resolve_conflicts="OVERWRITE",
-            addon_version=sorted(versions)[-1],
-        )
+        patch.node.add_dependency(vpc_cni_addon)
