@@ -80,7 +80,7 @@ def config_template(
         "gpu",
         gpu_nodegroups,
         0,
-        ["p3.2xlarge"],
+        ["g4dn.xlarge"] if dev_defaults else ["p3.2xlarge"],
         {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
         taints={"nvidia.com/gpu": "true:NoSchedule"},
         gpu=True,
