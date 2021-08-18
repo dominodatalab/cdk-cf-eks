@@ -118,20 +118,13 @@ class DominoEksClusterProvisioner:
 
     def setup_addons(self, cluster: eks.Cluster, eks_version: str) -> eks.CfnAddon:
         def addon(addon: str) -> eks.CfnAddon:
-            if not self._addon_cache:
-                eks_client = boto3.client("eks", self.scope.region)
-                result = eks_client.describe_addon_versions(kubernetesVersion=eks_version)
-                self._addon_cache = {a["addonName"]: a for a in result["addons"]}
-
-            versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
-
             return eks.CfnAddon(
                 self.scope,
                 addon,
                 addon_name=addon,
                 cluster_name=cluster.cluster_name,
                 resolve_conflicts="OVERWRITE",
-                addon_version=sorted(versions)[-1],
+                addon_version=self._get_addon_version(addon, eks_version),
             )
 
         vpc_cni_addon = addon("vpc-cni")
@@ -150,3 +143,13 @@ class DominoEksClusterProvisioner:
         )
 
         patch.node.add_dependency(vpc_cni_addon)
+
+    def _get_addon_version(self, addon: str, eks_version: str):
+        if not self._addon_cache:
+            eks_client = boto3.client("eks", self.scope.region)
+            result = eks_client.describe_addon_versions(kubernetesVersion=eks_version)
+            self._addon_cache = {a["addonName"]: a for a in result["addons"]}
+
+        versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
+
+        return sorted(versions)[-1]
