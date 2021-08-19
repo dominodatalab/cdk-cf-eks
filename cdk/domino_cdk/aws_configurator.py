@@ -25,7 +25,6 @@ class DominoAwsConfigurator:
         self.eks_cluster = eks_cluster
 
         self.install_calico()
-        self.patch_vpc_cni_selinux()
 
     def install_calico(self):
         # This produces an obnoxious diff on every subsequent run
@@ -60,15 +59,3 @@ class DominoAwsConfigurator:
                 manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"],
             )
             non_crds.node.add_dependency(crds)
-
-    # Until https://github.com/aws/amazon-vpc-cni-k8s/issues/1291 is resolved
-    def patch_vpc_cni_selinux(self):
-        eks.KubernetesPatch(
-            self.scope,
-            "vpc-cni-selinux",
-            cluster=self.eks_cluster,
-            resource_name="daemonset/aws-node",
-            resource_namespace="kube-system",
-            apply_patch={"spec": {"template": {"spec": {"securityContext": {"seLinuxOptions": {"type": "spc_t"}}}}}},
-            restore_patch={},
-        )
