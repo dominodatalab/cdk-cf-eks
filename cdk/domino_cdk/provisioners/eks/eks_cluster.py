@@ -2,6 +2,7 @@ from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
+import boto3
 from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.region_info import Fact, FactName
@@ -15,6 +16,7 @@ class DominoEksClusterProvisioner:
         scope: cdk.Construct,
     ) -> None:
         self.scope = scope
+        self._addon_cache = None
 
     def provision(
         self,
@@ -110,4 +112,44 @@ class DominoEksClusterProvisioner:
                 ),
             )
 
+        self.setup_addons(cluster, eks_version.version)
+
         return cluster
+
+    def setup_addons(self, cluster: eks.Cluster, eks_version: str) -> eks.CfnAddon:
+        def addon(addon: str) -> eks.CfnAddon:
+            return eks.CfnAddon(
+                self.scope,
+                addon,
+                addon_name=addon,
+                cluster_name=cluster.cluster_name,
+                resolve_conflicts="OVERWRITE",
+                addon_version=self._get_addon_version(addon, eks_version),
+            )
+
+        vpc_cni_addon = addon("vpc-cni")
+        addon("coredns")
+        addon("kube-proxy")
+
+        # Until https://github.com/aws/amazon-vpc-cni-k8s/issues/1291 is resolved
+        patch = eks.KubernetesPatch(
+            self.scope,
+            "vpc-cni-selinux",
+            cluster=cluster,
+            resource_name="daemonset/aws-node",
+            resource_namespace="kube-system",
+            apply_patch={"spec": {"template": {"spec": {"securityContext": {"seLinuxOptions": {"type": "spc_t"}}}}}},
+            restore_patch={},
+        )
+
+        patch.node.add_dependency(vpc_cni_addon)
+
+    def _get_addon_version(self, addon: str, eks_version: str):
+        if not self._addon_cache:
+            eks_client = boto3.client("eks", self.scope.region)
+            result = eks_client.describe_addon_versions(kubernetesVersion=eks_version)
+            self._addon_cache = {a["addonName"]: a for a in result["addons"]}
+
+        versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
+
+        return sorted(versions)[-1]
