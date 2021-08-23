@@ -13,8 +13,6 @@ on:
 jobs:
   test-build-deploy:
     runs-on: ubuntu-latest
-    env:
-      DEPLOYER_IMAGE: quay.io/domino/deployer:develop.82257b0469580769a4a8243401f300eab6a7cf03
     defaults:
       run:
         working-directory: ./cdk
@@ -101,7 +99,7 @@ jobs:
       run: |
         $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
         jq -r ".[].agentconfig" outputs.json > agent_template.yaml
-        docker run --rm -v $(pwd):/cdk $DEPLOYER_IMAGE python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk quay.io/domino/deployer:v42 python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
     - name: Install Domino
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
@@ -110,7 +108,7 @@ jobs:
         KUBECONFIG: ./kubeconfig
         LOG_DIR: k8s-cluster-state
       run: |
-        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent run -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent run -f /cdk/domino.yml
     - name: Collect diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
@@ -146,7 +144,7 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
-        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent destroy -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig quay.io/domino/deployer:v42 python -m fleetcommand_agent destroy -f /cdk/domino.yml
     - name: Destroy CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
