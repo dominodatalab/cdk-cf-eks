@@ -342,6 +342,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "ec2:ModifyInstanceMetadataOptions",
             "ec2:ReleaseAddress",
             "ec2:RunInstances",
+            "eks:*Addon*",
             "eks:CreateNodegroup",
             "eks:DeleteNodegroup",
             "eks:DescribeNodegroup",
