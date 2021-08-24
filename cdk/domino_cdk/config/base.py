@@ -93,6 +93,11 @@ class DominoCDKConfig:
             c,
         )
 
+    @staticmethod
+    def from_0_0_2(c: dict):
+        # NOTE: On next schema change, fill this out and remove v0.0.0 support
+        return DominoCDKConfig.from_0_0_1(c)
+
     def __post_init__(self):
         errors = []
 
