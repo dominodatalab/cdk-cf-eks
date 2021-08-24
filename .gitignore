@@ -12,6 +12,7 @@ Pipfile.lock
 # CDK asset staging directory
 .cdk.staging
 cdk.out
+cdk.context.json
 
 # terraform
 terraform/.terraform
