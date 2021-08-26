@@ -127,7 +127,7 @@ default_config = DominoCDKConfig(
             ),
         )
     ),
-    schema='0.0.1',
+    schema='0.0.2',
 )
 
 legacy_template = {
@@ -317,7 +317,7 @@ legacy_config = DominoCDKConfig(
             monitoring=None,
         ),
     ),
-    schema='0.0.1',
+    schema='0.0.2',
 )
 
 
