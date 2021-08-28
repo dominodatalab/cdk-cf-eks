@@ -190,21 +190,70 @@ class TestConfigEKS(unittest.TestCase):
     def test_ami_incompatible_options(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
         eks_cfg["managed_nodegroups"]["compute"]["ami_id"] = "some-ami-id"
-        eks_cfg["managed_nodegroups"]["compute"]["user_data"] = "some-user-data"
-        eks_cfg["managed_nodegroups"]["compute"]["ssm_agent"] = True
+        eks_cfg["managed_nodegroups"]["compute"]["user_data"] = "my user data"
+        eks_cfg["managed_nodegroups"]["compute"]["ssm_agent"] = False
         eks_cfg["managed_nodegroups"]["compute"]["labels"] = {}
-        with self.assertRaisesRegex(ValueError, "Managed nodegroup \\[compute\\]: ssm_agent, labels and taints"):
-            EKS.from_0_0_1(eks_cfg)
+        eks_cfg["managed_nodegroups"]["compute"]["disk_size"] = 0
+
+        # Valid BYO-AMI configuration
+        EKS.from_0_0_1(deepcopy(eks_cfg))
+
+        eks_cfg["managed_nodegroups"]["compute"]["user_data"] = ""
+        with self.assertRaisesRegex(
+            ValueError,
+            r"Managed nodegroup \[compute\]: User data must be provided",
+        ):
+            EKS.from_0_0_1(deepcopy(eks_cfg))
+
+        eks_cfg["managed_nodegroups"]["compute"]["user_data"] = "my user data"
+        for (option, value) in [
+            ("labels", {"my-label": "value"}),
+            ("ssm_agent", True),
+            ("disk_size", 1000),
+        ]:
+            cfg = deepcopy(eks_cfg)
+            cfg["managed_nodegroups"]["compute"][option] = value
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Managed nodegroup \[compute\]: some options \(ssm_agent, labels, disk_size\)",
+            ):
+                EKS.from_0_0_1(cfg)
 
     def test_ami_unmanaged_multiple_exceptions(self):
         eks_cfg = deepcopy(eks_0_0_1_cfg)
+
         eks_cfg["unmanaged_nodegroups"]["platform"]["ami_id"] = "some-ami-id"
-        eks_cfg["unmanaged_nodegroups"]["platform"]["user_data"] = None
+        eks_cfg["unmanaged_nodegroups"]["platform"]["user_data"] = "my user data"
+        eks_cfg["unmanaged_nodegroups"]["platform"]["labels"] = {}
+        eks_cfg["unmanaged_nodegroups"]["platform"]["taints"] = {}
+        eks_cfg["unmanaged_nodegroups"]["platform"]["ssm_agent"] = False
+        eks_cfg["unmanaged_nodegroups"]["platform"]["disk_size"] = 0
+
+        # Valid BYO-AMI configuration
+        EKS.from_0_0_1(deepcopy(eks_cfg))
+
+        eks_cfg["unmanaged_nodegroups"]["platform"]["user_data"] = ""
+
         with self.assertRaisesRegex(
             ValueError,
-            "Unmanaged nodegroup \\[platform\\]: User data must be provided.*Unmanaged nodegroup \\[platform\\]: ssm_agent, labels and taints",
+            r"Unmanaged nodegroup \[platform\]: User data must be provided",
         ):
-            EKS.from_0_0_1(eks_cfg)
+            EKS.from_0_0_1(deepcopy(eks_cfg))
+
+        eks_cfg["unmanaged_nodegroups"]["platform"]["user_data"] = "my user data"
+        for (option, value) in [
+            ("labels", {"my-label": "value"}),
+            ("taints", {"my-taint": "NoSchedule"}),
+            ("ssm_agent", True),
+            ("disk_size", 1000),
+        ]:
+            cfg = deepcopy(eks_cfg)
+            cfg["unmanaged_nodegroups"]["platform"][option] = value
+            with self.assertRaisesRegex(
+                ValueError,
+                r"Unmanaged nodegroup \[platform\]: some options \(ssm_agent, labels, taints, disk_size\)",
+            ):
+                EKS.from_0_0_1(cfg)
 
     def test_key_name(self):
         key_name = "abcd1234-key-pair"

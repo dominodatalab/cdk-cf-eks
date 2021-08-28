@@ -1,5 +1,5 @@
 from ipaddress import ip_network
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
@@ -9,10 +9,6 @@ import aws_cdk.custom_resources as cr
 from aws_cdk import core as cdk
 
 from domino_cdk import config
-
-from .ami import root_device_mapping
-
-_DominoVpcStack = None
 
 
 class DominoVpcProvisioner:
@@ -193,20 +189,30 @@ class DominoVpcProvisioner:
         if not bastion.enabled:
             return None
 
+        bastion_opts: Dict[Any, Any] = {}
+
         if bastion.ami_id:
             region = cdk.Stack.of(self.scope).region
-            machine_image = ec2.MachineImage.generic_linux(
+            bastion_opts["machine_image"] = ec2.MachineImage.generic_linux(
                 {region: bastion.ami_id},
                 user_data=ec2.UserData.custom(bastion.user_data) if bastion.user_data else None,
             )
-
-            root_device_name = root_device_mapping(self.scope, bastion.ami_id).name
         else:
-            machine_image = ec2.GenericSSMParameterImage(
+            bastion_opts["machine_image"] = ec2.GenericSSMParameterImage(
                 "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2", ec2.OperatingSystemType.LINUX
             )
 
-            root_device_name = "/dev/xvda"  # This only works for AL2
+            bastion_opts["block_devices"] = [
+                ec2.BlockDevice(
+                    device_name="/dev/xvda",  # This only works for AL2,
+                    volume=ec2.BlockDeviceVolume.ebs(
+                        40,  # note: this requires the AMI root device already be <=40GB
+                        delete_on_termination=True,
+                        encrypted=True,
+                        volume_type=ec2.EbsDeviceVolumeType.GP2,
+                    ),
+                )
+            ]
 
         bastion_sg = ec2.SecurityGroup(
             self.scope,
@@ -230,26 +236,15 @@ class DominoVpcProvisioner:
         bastion_instance = ec2.Instance(
             self.scope,
             "bastion",
-            machine_image=machine_image,
             vpc=self.vpc,
             instance_type=ec2.InstanceType(bastion.instance_type),
-            block_devices=[
-                ec2.BlockDevice(
-                    device_name=root_device_name,
-                    volume=ec2.BlockDeviceVolume.ebs(
-                        40,  # TODO: this requires the AMI volume be <= 40GiB already
-                        delete_on_termination=True,
-                        encrypted=True,
-                        volume_type=ec2.EbsDeviceVolumeType.GP2,
-                    ),
-                )
-            ],
             role=None,
             key_name=bastion.key_name,
             security_group=bastion_sg,
             vpc_subnets=ec2.SubnetSelection(
                 subnet_group_name=self.public_subnet_name,
             ),
+            **bastion_opts,
         )
 
         bastion_instance.role.add_managed_policy(

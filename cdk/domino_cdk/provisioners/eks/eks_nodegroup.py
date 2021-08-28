@@ -8,8 +8,6 @@ from aws_cdk import core as cdk
 
 from domino_cdk import config
 
-from ..ami import root_device_mapping
-
 
 class DominoEksNodegroupProvisioner:
     def __init__(
@@ -277,16 +275,15 @@ class DominoEksNodegroupProvisioner:
 
         return mime_user_data
 
-    def _launch_template(self, scope, name: str, ng: config.eks.T_NodegroupBase, **opts) -> ec2.LaunchTemplate:
-        if ng.ami_id:
-            root_device_name = root_device_mapping(self.scope, ng.ami_id).name
-        else:
-            root_device_name = "/dev/xvda"  # This only works for AL2
-
-        opts = {
+    def _launch_template(self, scope, name: str, ng: config.eks.T_NodegroupBase, **kwargs) -> ec2.LaunchTemplate:
+        opts: Dict[Any, Any] = {
             "key_name": ng.key_name,
             "launch_template_name": f"{self.stack_name}-{name}",
-            "block_devices": [
+        }
+
+        if not ng.ami_id:
+            root_device_name = "/dev/xvda"  # This only works for AL2
+            opts["block_devices"] = [
                 ec2.BlockDevice(
                     device_name=root_device_name,
                     volume=ec2.BlockDeviceVolume.ebs(
@@ -296,12 +293,6 @@ class DominoEksNodegroupProvisioner:
                         volume_type=ec2.EbsDeviceVolumeType.GP2,
                     ),
                 )
-            ],
-            **opts,
-        }
+            ]
 
-        return ec2.LaunchTemplate(
-            scope,
-            name,
-            **opts,
-        )
+        return ec2.LaunchTemplate(scope, name, **{**opts, **kwargs})
