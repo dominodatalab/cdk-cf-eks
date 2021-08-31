@@ -24,7 +24,7 @@ variable "output_dir" {
 }
 
 variable "parameters" {
-  type        = map
+  type        = map(any)
   description = "Parameters to feed into cloudformation"
 }
 
@@ -40,7 +40,7 @@ variable "iam_role_arn" {
 }
 
 variable "iam_policy_paths" {
-  type        = list
+  type        = list(any)
   description = "IAM policies to provision and use for deployment role"
 }
 
@@ -51,7 +51,7 @@ variable "cloudformation_timeout_in_minutes" {
 }
 
 variable "tags" {
-  type        = map
+  type        = map(any)
   description = "Tags to apply to all resources (not including what CloudFormation provisions)"
   default     = {}
 }
