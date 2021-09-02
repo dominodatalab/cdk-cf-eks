@@ -95,7 +95,7 @@ def config_template(
         {"dominodatalab.com/node-pool": "default-gpu", "nvidia.com/gpu": "true"},
         taints={"nvidia.com/gpu": "true:NoSchedule"},
         gpu=True,
-        disk_size=disk_size
+        disk_size=disk_size,
     )
 
     vpc = VPC(
