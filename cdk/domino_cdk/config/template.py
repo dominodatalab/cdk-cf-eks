@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from domino_cdk import __version__
 from domino_cdk.config import (
@@ -42,7 +42,17 @@ def config_template(
 
     unmanaged_nodegroups = {}
 
-    def add_nodegroups(name, count, min_size, instance_types, labels, disk_size=100, taints=None, gpu=False):
+    def add_nodegroups(
+        name: str,
+        count: int,
+        min_size: int,
+        instance_types: List[str],
+        labels: Dict,
+        disk_size: int = 100,
+        taints: Optional[Dict] = None,
+        gpu: bool = False,
+        max_size: int = 10,
+    ):
         for i in range(0, count):
             unmanaged_nodegroups[f"{name}-{i}"] = EKS.UnmanagedNodegroup(
                 gpu=gpu,
@@ -51,7 +61,7 @@ def config_template(
                 disk_size=disk_size,
                 key_name=keypair_name,
                 min_size=min_size,
-                max_size=10,
+                max_size=max_size,
                 ami_id=None,
                 user_data=None,
                 instance_types=instance_types,
@@ -75,6 +85,7 @@ def config_template(
         ["m5.2xlarge"],
         {"dominodatalab.com/node-pool": "default"},
         disk_size=disk_size,
+        max_size=30 if dev_defaults else 10,
     )
     add_nodegroups(
         "gpu",
