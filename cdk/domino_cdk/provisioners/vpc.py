@@ -209,7 +209,7 @@ class DominoVpcProvisioner:
                         40,  # note: this requires the AMI root device already be <=40GB
                         delete_on_termination=True,
                         encrypted=True,
-                        volume_type=ec2.EbsDeviceVolumeType.GP2,
+                        volume_type=ec2.EbsDeviceVolumeType.GP3,
                     ),
                 )
             ]

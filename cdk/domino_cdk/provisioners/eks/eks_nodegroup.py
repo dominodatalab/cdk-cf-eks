@@ -290,7 +290,7 @@ class DominoEksNodegroupProvisioner:
                         ng.disk_size,
                         delete_on_termination=True,
                         encrypted=True,
-                        volume_type=ec2.EbsDeviceVolumeType.GP2,
+                        volume_type=ec2.EbsDeviceVolumeType.GP3,
                     ),
                 )
             ]
