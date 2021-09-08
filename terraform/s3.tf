@@ -51,11 +51,11 @@ resource "aws_s3_bucket_public_access_block" "deny_public_access" {
 }
 
 resource "aws_s3_bucket_object" "assets" {
-  for_each = fileset("${var.asset_dir}/", "**")
-  bucket   = aws_s3_bucket.cf_asset_bucket.id
-  key      = each.value
-  source   = "${var.asset_dir}/${each.value}"
-  etag     = filemd5("${var.asset_dir}/${each.value}")
+  for_each    = fileset("${var.asset_dir}/", "**")
+  bucket      = aws_s3_bucket.cf_asset_bucket.id
+  key         = each.value
+  source      = "${var.asset_dir}/${each.value}"
+  source_hash = filemd5("${var.asset_dir}/${each.value}")
   depends_on = [
     aws_s3_bucket_public_access_block.deny_public_access
   ]
