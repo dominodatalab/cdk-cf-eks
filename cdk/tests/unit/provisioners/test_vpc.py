@@ -51,7 +51,7 @@ class TestDominoVPCProvisioner(TestCase):
             [
                 {
                     "DeviceName": "/dev/xvda",
-                    "Ebs": {"DeleteOnTermination": True, "Encrypted": True, "VolumeSize": 40, "VolumeType": "gp2"},
+                    "Ebs": {"DeleteOnTermination": True, "Encrypted": True, "VolumeSize": 40, "VolumeType": "gp3"},
                 }
             ],
             instance["Properties"].get("BlockDeviceMappings"),
