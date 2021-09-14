@@ -1,4 +1,5 @@
 from aws_cdk import core as cdk
+from aws_cdk.region_info import Fact, FactName
 
 from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
@@ -13,6 +14,7 @@ from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
     DominoEksK8sIamRolesProvisioner,
 )
 from domino_cdk.util import DominoCdkUtil
+from domino_cdk.provisioners.lambda_utils import create_lambda
 
 
 class DominoStack(cdk.Stack):
@@ -62,6 +64,28 @@ class DominoStack(cdk.Stack):
             nest,
         )
 
+        partition = Fact.require_fact(self.region, FactName.PARTITION)
+        create_lambda(
+            scope=self,
+            stack_name=self.name,
+            name="fix_missing_tags",
+            properties={"stack_name": self.name, "tags": self.cfg.tags, "vpc_id": self.vpc_stack.vpc.vpc_id, "boing": "boom"},
+            resources=[
+                f"arn:{partition}:ec2:{self.region}:{self.account}:vpc/{self.vpc_stack.vpc.vpc_id}",
+                f"arn:{partition}:ec2:{self.region}:{self.account}:vpc-endpoint/*",
+                "*",
+            ],
+            actions=[
+                "ec2:CreateTags",
+                "ec2:DescribeLaunchTemplates",
+                "ec2:DescribeNetworkAcls",
+                "ec2:DescribeRouteTables",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeVpcEndpoints",
+                "iam:ListPolicies",
+                "iam:TagPolicy",
+            ],
+        )
         # At least until we get the lambda working, this has to live in the eks stack's scope
         # as there is some implicit token used to construct the magically auto-generated kubectl
         # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
