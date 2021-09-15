@@ -65,6 +65,7 @@ class DominoEksNodegroupProvisioner:
             machine_image=machine_image,
             user_data=mime_user_data,
         )
+        self.scope.untagged_resources["ec2"].append(lt.launch_template_id)
         lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
 
         for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
@@ -186,6 +187,8 @@ class DominoEksNodegroupProvisioner:
                     ),
                 )
                 cfn_lt.launch_template_data = lt_data
+
+            self.scope.untagged_resources["ec2"].append(cfn_lt.ref)
 
             # https://github.com/aws/aws-cdk/issues/6734
             cfn_asg: aws_autoscaling.CfnAutoScalingGroup = asg.node.default_child

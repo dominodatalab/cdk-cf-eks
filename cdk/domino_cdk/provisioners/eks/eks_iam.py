@@ -93,11 +93,17 @@ class DominoEksIamProvisioner:
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'),
         ]
 
+        self.scope.untagged_resources["iam"].extend([ecr_policy.managed_policy_arn, autoscaler_policy.managed_policy_arn, snapshot_policy.managed_policy_arn])
+
         if r53_zone_ids:
-            managed_policies.append(self.provision_r53_policy(stack_name, r53_zone_ids))
+            r53_policy = self.provision_r53_policy(stack_name, r53_zone_ids)
+            managed_policies.append(r53_policy)
+            self.scope.untagged_resources["iam"].append(r53_policy.managed_policy_arn)
 
         if buckets:
-            managed_policies.append(self.provision_node_s3_iam_policy(stack_name, buckets))
+            s3_policy = self.provision_node_s3_iam_policy(stack_name, buckets)
+            managed_policies.append(s3_policy)
+            self.scope.untagged_resources["iam"].append(s3_policy.managed_policy_arn)
 
         return iam.Role(
             self.scope,

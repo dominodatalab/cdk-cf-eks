@@ -28,6 +28,9 @@ class DominoStack(cdk.Stack):
         self.env = kwargs["env"]
         self.name = self.cfg.name
         cdk.CfnOutput(self, "deploy_name", value=self.name)
+
+        self.untagged_resources = {"ec2": [], "iam": []}
+
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
@@ -69,7 +72,7 @@ class DominoStack(cdk.Stack):
             scope=self,
             stack_name=self.name,
             name="fix_missing_tags",
-            properties={"stack_name": self.name, "tags": self.cfg.tags, "vpc_id": self.vpc_stack.vpc.vpc_id, "boing": "boom"},
+            properties={"stack_name": self.name, "tags": self.cfg.tags, "vpc_id": self.vpc_stack.vpc.vpc_id, "untagged_resources": self.untagged_resources, "boing": "boom"},
             resources=[
                 f"arn:{partition}:ec2:{self.region}:{self.account}:vpc/{self.vpc_stack.vpc.vpc_id}",
                 f"arn:{partition}:ec2:{self.region}:{self.account}:vpc-endpoint/*",
