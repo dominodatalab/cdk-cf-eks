@@ -39,7 +39,9 @@ def tag_ec2(tags, stack_name, vpc_id, resource_ids):
     # If we want to restrict to the default one, we could do:
     # [rt for rt in rts if not rt["Tags"]] or search for main one
 
-    security_groups = client.describe_security_groups(Filters=[*vpc_filter, {"Name": "group-name", "Values": ["default"]}])
+    security_groups = client.describe_security_groups(
+        Filters=[*vpc_filter, {"Name": "group-name", "Values": ["default"]}]
+    )
     resource_ids.append(security_groups["SecurityGroups"][0]["GroupId"])
 
     network_acls = client.describe_network_acls(Filters=vpc_filter)

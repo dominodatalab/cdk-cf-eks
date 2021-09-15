@@ -107,7 +107,9 @@ class DominoEksK8sIamRolesProvisioner:
 
         managed_policies.update(self.create_s3_policies(stack_name, buckets))
 
-        self.scope.untagged_resources["iam"].extend([policy.managed_policy_arn for category in managed_policies.values() for policy in category.values()])
+        self.scope.untagged_resources["iam"].extend(
+            [policy.managed_policy_arn for category in managed_policies.values() for policy in category.values()]
+        )
 
         for name, policy_ref in roles.items():
             iam_role = iam.Role(

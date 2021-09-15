@@ -93,7 +93,9 @@ class DominoEksIamProvisioner:
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonSSMManagedInstanceCore'),
         ]
 
-        self.scope.untagged_resources["iam"].extend([ecr_policy.managed_policy_arn, autoscaler_policy.managed_policy_arn, snapshot_policy.managed_policy_arn])
+        self.scope.untagged_resources["iam"].extend(
+            [ecr_policy.managed_policy_arn, autoscaler_policy.managed_policy_arn, snapshot_policy.managed_policy_arn]
+        )
 
         if r53_zone_ids:
             r53_policy = self.provision_r53_policy(stack_name, r53_zone_ids)

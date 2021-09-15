@@ -13,8 +13,8 @@ from domino_cdk.provisioners import (
 from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
     DominoEksK8sIamRolesProvisioner,
 )
-from domino_cdk.util import DominoCdkUtil
 from domino_cdk.provisioners.lambda_utils import create_lambda
+from domino_cdk.util import DominoCdkUtil
 
 
 class DominoStack(cdk.Stack):
@@ -72,7 +72,13 @@ class DominoStack(cdk.Stack):
             scope=self,
             stack_name=self.name,
             name="fix_missing_tags",
-            properties={"stack_name": self.name, "tags": self.cfg.tags, "vpc_id": self.vpc_stack.vpc.vpc_id, "untagged_resources": self.untagged_resources, "boing": "boom"},
+            properties={
+                "stack_name": self.name,
+                "tags": self.cfg.tags,
+                "vpc_id": self.vpc_stack.vpc.vpc_id,
+                "untagged_resources": self.untagged_resources,
+                "boing": "boom",
+            },
             resources=[
                 f"arn:{partition}:ec2:{self.region}:{self.account}:vpc/{self.vpc_stack.vpc.vpc_id}",
                 f"arn:{partition}:ec2:{self.region}:{self.account}:vpc-endpoint/*",
