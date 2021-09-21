@@ -29,6 +29,8 @@ class DominoEksProvisioner:
     ) -> None:
         self.scope = cdk.NestedStack(parent, construct_id, **kwargs) if nest else parent
 
+        self.scope.untagged_resources = parent.untagged_resources
+
         eks_version = getattr(eks.KubernetesVersion, f"V{eks_cfg.version.replace('.', '_')}")
 
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(

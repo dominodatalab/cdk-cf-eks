@@ -12,6 +12,7 @@ from domino_cdk.provisioners import (
 from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
     DominoEksK8sIamRolesProvisioner,
 )
+from domino_cdk.provisioners.lambda_utils import create_lambda
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -26,6 +27,9 @@ class DominoStack(cdk.Stack):
         self.env = kwargs["env"]
         self.name = self.cfg.name
         cdk.CfnOutput(self, "deploy_name", value=self.name)
+
+        self.untagged_resources = {"ec2": [], "iam": []}
+
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
@@ -62,6 +66,30 @@ class DominoStack(cdk.Stack):
             nest,
         )
 
+        create_lambda(
+            scope=self,
+            stack_name=self.name,
+            name="fix_missing_tags",
+            properties={
+                "stack_name": self.name,
+                "tags": self.cfg.tags,
+                "vpc_id": self.vpc_stack.vpc.vpc_id,
+                "untagged_resources": self.untagged_resources,
+            },
+            resources=[
+                "*",
+            ],
+            actions=[
+                "ec2:CreateTags",
+                "ec2:DescribeLaunchTemplates",
+                "ec2:DescribeNetworkAcls",
+                "ec2:DescribeRouteTables",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeVpcEndpoints",
+                "iam:ListPolicies",
+                "iam:TagPolicy",
+            ],
+        )
         # At least until we get the lambda working, this has to live in the eks stack's scope
         # as there is some implicit token used to construct the magically auto-generated kubectl
         # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
