@@ -1,6 +1,6 @@
 from os import environ
 
-from aws_cdk.assertions import TemplateAssertions
+from aws_cdk.assertions import Template
 from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.config import S3
@@ -26,12 +26,12 @@ class TestDominoS3Provisioner(TestCase):
 
         DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
 
         template = self.app.synth().get_stack("S3").template
 
         assertion.resource_count_is("AWS::S3::Bucket", 1)
-        assertion.has_resource_definition(
+        assertion.has_resource(
             "AWS::S3::Bucket",
             {
                 "Properties": {
@@ -66,7 +66,6 @@ class TestDominoS3Provisioner(TestCase):
                     "Action": "s3:*",
                     "Condition": {"Bool": {"aws:SecureTransport": "false"}},
                     "Effect": "Deny",
-                    "Principal": "*",
                 },
                 {
                     "Action": ["s3:GetBucket*", "s3:List*", "s3:DeleteObject*"],
@@ -80,7 +79,6 @@ class TestDominoS3Provisioner(TestCase):
                     "Action": "s3:PutObject",
                     "Condition": {"StringEquals": {"s3:x-amz-acl": "bucket-owner-full-control"}},
                     "Effect": "Allow",
-                    "Principal": {"Service": "delivery.logs.amazonaws.com"},
                     "Sid": "AWSLogDeliveryWrite",
                 },
                 {
@@ -105,7 +103,7 @@ class TestDominoS3Provisioner(TestCase):
 
         DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::S3::Bucket", 1)
         assertion.has_resource_properties(
             "AWS::S3::Bucket",
@@ -224,9 +222,9 @@ class TestDominoS3Provisioner(TestCase):
 
             DominoS3Provisioner(stack, "construct-1", "test-s3", s3_config, False)
 
-            assertion = TemplateAssertions.from_stack(stack)
+            assertion = Template.from_stack(stack)
             assertion.resource_count_is("AWS::S3::Bucket", 1)
-            assertion.has_resource_definition("AWS::S3::Bucket", resource_defn)
+            assertion.has_resource("AWS::S3::Bucket", resource_defn)
 
             assertion.resource_count_is("AWS::S3::BucketPolicy", 1)
 
@@ -241,7 +239,6 @@ class TestDominoS3Provisioner(TestCase):
                         "Action": "s3:*",
                         "Condition": {"Bool": {"aws:SecureTransport": "false"}},
                         "Effect": "Deny",
-                        "Principal": "*",
                     },
                     *policies,
                     {
@@ -252,14 +249,12 @@ class TestDominoS3Provisioner(TestCase):
                             }
                         },
                         "Effect": "Deny",
-                        "Principal": "*",
                         "Sid": "DenyIncorrectEncryptionHeader",
                     },
                     {
                         "Action": "s3:PutObject",
                         "Condition": {"Null": {"s3:x-amz-server-side-encryption": "true"}},
                         "Effect": "Deny",
-                        "Principal": "*",
                         "Sid": "DenyUnEncryptedObjectUploads",
                     },
                 ],
@@ -278,7 +273,7 @@ class TestDominoS3Provisioner(TestCase):
 
         DominoS3Provisioner(self.stack, "construct-1", "test-s3", s3_config, False)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::S3::Bucket", 2)
         assertion.has_resource_properties(
             "AWS::S3::Bucket",

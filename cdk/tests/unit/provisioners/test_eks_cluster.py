@@ -2,7 +2,7 @@ from json import loads
 from unittest.mock import patch
 
 import aws_cdk.aws_eks as eks
-from aws_cdk.assertions import TemplateAssertions
+from aws_cdk.assertions import Template
 from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.provisioners.eks import DominoEksClusterProvisioner
@@ -28,7 +28,7 @@ class TestEksClusterProvisioner(TestCase):
 
         eks_provisioner.setup_addons(self.eks_cluster, self.eks_version.version)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesPatch", 1)
         assertion.resource_count_is("AWS::EKS::Addon", 3)
         assertion.has_resource_properties("AWS::EKS::Addon", {"AddonName": "vpc-cni", "AddonVersion": ADDON_VERSION})
