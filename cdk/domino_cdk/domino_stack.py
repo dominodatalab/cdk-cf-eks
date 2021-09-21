@@ -1,5 +1,4 @@
 from aws_cdk import core as cdk
-from aws_cdk.region_info import Fact, FactName
 
 from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
@@ -67,7 +66,6 @@ class DominoStack(cdk.Stack):
             nest,
         )
 
-        partition = Fact.require_fact(self.region, FactName.PARTITION)
         create_lambda(
             scope=self,
             stack_name=self.name,
@@ -77,11 +75,8 @@ class DominoStack(cdk.Stack):
                 "tags": self.cfg.tags,
                 "vpc_id": self.vpc_stack.vpc.vpc_id,
                 "untagged_resources": self.untagged_resources,
-                "boing": "boom",
             },
             resources=[
-                f"arn:{partition}:ec2:{self.region}:{self.account}:vpc/{self.vpc_stack.vpc.vpc_id}",
-                f"arn:{partition}:ec2:{self.region}:{self.account}:vpc-endpoint/*",
                 "*",
             ],
             actions=[
