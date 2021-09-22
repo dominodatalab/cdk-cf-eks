@@ -1,5 +1,5 @@
 import aws_cdk.aws_s3 as s3
-from aws_cdk.assertions import TemplateAssertions
+from aws_cdk.assertions import Template
 from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.config import VPC, IngressRule
@@ -37,7 +37,7 @@ class TestDominoVPCProvisioner(TestCase):
 
         DominoVpcProvisioner(self.stack, "construct-1", "test-vpc", vpc_config, False, None)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::EC2::VPC", 1)
         assertion.resource_count_is("AWS::EC2::Subnet", 9)
         assertion.resource_count_is("AWS::EC2::InternetGateway", 1)
@@ -103,7 +103,7 @@ class TestDominoVPCProvisioner(TestCase):
         logging_bucket = s3.Bucket(self.stack, "logging-bucket")
         DominoVpcProvisioner(self.stack, "construct-1", "test-vpc", vpc_config, False, logging_bucket)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::EC2::FlowLog", 1)
 
     def test_bring_your_own_vpc(self):
@@ -128,7 +128,7 @@ class TestDominoVPCProvisioner(TestCase):
 
         DominoVpcProvisioner(self.stack, "construct-1", "test-vpc", vpc_config, False, None)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::EC2::VPC", 0)
 
     def test_bastion_bring_your_own_ami(self):
@@ -155,7 +155,7 @@ class TestDominoVPCProvisioner(TestCase):
 
         DominoVpcProvisioner(self.stack, "construct-1", "test-vpc", vpc_config, False, None)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::EC2::Instance", 1)
 
         template = self.app.synth().get_stack("VPC").template

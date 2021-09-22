@@ -3,7 +3,7 @@ from os import chdir
 from tempfile import TemporaryDirectory
 
 import aws_cdk.aws_eks as eks
-from aws_cdk.assertions import TemplateAssertions
+from aws_cdk.assertions import Template
 from aws_cdk.core import App, Environment, Stack
 from ruamel.yaml import YAML
 
@@ -21,7 +21,7 @@ class TestDominoAwsConfigurator(TestCase):
     def test_install_calico(self):
         DominoAwsConfigurator(self.stack, self.eks_cluster)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 3)  # two calico, one aws-auth
 
         template = self.app.synth().get_stack("calico").template
@@ -43,7 +43,7 @@ class TestDominoAwsConfigurator(TestCase):
 
             DominoAwsConfigurator(self.stack, self.eks_cluster)
 
-        assertion = TemplateAssertions.from_stack(self.stack)
+        assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 3)  # two calico, one aws-auth
 
         template = self.app.synth().get_stack("calico").template
