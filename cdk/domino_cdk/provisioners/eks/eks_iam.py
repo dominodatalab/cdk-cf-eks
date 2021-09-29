@@ -83,10 +83,70 @@ class DominoEksIamProvisioner:
             ],
         )
 
+        # https://github.com/kubernetes-sigs/aws-ebs-csi-driver/blob/helm-chart-aws-ebs-csi-driver-2.1.1/docs/example-iam-policy.json
+        ebs_policy_document = iam.PolicyDocument(
+            statements=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "ec2:DescribeAvailabilityZones",
+                        "ec2:DescribeInstances",
+                        "ec2:DescribeSnapshots",
+                        "ec2:DescribeTags",
+                        "ec2:DescribeVolumes",
+                        "ec2:DescribeVolumesModifications",
+                    ],
+                    resources=["*"],
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "ec2:CreateSnapshot",
+                        "ec2:AttachVolume",
+                        "ec2:DetachVolume",
+                        "ec2:ModifyVolume",
+                    ],
+                    resources=["*"],
+                    conditions={"StringLike": {"aws:ResourceTag/deploy_id": cluster_name}},
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["ec2:CreateTags"],
+                    resources=["arn:aws:ec2:*:*:volume/*", "arn:aws:ec2:*:*:snapshot/*"],
+                    conditions={"StringEquals": {"ec2:CreateAction": ["CreateVolume", "CreateSnapshot"]}},
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["ec2:DeleteTags"],
+                    resources=["arn:aws:ec2:*:*:volume/*", "arn:aws:ec2:*:*:snapshot/*"],
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["ec2:CreateVolume"],
+                    resources=["*"],
+                    conditions={"StringLike": {"aws:RequestTag/KubernetesCluster": cluster_name}},
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["ec2:DeleteVolume", "ec2:DeleteSnapshot"],
+                    resources=["*"],
+                    conditions={"StringLike": {"aws:ResourceTag/KubernetesCluster": cluster_name}},
+                ),
+            ]
+        )
+
+        ebs_csi_policy = iam.ManagedPolicy(
+            self.scope,
+            f"{stack_name}-ebs-csi",
+            managed_policy_name=f"{stack_name}-ebs-csi",
+            document=ebs_policy_document,
+        )
+
         managed_policies = [
             ecr_policy,
             autoscaler_policy,
             snapshot_policy,
+            ebs_csi_policy,
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKSWorkerNodePolicy'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEC2ContainerRegistryReadOnly'),
             iam.ManagedPolicy.from_aws_managed_policy_name('AmazonEKS_CNI_Policy'),
