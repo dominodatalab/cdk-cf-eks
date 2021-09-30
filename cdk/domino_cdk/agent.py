@@ -74,6 +74,7 @@ def generate_install_config(
                 "bucket": buckets["registry"].bucket_name,
             }
         },
+        "metrics_server": {"install": True},
         "gpu": {"enabled": True},
         "helm": {
             "cache_path": "charts",
