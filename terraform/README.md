@@ -93,9 +93,11 @@ Terraform will not detect changes inside the CloudFormation template contents, b
 
 ## Deployment IAM Policy
 
-Included with this Terraform module is an IAM policy for the Terraform module itself, `terraform-iam.txt`. This policy will give you the minimal permissions required to create the s3 assets bucket, upload to it, and then create and managed the CloudFormation itself.
+Included with this Terraform module is an IAM policy for the Terraform module itself, `iam/iam-general.txt`. This policy will give you the minimal permissions required to create the s3 assets bucket, upload to it, and then create and managed the CloudFormation itself.
 
 It is mean to be used in tandem with the `iam_role_arn` option.
+
+Additionally, you can add the `iam/iam-create.txt` policy and use the `iam_policy_paths` option to automate deployment of the policies used with CloudFormation instead.
 
 When using it, the workflow should be:
 
@@ -105,6 +107,10 @@ When using it, the workflow should be:
 * Upload this policy to AWS as well and associate with a user
 * Provision the Terraform with this user
 * Ensure the role associated with the generated CDK IAM policies is input to `iam_role_arn`
+
+An example command for doing the substitution:
+
+    cat iam/iam-general.txt | sed -e 's/<YOUR-STACK-NAME>/mydeploy/g' -e 's/<YOUR-REGION>/us-west-2/g' -e 's/<IAM-ACCOUNT-NUM>/123456789012/g'
 
 ## Manual preparation
 

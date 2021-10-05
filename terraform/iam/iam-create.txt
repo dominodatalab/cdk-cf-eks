@@ -1,0 +1,16 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "IAMGated",
+            "Effect": "Allow",
+            "Action": [
+                "*"
+            ],
+            "Resource": [
+                "arn:aws:iam::<IAM-ACCOUNT-NUM>:policy/<YOUR-STACK-NAME>-deployment*",
+                "arn:aws:iam::<IAM-ACCOUNT-NUM>:role/<YOUR-STACK-NAME>-deployment*"
+            ]
+        }
+    ]
+}

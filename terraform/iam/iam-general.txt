@@ -22,23 +22,13 @@
             ]
         },
         {
-            "Sid": "IAMGated",
+            "Sid": "IAMPassRoleGated",
             "Effect": "Allow",
             "Action": [
                 "iam:PassRole"
             ],
             "Resource": [
                 "arn:aws:iam::<IAM-ACCOUNT-NUM>:role/<YOUR-STACK-NAME>"
-            ]
-        },
-        {
-            "Sid": "EKSGated",
-            "Effect": "Allow",
-            "Action": [
-                "eks:DescribeCluster"
-            ],
-            "Resource": [
-                "*"
             ]
         },
         {
@@ -71,6 +61,11 @@
                 "cloudformation:SetTypeDefaultVersion",
                 "cloudformation:TestType",
                 "cloudformation:ValidateTemplate",
+                "ec2:DescribeAvailabilityZones",
+                "eks:Describe*",
+                "eks:List*",
+                "iam:Get*",
+                "iam:List*",
                 "kms:DescribeKey",
                 "s3:CreateJob",
                 "s3:Get*",
