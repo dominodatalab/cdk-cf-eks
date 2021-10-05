@@ -1,0 +1,84 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CFGated",
+            "Effect": "Allow",
+            "Action": [
+                "*"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:<YOUR-REGION>:<IAM-ACCOUNT-NUM>:stack/<YOUR-STACK-NAME>/*",
+                "arn:aws:cloudformation:<YOUR-REGION>:<IAM-ACCOUNT-NUM>:stackset/<YOUR-STACK-NAME>:*"
+            ]
+        },
+        {
+            "Sid": "S3Gated",
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::<YOUR-STACK-NAME>-cf-assets/*",
+                "arn:aws:s3:::<YOUR-STACK-NAME>-cf-assets"
+            ]
+        },
+        {
+            "Sid": "IAMGated",
+            "Effect": "Allow",
+            "Action": [
+                "iam:PassRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::<IAM-ACCOUNT-NUM>:role/<YOUR-STACK-NAME>"
+            ]
+        },
+        {
+            "Sid": "EKSGated",
+            "Effect": "Allow",
+            "Action": [
+                "eks:DescribeCluster"
+            ],
+            "Resource": [
+                "*"
+            ]
+        },
+        {
+            "Sid": "STSGated",
+            "Effect": "Allow",
+            "Action": [
+                "sts:AssumeRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::<IAM-ACCOUNT-NUM>:role/<YOUR-STACK-NAME>*"
+            ]
+        },
+        {
+            "Sid": "ungated",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:ActivateType",
+                "cloudformation:BatchDescribeTypeConfigurations",
+                "cloudformation:CreateStackSet",
+                "cloudformation:CreateUploadBucket",
+                "cloudformation:DeactivateType",
+                "cloudformation:DeregisterType",
+                "cloudformation:Describe*",
+                "cloudformation:EstimateTemplateCost",
+                "cloudformation:List*",
+                "cloudformation:PublishType",
+                "cloudformation:RegisterPublisher",
+                "cloudformation:RegisterType",
+                "cloudformation:SetTypeConfiguration",
+                "cloudformation:SetTypeDefaultVersion",
+                "cloudformation:TestType",
+                "cloudformation:ValidateTemplate",
+                "kms:DescribeKey",
+                "s3:CreateJob",
+                "s3:Get*",
+                "s3:List*",
+                "s3:PutAccountPublicAccessBlock",
+                "s3:PutStorageLensConfiguration"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
