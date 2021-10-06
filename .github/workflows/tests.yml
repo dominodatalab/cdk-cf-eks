@@ -28,6 +28,14 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: 16
+    - name: Determine deployer image
+      env:
+        PR_BODY: ${{ github.event.pull_request.body }}
+      run: |
+        export PR_DEPLOYER_IMAGE=$(echo $PR_BODY | grep -oP "deployer_image: \K\S+")
+        export DEPLOYER_IMAGE=${PR_DEPLOYER_IMAGE:-$DEPLOYER_IMAGE}
+        echo Using deployer image: $DEPLOYER_IMAGE
+        echo "DEPLOYER_IMAGE=$DEPLOYER_IMAGE" >> $GITHUB_ENV
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
