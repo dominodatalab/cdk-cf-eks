@@ -107,7 +107,7 @@ class DominoEksIamProvisioner:
                         "ec2:ModifyVolume",
                     ],
                     resources=["*"],
-                    conditions={"StringLike": {"aws:ResourceTag/deploy_id": cluster_name}},
+                    conditions={"StringLike": {f"aws:ResourceTag/kubernetes.io/cluster/{stack_name}": "owned"}},  # We can't use token cluster_name here, but should be the same
                 ),
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
