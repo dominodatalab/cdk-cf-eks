@@ -351,6 +351,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "eks:DeleteNodegroup",
             "eks:DescribeNodegroup",
             "eks:DescribeUpdate",
+            "eks:ListTagsForResource",
             "eks:TagResource",
             "eks:UntagResource",
             "elasticfilesystem:Backup",
