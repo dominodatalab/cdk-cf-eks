@@ -236,6 +236,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
                 "elasticfilesystem:DeleteFileSystem",
                 "elasticfilesystem:DescribeAccessPoints",
                 "elasticfilesystem:DescribeFileSystems",
+                "elasticfilesystem:ModifyMountTargetSecurityGroups",
             ],
             **from_cf_condition,
             "Resource": "*",
