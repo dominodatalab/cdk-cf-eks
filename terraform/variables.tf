@@ -31,6 +31,7 @@ variable "parameters" {
 variable "disable_rollback" {
   type        = bool
   description = "Disable rollback on stack provisioniong failures"
+  default     = false
 }
 
 variable "template_filename" {
