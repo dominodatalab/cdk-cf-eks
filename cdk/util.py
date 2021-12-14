@@ -140,6 +140,11 @@ def parse_args():
         action="append",
         default=[],
     )
+    tf_bootstrap_parser.add_argument(
+        "--disable-rollback",
+        help="Disable rollback on stack provisioniong failures",
+        action="store_true",
+    )
     tf_bootstrap_parser.set_defaults(func=generate_terraform_bootstrap)
 
     args = parser.parse_args()
@@ -227,6 +232,7 @@ def generate_terraform_bootstrap(args):
                 args.disable_random_templates,
                 args.iam_role_arn,
                 args.iam_policy_path,
+                args.disable_rollback,
             ),
             indent=4,
         )
