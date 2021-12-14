@@ -9,6 +9,7 @@ resource "aws_cloudformation_stack" "cdk_stack" {
   iam_role_arn       = length(var.iam_policy_paths) != 0 ? aws_iam_role.deployment[0].arn : var.iam_role_arn
   depends_on         = [aws_s3_bucket_object.assets]
   timeout_in_minutes = var.cloudformation_timeout_in_minutes
+  disable_rollback = var.disable_rollback
 
   timeouts {
     create = "${var.cloudformation_timeout_in_minutes}m"

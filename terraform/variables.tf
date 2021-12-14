@@ -28,6 +28,11 @@ variable "parameters" {
   description = "Parameters to feed into cloudformation"
 }
 
+variable "disable_rollback" {
+  type        = bool
+  description = "Disable rollback on stack provisioniong failures"
+}
+
 variable "template_filename" {
   type        = string
   description = "Filename of CloudFormation Template file in asset_dir (usually <stack_name>.template.json)"
