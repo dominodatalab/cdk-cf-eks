@@ -390,11 +390,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
                 "ec2:DeleteRouteTable",
                 "ec2:DeleteVpc",
                 "ec2:DeleteVpcEndpoints",
-                "ec2:DescribeInternetGateways",
-                "ec2:DescribeNatGateways",
-                "ec2:DescribeRouteTables",
-                "ec2:DescribeVpcEndpoints",
-                "ec2:DescribeVpcs",
+                "ec2:Describe*",
                 "ec2:DetachInternetGateway",
                 "ec2:DisAssociateRouteTable",
                 "ec2:DisassociateVpcCidrBlock",
@@ -411,6 +407,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
     else:
         general["Action"].extend(
             [
+                "ec2:Describe*",
                 "ec2:*InternetGateway*",
                 "ec2:*NatGateway*",
                 "ec2:*Route*",
