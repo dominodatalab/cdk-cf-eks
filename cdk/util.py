@@ -64,7 +64,7 @@ def parse_args():
     )
     iam_parser.add_argument("-s", "--stack-name", help="Name of CloudFormation stack", default="<YOUR_STACK_NAME>")
     iam_parser.add_argument("-a", "--aws-account-id", help="AWS Account ID", default="<YOUR_ACCOUNT_ID>")
-    iam_parser.add_argument("-r", "--region", help="AWS region", default="<YOUR_REGION>")
+    iam_parser.add_argument("-p", "--partition", help="AWS partition", default="<YOUR_PARTITION>", choices=["aws", "aws-us-gov", "aws-cn"])
     iam_parser.add_argument(
         "-m", "--manual", help="Use policy geared toward manual or terraform deployments", action="store_true"
     )
@@ -185,7 +185,7 @@ def generate_iam_policies(args):
     policies = generate_iam(
         stack_name=args.stack_name,
         aws_account_id=args.aws_account_id,
-        region=args.region,
+        partition=args.partition,
         manual=args.manual,
         use_bastion=args.bastion,
     )

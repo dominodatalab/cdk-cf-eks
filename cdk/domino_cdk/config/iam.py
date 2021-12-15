@@ -1,11 +1,6 @@
-from aws_cdk.region_info import Fact, FactName
-
-
 # Future TODO item: Incorporate IAM reqs into the provisioning
 # classes so we can generate exact perms for a given deployment
-def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool = False, use_bastion: bool = False):
-    partition = Fact.require_fact(region, FactName.PARTITION)
-
+def generate_iam(stack_name: str, aws_account_id: str, partition: str, manual: bool = False, use_bastion: bool = False):
     if manual:
         asset_bucket = "*"
     else:
