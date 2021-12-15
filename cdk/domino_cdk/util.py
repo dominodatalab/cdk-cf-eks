@@ -68,6 +68,7 @@ class DominoCdkUtil:
         disable_random_templates: bool = False,
         iam_role_arn: str = "",
         iam_policy_paths: List[str] = None,
+        disable_rollback: bool = False,
     ):
         cfg = cls.load_manifest(path_join(asset_dir, "manifest.json"))
         stack_name = cfg["name"]
@@ -107,6 +108,7 @@ class DominoCdkUtil:
                     "name": stack_name,
                     "iam_role_arn": iam_role_arn,
                     "iam_policy_paths": iam_policy_paths,
+                    "disable_rollback": disable_rollback,
                     "parameters": asset_parameters,
                     "template_filename": basename(template_filename),
                     "output_dir": output_dir,
