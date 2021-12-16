@@ -94,6 +94,8 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "iam:PassRole",
             "iam:PutRolePolicy",
             "iam:RemoveRoleFromInstanceProfile",
+            "iam:Tag*",
+            "iam:Untag*",
         ],
         **do_cf(),
         "Resource": [
@@ -102,22 +104,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             f"arn:{partition}:iam::{aws_account_id}:instance-profile/{stack_name}-*",
         ],
     }
-
-    if manual:
-        iam["Action"].remove("iam:GetRole")
-        iam["Action"].extend(["iam:Tag*", "iam:Untag*"])
-
-    # TODO TF: lambda invoke block un-hack
-    lambda_invoke = [
-        {
-            "Effect": "Allow",
-            "Action": ["lambda:InvokeFunction"],
-            "Resource": [f"arn:{partition}:lambda:*:{aws_account_id}:function:{stack_name}-*"],
-        }
-    ]
-
-    if not manual:
-        lambda_invoke = []
 
     _lambda = {
         "Effect": "Allow",
@@ -133,7 +119,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "lambda:PublishLayerVersion",
             "lambda:UpdateFunctionConfiguration",
         ],
-        **from_cf_condition,
         "Resource": [
             f"arn:{partition}:lambda:*:{aws_account_id}:function:{stack_name}-*",
             f"arn:{partition}:lambda:*:{aws_account_id}:layer:*",
@@ -159,18 +144,22 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
         {
             "Effect": "Allow",
             "Action": [
+                "eks:*Addon*",
                 "eks:CreateNodegroup",
                 "eks:DeleteNodegroup",
-                "eks:DescribeNodegroup",
+                "eks:Describe*",
+                "eks:List*",
                 "eks:TagResource",
                 "eks:UntagResource",
             ],
-            "Resource": [f"arn:{partition}:eks:*:{aws_account_id}:cluster/*"],
+            "Resource": [
+                f"arn:{partition}:eks:*:{aws_account_id}:addonyy/{stack_name}/*/*",
+                f"arn:{partition}:eks:*:{aws_account_id}:cluster/{stack_name}",
+                f"arn:{partition}:eks:*:{aws_account_id}:identityproviderconfig/{stack_name}/*/*",
+                f"arn:{partition}:eks:*:{aws_account_id}:nodegroup/{stack_name}/*/*",
+            ],
         }
     ]
-
-    if manual:
-        eks_nodegroups = []
 
     cfn_tagging = {
         "Effect": "Allow",
@@ -202,12 +191,8 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
         "Effect": "Allow",
         "Action": [
             "backup:*BackupVault*",
-            "backup:CreateBackupPlan",
-            "backup:CreateBackupSelection",
-            "backup:DeleteBackupPlan",
-            "backup:DeleteBackupSelection",
-            "backup:GetBackupPlan",
-            "backup:GetBackupSelection",
+            "backup:*BackupPlan",
+            "backup:*BackupSelection",
             "backup:ListTags",
             "backup:TagResource",
             "backup:UntagResource",
@@ -218,12 +203,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             f"arn:{partition}:backup:*:{aws_account_id}:backup-plan:{backup_plan}",
         ],
     }
-
-    if manual:
-        backup["Action"].remove("backup:CreateBackupPlan")
-        backup["Action"].remove("backup:DeleteBackupPlan")
-        backup["Action"].remove("backup:GetBackupPlan")
-        backup["Action"].insert(0, "backup:*BackupPlan")
 
     backup_efs = [
         {
@@ -242,9 +221,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "Resource": "*",
         }
     ]
-
-    if not manual:
-        backup_efs = []
 
     kms = {
         "Effect": "Allow",
@@ -274,9 +250,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "Resource": [f"arn:{partition}:ecr:*:{aws_account_id}:repository/{stack_name}*"],
         }
     ]
-
-    if not manual:
-        ecr = []
 
     bastion = []
 
@@ -320,8 +293,13 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "autoscaling:DescribeScalingActivities",
             "autoscaling:DescribeScheduledActions",
             "autoscaling:UpdateAutoScalingGroup",
+            "ec2:Describe*",
+            "ec2:*InternetGateway*",
+            "ec2:*NatGateway*",
             "ec2:*NetworkInterface*",
+            "ec2:*Route*",
             "ec2:*Subnet*",
+            "ec2:*Vpc*",
             "ec2:AllocateAddress",
             "ec2:AssociateAddress",
             "ec2:AuthorizeSecurityGroupEgress",
@@ -333,13 +311,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "ec2:DeleteLaunchTemplate",
             "ec2:DeleteSecurityGroup",
             "ec2:DeleteTags",
-            "ec2:DescribeAccountAttributes",
-            "ec2:DescribeAddresses",
-            "ec2:DescribeAvailabilityZones",
-            "ec2:DescribeImages",
-            "ec2:DescribeInstances",
-            "ec2:DescribeLaunchTemplates",
-            "ec2:DescribeSecurityGroups",
             "ec2:DisassociateAddress",
             "ec2:GetLaunchTemplateData",
             "ec2:ModifyInstanceMetadataOptions",
@@ -347,14 +318,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "ec2:RevokeSecurityGroupEgress",
             "ec2:RevokeSecurityGroupIngress",
             "ec2:RunInstances",
-            "eks:*Addon*",
-            "eks:CreateNodegroup",
-            "eks:DeleteNodegroup",
-            "eks:DescribeNodegroup",
-            "eks:DescribeUpdate",
-            "eks:ListTagsForResource",
-            "eks:TagResource",
-            "eks:UntagResource",
             "elasticfilesystem:Backup",
             "elasticfilesystem:CreateMountTarget",
             "elasticfilesystem:DeleteMountTarget",
@@ -365,59 +328,13 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "elasticfilesystem:UntagResource",
             "iam:GetRole",
             "iam:GetRolePolicy",
+            "s3:GetBucketLocation",
+            "s3:GetObject",
+            "s3:ListBucket",
         ],
         **do_cf(),
         "Resource": "*",
     }
-    if not manual:
-        general["Action"].extend(
-            [
-                "backup-storage:MountCapsule",
-                "backup:*BackupPlan",
-                "backup:*BackupSelection",
-                "ec2:AssociateRouteTable",
-                "ec2:AssociateVpcCidrBlock",
-                "ec2:AttachInternetGateway",
-                "ec2:CreateInternetGateway",
-                "ec2:CreateNatGateway",
-                "ec2:CreateRoute",
-                "ec2:CreateRouteTable",
-                "ec2:CreateVpc",
-                "ec2:CreateVpcEndpoint",
-                "ec2:DeleteInternetGateway",
-                "ec2:DeleteNatGateway",
-                "ec2:DeleteRoute",
-                "ec2:DeleteRouteTable",
-                "ec2:DeleteVpc",
-                "ec2:DeleteVpcEndpoints",
-                "ec2:Describe*",
-                "ec2:DetachInternetGateway",
-                "ec2:DisAssociateRouteTable",
-                "ec2:DisassociateVpcCidrBlock",
-                "ec2:ModifyVpcAttribute",
-                "elasticfilesystem:CreateAccessPoint",
-                "elasticfilesystem:CreateFileSystem",
-                "elasticfilesystem:DeleteAccessPoint",
-                "elasticfilesystem:DeleteFileSystem",
-                "elasticfilesystem:DescribeAccessPoints",
-                "elasticfilesystem:DescribeFileSystems",
-                "iam:ListAttachedRolePolicies",
-            ]
-        )
-    else:
-        general["Action"].extend(
-            [
-                "ec2:Describe*",
-                "ec2:*InternetGateway*",
-                "ec2:*NatGateway*",
-                "ec2:*Route*",
-                "ec2:*Vpc*",
-                "s3:GetBucketLocation",
-                "s3:GetObject",
-                "s3:ListBucket",
-            ]
-        )
-        general["Resource"] = ["*"]
     general["Action"] = sorted(general["Action"])
 
     policies = [
