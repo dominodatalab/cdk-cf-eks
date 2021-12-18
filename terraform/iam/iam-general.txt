@@ -1,0 +1,104 @@
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "CFGated",
+            "Effect": "Allow",
+            "Action": [
+                "*"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:<YOUR-REGION>:<IAM-ACCOUNT-NUM>:stack/<YOUR-STACK-NAME>/*",
+                "arn:aws:cloudformation:<YOUR-REGION>:<IAM-ACCOUNT-NUM>:stackset/<YOUR-STACK-NAME>:*"
+            ]
+        },
+        {
+            "Sid": "S3Gated",
+            "Effect": "Allow",
+            "Action": "s3:*",
+            "Resource": [
+                "arn:aws:s3:::<YOUR-STACK-NAME>/*",
+                "arn:aws:s3:::<YOUR-STACK-NAME>"
+            ]
+        },
+        {
+            "Sid": "IAMPassRoleGated",
+            "Effect": "Allow",
+            "Action": [
+                "iam:PassRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::<IAM-ACCOUNT-NUM>:role/<YOUR-STACK-NAME>"
+            ]
+        },
+        {
+            "Sid": "STSGated",
+            "Effect": "Allow",
+            "Action": [
+                "sts:AssumeRole"
+            ],
+            "Resource": [
+                "arn:aws:iam::<IAM-ACCOUNT-NUM>:role/<YOUR-STACK-NAME>*"
+            ]
+        },
+        {
+            "Sid": "ungated",
+            "Effect": "Allow",
+            "Action": [
+                "backup:ListBackupVaults",
+                "cloudformation:ActivateType",
+                "cloudformation:BatchDescribeTypeConfigurations",
+                "cloudformation:CreateStackSet",
+                "cloudformation:CreateUploadBucket",
+                "cloudformation:DeactivateType",
+                "cloudformation:DeregisterType",
+                "cloudformation:Describe*",
+                "cloudformation:EstimateTemplateCost",
+                "cloudformation:List*",
+                "cloudformation:PublishType",
+                "cloudformation:RegisterPublisher",
+                "cloudformation:RegisterType",
+                "cloudformation:SetTypeConfiguration",
+                "cloudformation:SetTypeDefaultVersion",
+                "cloudformation:TestType",
+                "cloudformation:ValidateTemplate",
+                "ec2:DescribeAvailabilityZones",
+                "eks:Describe*",
+                "eks:List*",
+                "iam:Get*",
+                "iam:List*",
+                "kms:DescribeKey",
+                "s3:CreateJob",
+                "s3:Get*",
+                "s3:List*",
+                "s3:PutAccountPublicAccessBlock",
+                "s3:PutStorageLensConfiguration"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "backup:*BackupPlan",
+                "backup:*BackupVault*",
+                "backup:CreateBackupSelection",
+                "backup:DeleteBackupSelection",
+                "backup:GetBackupSelection",
+                "backup:ListTags",
+                "backup:TagResource",
+                "backup:UntagResource"
+            ],
+            "Condition": {
+                "ForAnyValue:StringEquals": {
+                    "aws:CalledVia": [
+                        "cloudformation.amazonaws.com"
+                    ]
+                }
+            },
+            "Resource": [
+                "arn:aws:backup:*:<IAM-ACCOUNT-NUM>:backup-vault:<YOUR-STACK-NAME>*",
+                "arn:aws:backup:*:<IAM-ACCOUNT-NUM>:backup-plan:*"
+            ]
+        }
+    ]
+}

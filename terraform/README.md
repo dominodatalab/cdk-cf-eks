@@ -35,6 +35,8 @@ The terraform module has a handful of arguments. Most are basic, but the asset p
 * name: The unique name of the deployment. This must match the name given in the Domino CDK config
 * parameters: Extra parameters to give to the CloudFormation stack. This *must* include all asset parameters that CDK generates. Using the helper command below, we will generate them for you. To understand how they're generated, see the subsection "Determine asset parameters" in the "Manual Preparation" section
 * template\_filename: The name of the CloudFormation template in the asset directory. It will usually be `yourname-eks-stack.template.json`
+* iam\_role\_arn: Pre-existing IAM role for use with CloudFormation (can't be used with `iam_policy_paths`)
+* iam\_policy\_paths: IAM policies to deploy and use with CloudFormation (can't be used with `iam_role_arn`)
 * output\_dir: Directory where the agent\_template.yaml and EKS cluster kubeconfig will be written to. Must be full path.
 
 ### Generating a Terraform module configuration
@@ -88,6 +90,27 @@ Terraform will not detect changes inside the CloudFormation template contents, b
     terraform init
     terraform plan -out terraform.plan
     terraform apply terraform.plan
+
+## Deployment IAM Policy
+
+Included with this Terraform module is an IAM policy for the Terraform module itself, `iam/iam-general.txt`. This policy will give you the minimal permissions required to create the s3 assets bucket, upload to it, and then create and managed the CloudFormation itself.
+
+It is mean to be used in tandem with the `iam_role_arn` option.
+
+Additionally, you can add the `iam/iam-create.txt` policy and use the `iam_policy_paths` option to automate deployment of the policies used with CloudFormation instead.
+
+When using it, the workflow should be:
+
+* Generate CDK IAM policies (ie `util.py generate_iam_policies`)
+* Upload generated policies to AWS and associate with a role
+* Substitute the values in the file terraform-iam.txt `<YOUR-REGION>`, `<IAM-ACCOUNT-NUM>` and `<YOUR-STACK-NAME>` with the AWS region, numeric account number and intended stack name of your deployment, respectfully
+* Upload this policy to AWS as well and associate with a user
+* Provision the Terraform with this user
+* Ensure the role associated with the generated CDK IAM policies is input to `iam_role_arn`
+
+An example command for doing the substitution:
+
+    cat iam/iam-general.txt | sed -e 's/<YOUR-STACK-NAME>/mydeploy/g' -e 's/<YOUR-REGION>/us-west-2/g' -e 's/<IAM-ACCOUNT-NUM>/123456789012/g'
 
 ## Manual preparation
 
