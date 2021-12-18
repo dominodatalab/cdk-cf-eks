@@ -345,7 +345,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
                 asset_bucket,
                 s3,
                 iam,
-                *lambda_invoke,
                 _lambda,
                 states,
                 *eks_nodegroups,
