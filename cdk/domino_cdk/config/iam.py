@@ -153,7 +153,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
                 "eks:UntagResource",
             ],
             "Resource": [
-                f"arn:{partition}:eks:*:{aws_account_id}:addonyy/{stack_name}/*/*",
+                f"arn:{partition}:eks:*:{aws_account_id}:addon/{stack_name}/*/*",
                 f"arn:{partition}:eks:*:{aws_account_id}:cluster/{stack_name}",
                 f"arn:{partition}:eks:*:{aws_account_id}:identityproviderconfig/{stack_name}/*/*",
                 f"arn:{partition}:eks:*:{aws_account_id}:nodegroup/{stack_name}/*/*",
