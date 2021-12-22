@@ -66,9 +66,6 @@ def parse_args():
     iam_parser.add_argument("-a", "--aws-account-id", help="AWS Account ID", default="<YOUR_ACCOUNT_ID>")
     iam_parser.add_argument("-r", "--region", help="AWS region", default="<YOUR_REGION>")
     iam_parser.add_argument(
-        "-m", "--manual", help="Use policy geared toward manual or terraform deployments", action="store_true"
-    )
-    iam_parser.add_argument(
         "-o",
         "--out-file-base",
         help="Base filename (ie 'iam-policy' for 'iam-policy-1/2/3.json'). All files generated are printed to stdout.",
@@ -186,7 +183,6 @@ def generate_iam_policies(args):
         stack_name=args.stack_name,
         aws_account_id=args.aws_account_id,
         region=args.region,
-        manual=args.manual,
         use_bastion=args.bastion,
     )
 
