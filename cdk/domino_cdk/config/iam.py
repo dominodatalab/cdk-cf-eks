@@ -338,6 +338,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "ec2:DescribeAvailabilityZones",
             "ec2:DescribeImages",
             "ec2:DescribeInstances",
+            "ec2:DescribeInstanceStatus",
             "ec2:DescribeLaunchTemplates",
             "ec2:DescribeSecurityGroups",
             "ec2:DisassociateAddress",
