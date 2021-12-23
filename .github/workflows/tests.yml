@@ -161,7 +161,7 @@ jobs:
         AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
-        sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
+        sleep 180 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
     - name: Fail without deploy
       if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master') }}
