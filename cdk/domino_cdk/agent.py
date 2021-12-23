@@ -11,7 +11,6 @@ def generate_install_config(
     install: Install,
     aws_region: str,
     eks_cluster_name: str,
-    pod_cidr: str,
     global_node_selectors: Dict[str, str],
     buckets: Dict[str, Bucket],
     monitoring_bucket: Optional[Bucket],
@@ -22,7 +21,6 @@ def generate_install_config(
     agent_cfg: Dict[str, Any] = {
         "name": name,
         "hostname": install.hostname,
-        "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {
             "shared": {

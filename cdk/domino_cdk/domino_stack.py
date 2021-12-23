@@ -125,7 +125,6 @@ class DominoStack(cdk.Stack):
             install=self.cfg.install,
             aws_region=self.cfg.aws_region,
             eks_cluster_name=self.eks_stack.cluster.cluster_name,
-            pod_cidr=self.vpc_stack.vpc.vpc_cidr_block,
             global_node_selectors=self.cfg.eks.global_node_labels,
             buckets=self.s3_stack.buckets,
             monitoring_bucket=self.s3_stack.monitoring_bucket,
