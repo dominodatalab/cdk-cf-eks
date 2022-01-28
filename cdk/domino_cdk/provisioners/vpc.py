@@ -254,6 +254,7 @@ class DominoVpcProvisioner:
         ec2.CfnEIP(
             self.scope,
             "bastion_eip",
+            domain="vpc",
             instance_id=bastion_instance.instance_id,
         )
 
