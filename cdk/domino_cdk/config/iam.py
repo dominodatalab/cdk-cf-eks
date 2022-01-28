@@ -80,6 +80,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "iam:CreatePolicy",
             "iam:CreatePolicyVersion",
             "iam:CreateRole",
+            "iam:CreateServiceLinkedRole",
             "iam:DeleteInstanceProfile",
             "iam:DeletePolicy",
             "iam:DeletePolicyVersion",
@@ -100,6 +101,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             f"arn:{partition}:iam::{aws_account_id}:policy/{stack_name}-*",
             f"arn:{partition}:iam::{aws_account_id}:role/{stack_name}-*",
             f"arn:{partition}:iam::{aws_account_id}:instance-profile/{stack_name}-*",
+            f"arn:{partition}:iam::{aws_account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling",
         ],
     }
 
