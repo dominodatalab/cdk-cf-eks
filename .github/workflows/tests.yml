@@ -5,10 +5,10 @@ name: Run tests / create artifacts
 
 on:
   push:
-    branches: [ master ]
+    branches: [ release-v0.0.1 ]
   pull_request:
     types: [opened, synchronize, reopened, labeled, ready_for_review]
-    branches: [ master ]
+    branches: [ release-v0.0.1 ]
 
 jobs:
   test-build-deploy:
