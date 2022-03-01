@@ -177,7 +177,7 @@ def generate_install_config(
         )
 
     if monitoring_bucket:
-        agent_cfg["services"]["nginx_ingress"]["chart_values"].update(
+        agent_cfg["services"]["nginx_ingress"]["chart_values"]["controller"]["service"]["annotations"].update(
             {
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-enabled": "true",
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-emit-interval": "5",
