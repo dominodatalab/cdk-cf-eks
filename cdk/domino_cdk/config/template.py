@@ -129,7 +129,7 @@ def config_template(
     )
 
     eks = EKS(
-        version="1.20",
+        version="1.21",
         private_api=private_api,
         secrets_encryption_key_arn=secrets_encryption_key_arn,
         max_nodegroup_azs=max_nodegroup_azs,

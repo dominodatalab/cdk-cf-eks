@@ -17,7 +17,7 @@ class TestEksClusterProvisioner(TestCase):
     def setUp(self):
         self.app = App()
         self.stack = Stack(self.app, STACK_NAME, env=Environment(region="us-west-2"))
-        self.eks_version = eks.KubernetesVersion.V1_20
+        self.eks_version = eks.KubernetesVersion.V1_21
         self.eks_cluster = eks.Cluster(self.stack, "eks", version=self.eks_version)
 
     @patch("domino_cdk.provisioners.eks.DominoEksClusterProvisioner._get_addon_version")

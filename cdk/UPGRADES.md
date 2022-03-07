@@ -4,8 +4,8 @@ The EKS Cluster version is controlled by the eks.version value in the Domino CDK
 
     [...]
     eks:
-      # version: "1.20" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
-      version: '1.20'
+      # version: "1.21" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+      version: '1.21'
     [...]
 
 ### Using Domino CDK
