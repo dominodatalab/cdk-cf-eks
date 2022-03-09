@@ -91,6 +91,7 @@ class DominoEksIamProvisioner:
                     actions=[
                         "ec2:DescribeAvailabilityZones",
                         "ec2:DescribeInstances",
+                        "ec2:DescribeInstanceStatus",
                         "ec2:DescribeSnapshots",
                         "ec2:DescribeTags",
                         "ec2:DescribeVolumes",
