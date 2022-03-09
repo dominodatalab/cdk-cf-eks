@@ -16,7 +16,7 @@ class TestDominoAwsConfigurator(TestCase):
     def setUp(self):
         self.app = App()
         self.stack = Stack(self.app, "calico", env=Environment(region="us-west-2"))
-        self.eks_cluster = eks.Cluster(self.stack, "eks", version=eks.KubernetesVersion.V1_20)
+        self.eks_cluster = eks.Cluster(self.stack, "eks", version=eks.KubernetesVersion.V1_21)
 
     def test_install_calico(self):
         DominoAwsConfigurator(self.stack, self.eks_cluster)
