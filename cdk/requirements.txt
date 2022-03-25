@@ -6,4 +6,4 @@ flake8~=3.9
 isort~=5.8.0
 types-requests~=2.25.0
 types-PyYAML~=5.4.1
-black~=21.4b2
+black~=22.1.0
