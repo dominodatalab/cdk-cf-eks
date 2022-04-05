@@ -7,7 +7,7 @@ from domino_cdk.config.util import check_leavins, from_loader
 @dataclass
 class EKS:
     """
-    version: "1.21" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+    version: "1.22" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
     private_api: true/false - Limits Kubernetes API access to the VPC. Access must be through a
                               bastion, peered network, or other in-VPC resource.
     max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
