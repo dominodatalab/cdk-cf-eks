@@ -30,6 +30,7 @@ class EKS:
         key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
         min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
         max_size: 10 - Maximum limit for node count in node gorup
+        availability_zones: Availability zones to greate subnets in. Leave this null to autogenerate.
         ami_id: ami-123abc - AMI to use for nodegroup, empty/null will default to the current EKS AMI.
                              When specifying an AMI, you MUST specify a custom user_data script to join
                              the node to the cluster, and this script must do any sort of node setup that
@@ -61,6 +62,7 @@ class EKS:
         key_name: str
         min_size: int
         max_size: int
+        availability_zones: List[str]
         ami_id: str
         user_data: str
         instance_types: List[str]
@@ -75,6 +77,7 @@ class EKS:
                 "key_name": ng.pop("key_name", None),
                 "min_size": ng.pop("min_size"),
                 "max_size": ng.pop("max_size"),
+                "availability_zones": ng.pop("availability_zones", None),
                 "ami_id": ng.pop("ami_id", None),
                 "user_data": ng.pop("user_data", None),
                 "instance_types": ng.pop("instance_types"),

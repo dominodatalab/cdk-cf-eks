@@ -62,6 +62,7 @@ def config_template(
                 key_name=keypair_name,
                 min_size=min_size,
                 max_size=max_size,
+                availability_zones=None,
                 ami_id=None,
                 user_data=None,
                 instance_types=instance_types,

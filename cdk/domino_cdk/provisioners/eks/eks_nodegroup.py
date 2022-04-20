@@ -68,7 +68,9 @@ class DominoEksNodegroupProvisioner:
         self.scope.untagged_resources["ec2"].append(lt.launch_template_id)
         lts = eks.LaunchTemplateSpec(id=lt.launch_template_id, version=lt.version_number)
 
-        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
+        availability_zones = ng.availability_zones or self.vpc.availability_zones[:max_nodegroup_azs]
+
+        for i, az in enumerate(availability_zones):
             self.cluster.add_nodegroup_capacity(
                 f"{self.stack_name}-{name}-{i}",
                 nodegroup_name=f"{self.stack_name}-{name}-{az}",
@@ -129,7 +131,8 @@ class DominoEksNodegroupProvisioner:
 
         scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None
-        for i, az in enumerate(self.vpc.availability_zones[:max_nodegroup_azs]):
+        availability_zones = ng.availability_zones or self.vpc.availability_zones[:max_nodegroup_azs]
+        for i, az in enumerate(availability_zones):
             indexed_name = f"{self.stack_name}-{name}-{az}"
             asg = aws_autoscaling.AutoScalingGroup(
                 scope,
