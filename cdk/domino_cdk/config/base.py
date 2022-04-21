@@ -1,4 +1,5 @@
 from dataclasses import dataclass, fields, is_dataclass
+from string import ascii_lowercase
 from textwrap import dedent
 from typing import Dict
 
@@ -127,6 +128,19 @@ class DominoCDKConfig:
                     errors.append(f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})")
 
         val("config", self)
+
+        def az_pos(azs: str):
+            if azs:
+                return ascii_lowercase.index(sorted(azs, reverse=True)[0][-1]) + 1
+            return 0
+
+        for ng, cfg in self.eks.managed_nodegroups.items():
+            if az_pos(cfg.availability_zones) > self.vpc.max_azs:
+                errors.append(f"Nodegroup {ng} has availability zones exceeding vpc.max_azs count!")
+        for ng, cfg in self.eks.unmanaged_nodegroups.items():
+            if az_pos(cfg.availability_zones) > self.vpc.max_azs:
+                errors.append(f"Nodegroup {ng} has availability zones exceeding vpc.max_azs count!")
+
         if errors:
             raise ValueError("\n".join(errors))
 
