@@ -57,6 +57,28 @@ class TestConfig(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, f"Invalid version string: '{suffixed_schema}'"):
             config_loader(c)
 
+    def test_eks_ng_az_mismatch(self):
+        c = config_template().render()
+        c["vpc"]["max_azs"] = 3
+        c["eks"]["unmanaged_nodegroups"]["platform-0"]["availability_zones"] = [
+            "us-west-2a",
+            "us-west-2b",
+            "us-west-2c",
+        ]
+        config_loader(c)
+
+        c = config_template().render()
+        c["vpc"]["max_azs"] = 3
+        c["eks"]["unmanaged_nodegroups"]["platform-0"]["availability_zones"] = [
+            "us-west-2a",
+            "us-west-2d",
+            "us-west-2c",
+        ]
+        with self.assertRaisesRegex(
+            ValueError, "Nodegroup platform-0 has availability zone us-west-2d exceeding vpc.max_azs count: 3"
+        ):
+            config_loader(c)
+
     def test_istio(self):
         c = config_template(istio_compatible=True)
         self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)

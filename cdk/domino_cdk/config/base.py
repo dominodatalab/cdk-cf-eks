@@ -99,7 +99,7 @@ class DominoCDKConfig:
         # NOTE: On next schema change, fill this out and remove v0.0.0 support
         return DominoCDKConfig.from_0_0_1(c)
 
-    def __post_init__(self):
+    def __post_init__(self):  # noqa: C901
         errors = []
 
         def val(path: str, obj):
@@ -129,17 +129,24 @@ class DominoCDKConfig:
 
         val("config", self)
 
+        def last_az(azs: str):
+            return sorted(azs, reverse=True)[0]
+
         def az_pos(azs: str):
             if azs:
-                return ascii_lowercase.index(sorted(azs, reverse=True)[0][-1]) + 1
+                return ascii_lowercase.index(last_az(azs)[-1]) + 1
             return 0
 
         for ng, cfg in self.eks.managed_nodegroups.items():
             if az_pos(cfg.availability_zones) > self.vpc.max_azs:
-                errors.append(f"Nodegroup {ng} has availability zones exceeding vpc.max_azs count!")
+                errors.append(
+                    f"Nodegroup {ng} has availability zone {last_az(cfg.availability_zones)} exceeding vpc.max_azs count of {self.vpc.max_azs}"
+                )
         for ng, cfg in self.eks.unmanaged_nodegroups.items():
             if az_pos(cfg.availability_zones) > self.vpc.max_azs:
-                errors.append(f"Nodegroup {ng} has availability zones exceeding vpc.max_azs count!")
+                errors.append(
+                    f"Nodegroup {ng} has availability zone {last_az(cfg.availability_zones)} exceeding vpc.max_azs count: {self.vpc.max_azs}"
+                )
 
         if errors:
             raise ValueError("\n".join(errors))
