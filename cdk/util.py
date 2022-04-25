@@ -27,7 +27,7 @@ def parse_args():
         help="Generate Config Template",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    template_parser.add_argument("--name", help="Name for deployment, will prefix all namespaces", default="domino")
+    template_parser.add_argument("--name", help="Name for deployment", default="domino")
     template_parser.add_argument("--aws-region", help="AWS Region", default=None)
     template_parser.add_argument("--aws-account-id", help="AWS Account ID", default=None)
     template_parser.add_argument("--dev", help="Use development (small) defaults", action="store_true")
