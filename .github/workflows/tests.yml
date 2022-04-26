@@ -61,6 +61,8 @@ jobs:
     - name: Create/lint default config
       env:
         AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
         GITHUB_SHA: ${{ github.sha }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
