@@ -57,6 +57,60 @@ class TestConfig(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, f"Invalid version string: '{suffixed_schema}'"):
             config_loader(c)
 
+    def test_eks_ng_az_mismatch(self):
+        with patch("domino_cdk.config.DominoCDKConfig.get_vpc_azs") as get_vpc_azs:
+            get_vpc_azs.return_value = ["us-west-2a", "us-west-2b", "us-west-2c"]
+
+            c = config_template().render()
+            c["aws_region"] = "us-west-2"
+            c["vpc"]["max_azs"] = 3
+            c["eks"]["unmanaged_nodegroups"]["platform-0"]["availability_zones"] = [
+                "us-west-2a",
+                "us-west-2b",
+                "us-west-2c",
+            ]
+            config_loader(c)
+
+            c = config_template().render()
+            c["aws_region"] = "us-west-2"
+            c["vpc"]["max_azs"] = 3
+            c["eks"]["unmanaged_nodegroups"]["platform-0"]["availability_zones"] = [
+                "us-west-2a",
+                "us-west-2d",
+                "us-west-2c",
+            ]
+            with self.assertRaises(
+                ValueError,
+                msg="Nodegroup platform-0 availability zones ['us-west-2d'] don't exist in vpc.max_azs's resulting availability zones ['us-west-2a', 'us-west-2b', 'us-west-2c']",
+            ):
+                config_loader(c)
+
+            get_vpc_azs.return_value = ["ap-northeast-1a", "ap-northeast-1c", "ap-northeast-1d"]
+
+            c = config_template().render()
+            c["aws_region"] = "ap-northeast-1"
+            c["vpc"]["max_azs"] = 3
+            c["eks"]["unmanaged_nodegroups"]["platform-0"]["availability_zones"] = [
+                "ap-northeast-1a",
+                "ap-northeast-1c",
+                "ap-northeast-1d",
+            ]
+            config_loader(c)
+
+            c = config_template().render()
+            c["aws_region"] = "ap-northeast-1"
+            c["vpc"]["max_azs"] = 3
+            c["eks"]["unmanaged_nodegroups"]["platform-0"]["availability_zones"] = [
+                "ap-northeast-1a",
+                "ap-northeast-1b",
+                "ap-northeast-1c",
+            ]
+            with self.assertRaises(
+                ValueError,
+                msg="Nodegroup platform-0 availability zones ['ap-northeast-1b'] don't exist in vpc.max_azs's resulting availability zones ['ap-northeast-1a', 'ap-northeast-1c', 'ap-northeast-1d']",
+            ):
+                config_loader(c)
+
     def test_istio(self):
         c = config_template(istio_compatible=True)
         self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)

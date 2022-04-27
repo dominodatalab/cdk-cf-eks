@@ -53,8 +53,11 @@ eks_0_0_0_cfg = {
 eks_0_0_1_cfg = deepcopy(eks_0_0_0_cfg)
 eks_0_0_1_cfg["unmanaged_nodegroups"] = eks_0_0_1_cfg["nodegroups"]
 eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["imdsv2_required"] = False
+eks_0_0_1_cfg["unmanaged_nodegroups"]["platform"]["availability_zones"] = None
 eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["imdsv2_required"] = False
+eks_0_0_1_cfg["unmanaged_nodegroups"]["nvidia"]["availability_zones"] = None
 del eks_0_0_1_cfg["nodegroups"]
+eks_0_0_1_cfg["managed_nodegroups"]["compute"]["availability_zones"] = None
 
 managed_ngs = {
     "compute": EKS.ManagedNodegroup(
@@ -63,6 +66,7 @@ managed_ngs = {
         key_name=None,
         min_size=1,
         max_size=1,
+        availability_zones=None,
         ami_id=None,
         user_data=None,
         instance_types=["t2.micro"],
@@ -78,6 +82,7 @@ unmanaged_ngs = {
         key_name=None,
         min_size=1,
         max_size=10,
+        availability_zones=None,
         ami_id=None,
         user_data=None,
         instance_types=["m5.2xlarge"],
@@ -94,6 +99,7 @@ unmanaged_ngs = {
         key_name=None,
         min_size=0,
         max_size=10,
+        availability_zones=None,
         ami_id=None,
         user_data=None,
         instance_types=["p3.2xlarge"],

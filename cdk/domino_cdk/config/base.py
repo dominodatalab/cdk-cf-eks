@@ -2,6 +2,7 @@ from dataclasses import dataclass, fields, is_dataclass
 from textwrap import dedent
 from typing import Dict
 
+import boto3
 from field_properties import field_property, unwrap_property
 from ruamel.yaml.comments import CommentedMap
 
@@ -98,7 +99,11 @@ class DominoCDKConfig:
         # NOTE: On next schema change, fill this out and remove v0.0.0 support
         return DominoCDKConfig.from_0_0_1(c)
 
-    def __post_init__(self):
+    def get_vpc_azs(self):
+        ec2 = boto3.client("ec2", region_name=self.aws_region)
+        return [az["ZoneName"] for az in ec2.describe_availability_zones()["AvailabilityZones"]][: self.vpc.max_azs]
+
+    def __post_init__(self):  # noqa: C901
         errors = []
 
         def val(path: str, obj):
@@ -127,6 +132,21 @@ class DominoCDKConfig:
                     errors.append(f"{path}.{f.name} type ({f.type}) does not match value: [{value}] ({type(value)})")
 
         val("config", self)
+
+        # Don't run these checks if we're just loading a template
+        if self.aws_region != "__FILL__":
+            vpc_azs = self.get_vpc_azs()
+
+            for ngs in [self.eks.managed_nodegroups, self.eks.unmanaged_nodegroups]:
+                for ng, cfg in ngs.items():
+                    if not cfg.availability_zones:
+                        continue
+                    bad_azs = [az for az in cfg.availability_zones if az not in vpc_azs]
+                    if bad_azs:
+                        errors.append(
+                            f"Nodegroup {ng} availability zones {bad_azs} don't exist in vpc.max_azs's resulting availability zones {vpc_azs}"
+                        )
+
         if errors:
             raise ValueError("\n".join(errors))
 
