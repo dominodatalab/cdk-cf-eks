@@ -16,9 +16,9 @@ To work with CDK, you'll need to install nodejs (and npm if it's a separate pack
     sudo yum install nodejs
     etc.
 
-Then install aws-cdk via npm. Currently we're standardized on 1.124.0:
+Then install aws-cdk via npm. Currently we're standardized on 1.153.1:
 
-    npm install -g aws-cdk@1.124.0 # This may require sudo
+    npm install -g aws-cdk@1.153.1 # This may require sudo
 
 ### Setting up your Python environment
 
