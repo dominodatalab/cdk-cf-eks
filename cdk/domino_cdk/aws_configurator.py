@@ -9,9 +9,13 @@ from ruamel.yaml import YAML
 
 manifests = [
     (
-        "calico",
-        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
-    )
+        "calico-operator",
+        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.11.0/config/master/calico-operator.yaml",
+    ),
+    (
+        "calico-crs",
+        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.11.0/config/master/calico-crs.yaml",
+    ),
 ]
 
 
