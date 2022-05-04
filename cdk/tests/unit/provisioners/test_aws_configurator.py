@@ -22,7 +22,7 @@ class TestDominoAwsConfigurator(TestCase):
         DominoAwsConfigurator(self.stack, self.eks_cluster)
 
         assertion = Template.from_stack(self.stack)
-        assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 3)  # two calico, one aws-auth
+        assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 21)  # 20 calico, one aws-auth
 
         template = self.app.synth().get_stack("calico").template
 
@@ -38,20 +38,22 @@ class TestDominoAwsConfigurator(TestCase):
         with TemporaryDirectory() as tmpdir:
             chdir(tmpdir)
 
-            with open("calico.yaml", "w+") as f:
+            with open("calico-operator.yaml", "w+") as f:
                 YAML().dump_all([{"kind": "DaemonSet", "apiVersion": "apps/v1", "metadata": {"name": "test-ds"}}], f)
 
             DominoAwsConfigurator(self.stack, self.eks_cluster)
 
         assertion = Template.from_stack(self.stack)
-        assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 3)  # two calico, one aws-auth
+        assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 2)  # two calico, one aws-auth
 
         template = self.app.synth().get_stack("calico").template
 
-        crds_resource = next(res for name, res in template["Resources"].items() if name.startswith("calicocrds"))
-        self.assertTrue(len(loads(crds_resource["Properties"]["Manifest"])) == 0)
+        crds_resource = next(
+            (res for name, res in template["Resources"].items() if name.startswith("calicocrds")), None
+        )
+        self.assertIsNone(crds_resource)
 
         noncrds_resource = next(
             res for name, res in template["Resources"].items() if name.startswith("calico") and res != crds_resource
         )
-        self.assertEqual(len(loads(noncrds_resource["Properties"]["Manifest"])), 1)
+        self.assertEqual(len(loads(noncrds_resource["Properties"]["Manifest"])), 2)
