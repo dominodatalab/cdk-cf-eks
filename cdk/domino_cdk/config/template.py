@@ -39,6 +39,7 @@ def config_template(
     destroy_on_destroy = True if dev_defaults else False
     disk_size = 100 if dev_defaults else 1000
     platform_instance_type = "m5.4xlarge" if dev_defaults or istio_compatible else "m5.2xlarge"
+    platform_min_size = 3 if dev_defaults else 1
 
     unmanaged_nodegroups = {}
 
@@ -75,7 +76,7 @@ def config_template(
     add_nodegroups(
         "platform",
         platform_nodegroups,
-        1,
+        platform_min_size,
         [platform_instance_type],
         {"dominodatalab.com/node-pool": "platform"},
     )
