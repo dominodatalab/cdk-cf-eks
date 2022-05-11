@@ -20,6 +20,9 @@ jobs:
         working-directory: ./cdk
     steps:
     - uses: actions/checkout@v2
+    - name: check kubectl version
+      run: |
+        kubectl version
     - name: Set up Python 3.8
       uses: actions/setup-python@v2
       with:
@@ -32,6 +35,7 @@ jobs:
       env:
         PR_BODY: ${{ github.event.pull_request.body }}
       run: |
+        kubectl version
         export PR_DEPLOYER_IMAGE=$(echo $PR_BODY | grep -oP "deployer_image: \K\S+")
         export DEPLOYER_IMAGE=${PR_DEPLOYER_IMAGE:-$DEPLOYER_IMAGE}
         echo Using deployer image: $DEPLOYER_IMAGE
