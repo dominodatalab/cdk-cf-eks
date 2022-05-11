@@ -68,7 +68,7 @@ default_config = DominoCDKConfig(
             'platform-0': EKS.UnmanagedNodegroup(
                 disk_size=100,
                 key_name=None,
-                min_size=1,
+                min_size=3,
                 max_size=10,
                 availability_zones=None,
                 ami_id=None,
