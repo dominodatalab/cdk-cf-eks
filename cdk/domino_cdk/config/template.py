@@ -35,7 +35,6 @@ def config_template(
 ):
     fill = "__FILL__"
 
-    max_nodegroup_azs = 1 if dev_defaults else 3
     destroy_on_destroy = True if dev_defaults else False
     disk_size = 100 if dev_defaults else 1000
     platform_instance_type = "m5.4xlarge" if dev_defaults or istio_compatible else "m5.2xlarge"
@@ -75,7 +74,7 @@ def config_template(
     add_nodegroups(
         "platform",
         platform_nodegroups,
-        3,
+        1,
         [platform_instance_type],
         {"dominodatalab.com/node-pool": "platform"},
     )
@@ -133,7 +132,7 @@ def config_template(
         version="1.21",
         private_api=private_api,
         secrets_encryption_key_arn=secrets_encryption_key_arn,
-        max_nodegroup_azs=max_nodegroup_azs,
+        max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
         global_node_tags={},
         managed_nodegroups={},
