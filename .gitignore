@@ -16,3 +16,6 @@ cdk.context.json
 
 # terraform
 terraform/.terraform
+
+.idea/
+.coverage

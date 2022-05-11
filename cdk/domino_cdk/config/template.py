@@ -75,7 +75,7 @@ def config_template(
     add_nodegroups(
         "platform",
         platform_nodegroups,
-        1,
+        3,
         [platform_instance_type],
         {"dominodatalab.com/node-pool": "platform"},
     )

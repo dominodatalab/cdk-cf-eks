@@ -130,6 +130,7 @@ jobs:
         LOG_DIR: k8s-cluster-state
       run: |
         set +e
+        curl -Lo /usr/local/bin/kubectl  "https://dl.k8s.io/release/v1.23.6//bin/linux/amd64/kubectl"
         for ns in domino-platform domino-compute domino-system kube-system; do
           mkdir -p $LOG_DIR/$ns
           kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
