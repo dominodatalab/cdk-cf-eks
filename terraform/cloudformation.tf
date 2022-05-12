@@ -18,6 +18,10 @@ resource "aws_cloudformation_stack" "cdk_stack" {
   }
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [disable_rollback]
+  }
 }
 
 output "cloudformation_outputs" {
