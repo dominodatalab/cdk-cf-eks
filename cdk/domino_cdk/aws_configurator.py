@@ -9,9 +9,13 @@ from ruamel.yaml import YAML
 
 manifests = [
     (
-        "calico",
-        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.7.10/config/master/calico.yaml",
-    )
+        "calico-operator",
+        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.11.0/config/master/calico-operator.yaml",
+    ),
+    (
+        "calico-crs",
+        "https://raw.githubusercontent.com/aws/amazon-vpc-cni-k8s/v1.11.0/config/master/calico-crs.yaml",
+    ),
 ]
 
 
@@ -35,6 +39,10 @@ class DominoAwsConfigurator:
         # an option it also doesn't seem like there's a way to push
         # the chart with existing api calls.
         # Probably need to do some custom lambda thing.
+
+        crd_manifests = []
+        notcrd_manifests = []
+
         for (name, url) in manifests:
             filename = f"{name}.yaml"
             if isfile(filename):
@@ -45,17 +53,30 @@ class DominoAwsConfigurator:
             yaml = YAML(typ="safe")
             loaded_manifests = list(yaml.load_all(stream))
 
-            crds = eks.KubernetesManifest(
-                self.scope,
-                "calico-crds",
-                cluster=self.eks_cluster,
-                manifest=[crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"],
+            crd_manifests += [crd for crd in loaded_manifests if crd["kind"] == "CustomResourceDefinition"]
+            notcrd_manifests += [notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"]
+
+        # NB: be careful changing resource names or removing the manifests as prune is set by default
+        # and could inadvertantly remove other resources if deleted after the new manifest is created
+
+        # Split CRDs into multiple manifests so they don't go over the lambda limit of 262144 bytes
+        crds = []
+        for i, crd in enumerate(crd_manifests):
+            crds.append(
+                eks.KubernetesManifest(
+                    self.scope,
+                    # See above note about changing resource names
+                    "calico-crds" + ("" if i == 0 else str(i)),
+                    cluster=self.eks_cluster,
+                    manifest=[crd],
+                    overwrite=True,
+                )
             )
 
+        if notcrd_manifests:
             non_crds = eks.KubernetesManifest(
-                self.scope,
-                "calico",
-                cluster=self.eks_cluster,
-                manifest=[notcrd for notcrd in loaded_manifests if notcrd["kind"] != "CustomResourceDefinition"],
+                self.scope, "calico", cluster=self.eks_cluster, manifest=notcrd_manifests, overwrite=True
             )
-            non_crds.node.add_dependency(crds)
+
+            for crd in crds:
+                non_crds.node.add_dependency(crd)
