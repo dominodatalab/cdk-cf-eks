@@ -85,7 +85,7 @@ class DominoEksNodegroupProvisioner:
                 instance_types=[ec2.InstanceType(it) for it in ng.instance_types],
                 launch_template_spec=lts,
                 labels=ng.labels,
-                tags= {
+                tags={
                     **ng.tags,
                     "k8s.io/cluster-autoscaler/node-template/label/topology.ebs.csi.aws.com/zone": az,
                 },
