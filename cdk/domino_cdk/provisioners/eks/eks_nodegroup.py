@@ -85,7 +85,10 @@ class DominoEksNodegroupProvisioner:
                 instance_types=[ec2.InstanceType(it) for it in ng.instance_types],
                 launch_template_spec=lts,
                 labels=ng.labels,
-                tags=ng.tags,
+                tags= {
+                    **ng.tags,
+                    "k8s.io/cluster-autoscaler/node-template/label/topology.ebs.csi.aws.com/zone": az,
+                },
                 node_role=self.ng_role,
             )
 
@@ -156,6 +159,7 @@ class DominoEksNodegroupProvisioner:
                     **{
                         f"k8s.io/cluster-autoscaler/{self.cluster.cluster_name}": "owned",
                         "k8s.io/cluster-autoscaler/enabled": "true",
+                        "k8s.io/cluster-autoscaler/node-template/label/topology.ebs.csi.aws.com/zone": az,
                         "eks:cluster-name": self.cluster.cluster_name,
                         "Name": indexed_name,
                     },
