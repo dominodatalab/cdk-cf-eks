@@ -75,7 +75,7 @@ class S3:
             if errors and not getenv("SKIP_UNDEFINED_BUCKETS"):
                 raise ValueError(errors)
 
-    buckets: Optional[BucketList]
+    buckets: BucketList
     enabled: bool = True
 
     @staticmethod
@@ -89,6 +89,6 @@ class S3:
 
         return from_loader(
             "config.s3",
-            S3(buckets=S3.BucketList.load(c.pop("buckets")), enabled=True),
+            S3(buckets=S3.BucketList.load(c.pop("buckets"))),
             c,
         )
