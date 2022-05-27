@@ -20,7 +20,7 @@ class Route53:
         if "enabled" in c:
             del c["enabled"]
 
-        if enabled:
-            return from_loader("config.route53", Route53(zone_ids=c.pop("zone_ids", None)), c)
-        else:
+        if not enabled:
             return None
+
+        return from_loader("config.route53", Route53(zone_ids=c.pop("zone_ids", None)), c)

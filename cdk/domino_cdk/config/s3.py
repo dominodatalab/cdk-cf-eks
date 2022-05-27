@@ -84,11 +84,11 @@ class S3:
         if 'enabled' in c:
             del c['enabled']
 
-        if enabled:
-            return from_loader(
-                "config.s3",
-                S3(buckets=S3.BucketList.load(c.pop("buckets")), enabled=True),
-                c,
-            )
-        else:
+        if not enabled:
             return None
+
+        return from_loader(
+            "config.s3",
+            S3(buckets=S3.BucketList.load(c.pop("buckets")), enabled=True),
+            c,
+        )

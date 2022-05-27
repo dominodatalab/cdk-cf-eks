@@ -37,21 +37,21 @@ class EFS:
         if "enabled" in c:
             del c["enabled"]
 
-        if enabled:
-            backup = c.pop("backup")
-            return from_loader(
-                "config.efs",
-                EFS(
-                    backup=EFS.Backup(
-                        enable=backup.pop("enable"),
-                        schedule=backup.pop("schedule"),
-                        move_to_cold_storage_after=backup.pop("move_to_cold_storage_after", None),
-                        delete_after=backup.pop("delete_after", None),
-                        removal_policy=backup.pop("removal_policy", None),
-                    ),
-                    removal_policy_destroy=c.pop("removal_policy_destroy", None),
-                ),
-                c,
-            )
-        else:
+        if not enabled:
             return None
+
+        backup = c.pop("backup")
+        return from_loader(
+            "config.efs",
+            EFS(
+                backup=EFS.Backup(
+                    enable=backup.pop("enable"),
+                    schedule=backup.pop("schedule"),
+                    move_to_cold_storage_after=backup.pop("move_to_cold_storage_after", None),
+                    delete_after=backup.pop("delete_after", None),
+                    removal_policy=backup.pop("removal_policy", None),
+                ),
+                removal_policy_destroy=c.pop("removal_policy_destroy", None),
+            ),
+            c,
+        )
