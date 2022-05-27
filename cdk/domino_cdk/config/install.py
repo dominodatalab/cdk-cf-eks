@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from domino_cdk.config.util import from_loader
 
@@ -27,35 +27,48 @@ class Install:
     registry_password: str
     overrides: dict
     istio_compatible: bool
+    enabled: bool
 
     @staticmethod
-    def from_0_0_0(c: dict):
-        return from_loader(
-            "config.install",
-            Install(
-                access_list=["0.0.0.0/0"],
-                acm_cert_arn=None,
-                hostname=None,
-                registry_username=None,
-                registry_password=None,
-                istio_compatible=False,
-                overrides=c,
-            ),
-            c,
-        )
+    def from_0_0_0(c: dict) -> Optional['Install']:
+        enabled = c.get("enabled", True)
+        if 'enabled' in c: del c['enabled']
+
+        if enabled:
+            return from_loader(
+                "config.install",
+                Install(
+                    access_list=["0.0.0.0/0"],
+                    acm_cert_arn=None,
+                    hostname=None,
+                    registry_username=None,
+                    registry_password=None,
+                    istio_compatible=False,
+                    overrides=c,
+                ),
+                c,
+            )
+        else:
+            return None
 
     @staticmethod
-    def from_0_0_1(c: dict):
-        return from_loader(
-            "config.install",
-            Install(
-                access_list=c.pop("access_list"),
-                acm_cert_arn=c.pop("acm_cert_arn"),
-                hostname=c.pop("hostname"),
-                registry_username=c.pop("registry_username"),
-                registry_password=c.pop("registry_password"),
-                overrides=c.pop("overrides"),
-                istio_compatible=c.pop("istio_compatible", False),
-            ),
-            c,
-        )
+    def from_0_0_1(c: dict) -> Optional['Install']:
+        enabled = c.get("enabled", True)
+        if 'enabled' in c: del c['enabled']
+
+        if enabled:
+            return from_loader(
+                "config.install",
+                Install(
+                    access_list=c.pop("access_list"),
+                    acm_cert_arn=c.pop("acm_cert_arn"),
+                    hostname=c.pop("hostname"),
+                    registry_username=c.pop("registry_username"),
+                    registry_password=c.pop("registry_password"),
+                    overrides=c.pop("overrides"),
+                    istio_compatible=c.pop("istio_compatible", False),
+                ),
+                c,
+            )
+        else:
+            return None

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from domino_cdk.config.util import from_loader
 
@@ -26,23 +27,30 @@ class EFS:
         delete_after: int
         removal_policy: str
 
+    enabled: bool
     backup: Backup
     removal_policy_destroy: bool
 
     @staticmethod
-    def from_0_0_0(c: dict):
-        backup = c.pop("backup")
-        return from_loader(
-            "config.efs",
-            EFS(
-                backup=EFS.Backup(
-                    enable=backup.pop("enable"),
-                    schedule=backup.pop("schedule"),
-                    move_to_cold_storage_after=backup.pop("move_to_cold_storage_after", None),
-                    delete_after=backup.pop("delete_after", None),
-                    removal_policy=backup.pop("removal_policy", None),
+    def from_0_0_0(c: dict) -> Optional['EFS']:
+        enabled = c.get("enabled", True)
+        if "enabled" in c: del c["enabled"]
+
+        if enabled:
+            backup = c.pop("backup")
+            return from_loader(
+                "config.efs",
+                EFS(
+                    backup=EFS.Backup(
+                        enable=backup.pop("enable"),
+                        schedule=backup.pop("schedule"),
+                        move_to_cold_storage_after=backup.pop("move_to_cold_storage_after", None),
+                        delete_after=backup.pop("delete_after", None),
+                        removal_policy=backup.pop("removal_policy", None),
+                    ),
+                    removal_policy_destroy=c.pop("removal_policy_destroy", None),
                 ),
-                removal_policy_destroy=c.pop("removal_policy_destroy", None),
-            ),
-            c,
-        )
+                c,
+            )
+        else:
+            return None

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, fields, is_dataclass
 from textwrap import dedent
-from typing import Dict
+from typing import Dict, Optional
 
 import boto3
 from field_properties import field_property, unwrap_property
@@ -34,12 +34,12 @@ class DominoCDKConfig:
     create_iam_roles_for_service_accounts: bool = False
 
     vpc: VPC = None
-    efs: EFS = None
+    efs: Optional[EFS] = None
     route53: Route53 = None
     eks: EKS = None
-    s3: S3 = None
-
-    install: Install = None
+    s3: Optional[S3] = None
+    
+    install: Optional[Install] = None
 
     @field_property(tags)
     def get_tags(self) -> Dict[str, str]:
