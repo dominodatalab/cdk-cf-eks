@@ -27,14 +27,15 @@ class EFS:
         delete_after: int
         removal_policy: str
 
-    enabled: bool
     backup: Backup
     removal_policy_destroy: bool
+    enabled: bool = True
 
     @staticmethod
     def from_0_0_0(c: dict) -> Optional['EFS']:
         enabled = c.get("enabled", True)
-        if "enabled" in c: del c["enabled"]
+        if "enabled" in c:
+            del c["enabled"]
 
         if enabled:
             backup = c.pop("backup")

@@ -27,12 +27,13 @@ class Install:
     registry_password: str
     overrides: dict
     istio_compatible: bool
-    enabled: bool
+    enabled: bool = True
 
     @staticmethod
     def from_0_0_0(c: dict) -> Optional['Install']:
         enabled = c.get("enabled", True)
-        if 'enabled' in c: del c['enabled']
+        if 'enabled' in c:
+            del c['enabled']
 
         if enabled:
             return from_loader(
@@ -54,7 +55,8 @@ class Install:
     @staticmethod
     def from_0_0_1(c: dict) -> Optional['Install']:
         enabled = c.get("enabled", True)
-        if 'enabled' in c: del c['enabled']
+        if 'enabled' in c:
+            del c['enabled']
 
         if enabled:
             return from_loader(

@@ -38,7 +38,7 @@ class DominoCDKConfig:
     route53: Route53 = None
     eks: EKS = None
     s3: Optional[S3] = None
-    
+
     install: Optional[Install] = None
 
     @field_property(tags)

@@ -1,5 +1,7 @@
-from aws_cdk import core as cdk
+from typing import Optional
+
 import aws_cdk.aws_s3 as s3
+from aws_cdk import core as cdk
 
 from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
@@ -16,7 +18,6 @@ from domino_cdk.provisioners.eks.eks_iam_roles_for_k8s import (
 from domino_cdk.provisioners.lambda_utils import create_lambda
 from domino_cdk.util import DominoCdkUtil
 
-from typing import Optional
 
 class DominoStack(cdk.Stack):
     efs_stack: Optional[DominoEfsProvisioner] = None
@@ -58,7 +59,9 @@ class DominoStack(cdk.Stack):
             self.cfg.route53.zone_ids,
             nest,
             # Do not pass list of buckets to Eks provisioner if we are not using S3 access per node
-            self.s3_stack.buckets if self.s3_stack is not None and cfg.create_iam_roles_for_service_accounts is False else [],
+            self.s3_stack.buckets
+            if self.s3_stack is not None and cfg.create_iam_roles_for_service_accounts is False
+            else [],
         )
 
         if cfg.create_iam_roles_for_service_accounts:
@@ -147,5 +150,5 @@ class DominoStack(cdk.Stack):
             merged_cfg = DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install.overrides)
 
             cdk.CfnOutput(self, "agent_config", value=DominoCdkUtil.ruamel_dump(merged_cfg))
-            
+
         cdk.CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
