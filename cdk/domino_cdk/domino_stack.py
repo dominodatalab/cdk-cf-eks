@@ -56,7 +56,7 @@ class DominoStack(cdk.Stack):
             self.vpc_stack.vpc,
             self.vpc_stack.private_subnet_name,
             self.vpc_stack.bastion_sg,
-            self.cfg.route53.zone_ids,
+            self.cfg.route53.zone_ids if self.cfg.route53 is not None else [],
             nest,
             # Do not pass list of buckets to Eks provisioner if we are not using S3 access per node
             self.s3_stack.buckets
