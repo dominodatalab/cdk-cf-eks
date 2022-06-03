@@ -76,17 +76,9 @@ class S3:
                 raise ValueError(errors)
 
     buckets: BucketList
-    enabled: bool = True
 
     @staticmethod
     def from_0_0_0(c: dict) -> Optional['S3']:
-        enabled = c.get("enabled", True)
-        if 'enabled' in c:
-            del c['enabled']
-
-        if not enabled:
-            return None
-
         return from_loader(
             "config.s3",
             S3(buckets=S3.BucketList.load(c.pop("buckets"))),

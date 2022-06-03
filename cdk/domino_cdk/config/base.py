@@ -35,7 +35,7 @@ class DominoCDKConfig:
 
     vpc: VPC = None
     efs: Optional[EFS] = None
-    route53: Route53 = None
+    route53: Route53 = Optional[None]
     eks: EKS = None
     s3: Optional[S3] = None
 
@@ -54,6 +54,22 @@ class DominoCDKConfig:
 
     @staticmethod
     def from_0_0_0(c: dict):
+        s3 = None
+        if cfg := c.pop("s3", None):
+            s3 = S3.from_0_0_0(cfg)
+
+        route53 = None
+        if cfg := c.pop("route53", None):
+            route53 = Route53.from_0_0_0(cfg)
+
+        efs = None
+        if cfg := c.pop("efs", None):
+            route53 = EFS.from_0_0_0(cfg)
+
+        install = None
+        if cfg := c.pop("install", None):
+            install = Install.from_0_0_0(cfg)
+
         return from_loader(
             "config",
             DominoCDKConfig(
@@ -64,17 +80,33 @@ class DominoCDKConfig:
                 tags=c.pop("tags", {}),
                 create_iam_roles_for_service_accounts=False,
                 vpc=VPC.from_0_0_0({**c.pop("vpc"), **{"availability_zones": c.pop("availability_zones", [])}}),
-                efs=EFS.from_0_0_0(c.pop("efs")),
-                route53=Route53.from_0_0_0(c.pop("route53")),
+                efs=efs,
+                route53=route53,
                 eks=EKS.from_0_0_0(c.pop("eks")),
-                s3=S3.from_0_0_0(c.pop("s3")),
-                install=Install.from_0_0_0(c.pop("install")),
+                s3=s3,
+                install=install,
             ),
             c,
         )
 
     @staticmethod
     def from_0_0_1(c: dict):
+        s3 = None
+        if cfg := c.pop("s3", None):
+            s3 = S3.from_0_0_0(cfg)
+
+        route53 = None
+        if cfg := c.pop("route53", None):
+            route53 = Route53.from_0_0_0(cfg)
+
+        efs = None
+        if cfg := c.pop("efs", None):
+            route53 = EFS.from_0_0_0(cfg)
+
+        install = None
+        if cfg := c.pop("install", None):
+            install = Install.from_0_0_1(cfg)
+
         return from_loader(
             "config",
             DominoCDKConfig(
@@ -85,11 +117,11 @@ class DominoCDKConfig:
                 tags=c.pop("tags", {}),
                 create_iam_roles_for_service_accounts=c.pop("create_iam_roles_for_service_accounts", False),
                 vpc=VPC.from_0_0_1(c.pop("vpc")),
-                efs=EFS.from_0_0_0(c.pop("efs")),
-                route53=Route53.from_0_0_0(c.pop("route53")),
+                efs=efs,
+                route53=route53,
                 eks=EKS.from_0_0_1(c.pop("eks")),
-                s3=S3.from_0_0_0(c.pop("s3")),
-                install=Install.from_0_0_1(c.pop("install")),
+                s3=s3,
+                install=install,
             ),
             c,
         )

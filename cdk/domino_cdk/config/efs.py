@@ -29,17 +29,9 @@ class EFS:
 
     backup: Backup
     removal_policy_destroy: bool
-    enabled: bool = True
 
     @staticmethod
     def from_0_0_0(c: dict) -> Optional['EFS']:
-        enabled = c.get("enabled", True)
-        if "enabled" in c:
-            del c["enabled"]
-
-        if not enabled:
-            return None
-
         backup = c.pop("backup")
         return from_loader(
             "config.efs",
