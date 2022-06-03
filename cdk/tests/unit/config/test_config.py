@@ -27,6 +27,8 @@ class TestConfig(unittest.TestCase):
         with patch("domino_cdk.config.util.log.warning") as warn:
             template = deepcopy(legacy_template)
             c = config_loader(template)
+            print(c)
+            print(legacy_config)
             self.assertEqual(c, legacy_config)
             warn.assert_called_with(
                 "Warning: Unused/unsupported config entries in config.vpc: {'bastion': {'enabled': False, 'instance_type': None, 'ingress_ports': None}}"

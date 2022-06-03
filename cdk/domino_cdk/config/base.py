@@ -54,21 +54,21 @@ class DominoCDKConfig:
 
     @staticmethod
     def from_0_0_0(c: dict):
-        s3 = None
-        if cfg := c.pop("s3", None):
-            s3 = S3.from_0_0_0(cfg)
+        s3 = c.pop("s3", None)
+        if s3 is not None:
+            s3 = S3.from_0_0_0(s3)
 
-        route53 = None
-        if cfg := c.pop("route53", None):
-            route53 = Route53.from_0_0_0(cfg)
+        route53 = c.pop("route53", None)
+        if route53 is not None:
+            route53 = Route53.from_0_0_0(route53)
 
-        efs = None
-        if cfg := c.pop("efs", None):
-            route53 = EFS.from_0_0_0(cfg)
+        efs = c.pop("efs", None)
+        if efs is not None:
+            efs = EFS.from_0_0_0(efs)
 
-        install = None
-        if cfg := c.pop("install", None):
-            install = Install.from_0_0_0(cfg)
+        install = c.pop("install", None)
+        if install is not None:
+            install = Install.from_0_0_0(install)
 
         return from_loader(
             "config",
@@ -91,21 +91,21 @@ class DominoCDKConfig:
 
     @staticmethod
     def from_0_0_1(c: dict):
-        s3 = None
-        if cfg := c.pop("s3", None):
-            s3 = S3.from_0_0_0(cfg)
+        s3 = c.pop("s3", None)
+        if s3 is not None:
+            s3 = S3.from_0_0_0(s3)
 
-        route53 = None
-        if cfg := c.pop("route53", None):
-            route53 = Route53.from_0_0_0(cfg)
+        route53 = c.pop("route53", None)
+        if route53 is not None:
+            route53 = Route53.from_0_0_0(route53)
 
-        efs = None
-        if cfg := c.pop("efs", None):
-            route53 = EFS.from_0_0_0(cfg)
+        efs = c.pop("efs", None)
+        if efs is not None:
+            efs = EFS.from_0_0_0(efs)
 
-        install = None
-        if cfg := c.pop("install", None):
-            install = Install.from_0_0_1(cfg)
+        install = c.pop("install", None)
+        if install is not None:
+            install = Install.from_0_0_1(install)
 
         return from_loader(
             "config",
