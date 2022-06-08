@@ -35,7 +35,7 @@ class DominoVpcProvisioner:
         self.public_subnet_name = f"{stack_name}-Public"
         self.private_subnet_name = f"{stack_name}-Private"
         if not vpc.create:
-            self.vpc = ec2.Vpc.from_lookup(self.scope, vpc.id)
+            self.vpc = ec2.Vpc.from_lookup(self.scope, vpc.id, vpc_id=vpc.id)
             return
 
         nat_provider = ec2.NatProvider.gateway()
