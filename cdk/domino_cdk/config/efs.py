@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from domino_cdk.config.util import from_loader
 
@@ -30,7 +31,7 @@ class EFS:
     removal_policy_destroy: bool
 
     @staticmethod
-    def from_0_0_0(c: dict):
+    def from_0_0_0(c: dict) -> Optional['EFS']:
         backup = c.pop("backup")
         return from_loader(
             "config.efs",

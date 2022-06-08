@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 from domino_cdk.config.util import from_loader
 
@@ -29,7 +29,7 @@ class Install:
     istio_compatible: bool
 
     @staticmethod
-    def from_0_0_0(c: dict):
+    def from_0_0_0(c: dict) -> Optional['Install']:
         return from_loader(
             "config.install",
             Install(
@@ -45,7 +45,7 @@ class Install:
         )
 
     @staticmethod
-    def from_0_0_1(c: dict):
+    def from_0_0_1(c: dict) -> Optional['Install']:
         return from_loader(
             "config.install",
             Install(

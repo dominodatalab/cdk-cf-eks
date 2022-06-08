@@ -78,7 +78,7 @@ class S3:
     buckets: BucketList
 
     @staticmethod
-    def from_0_0_0(c: dict):
+    def from_0_0_0(c: dict) -> Optional['S3']:
         return from_loader(
             "config.s3",
             S3(buckets=S3.BucketList.load(c.pop("buckets"))),
