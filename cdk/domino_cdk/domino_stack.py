@@ -59,9 +59,7 @@ class DominoStack(cdk.Stack):
             self.cfg.route53.zone_ids if self.cfg.route53 else [],
             nest,
             # Do not pass list of buckets to Eks provisioner if we are not using S3 access per node
-            self.s3_stack.buckets
-            if self.s3_stack and cfg.create_iam_roles_for_service_accounts is False
-            else [],
+            self.s3_stack.buckets if self.s3_stack and cfg.create_iam_roles_for_service_accounts is False else [],
         )
 
         if cfg.create_iam_roles_for_service_accounts:
