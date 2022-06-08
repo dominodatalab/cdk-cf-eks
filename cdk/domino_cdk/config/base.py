@@ -55,7 +55,7 @@ class DominoCDKConfig:
     @staticmethod
     def from_0_0_0(c: dict):
         s3 = c.pop("s3", None)
-        if s3 is not None:
+        if s3:
             s3 = S3.from_0_0_0(s3)
 
         route53 = c.pop("route53", None)
@@ -63,11 +63,11 @@ class DominoCDKConfig:
             route53 = Route53.from_0_0_0(route53)
 
         efs = c.pop("efs", None)
-        if efs is not None:
+        if efs:
             efs = EFS.from_0_0_0(efs)
 
         install = c.pop("install", None)
-        if install is not None:
+        if install:
             install = Install.from_0_0_0(install)
 
         return from_loader(
@@ -92,19 +92,19 @@ class DominoCDKConfig:
     @staticmethod
     def from_0_0_1(c: dict):
         s3 = c.pop("s3", None)
-        if s3 is not None:
+        if s3:
             s3 = S3.from_0_0_0(s3)
 
         route53 = c.pop("route53", None)
-        if route53 is not None:
+        if route53:
             route53 = Route53.from_0_0_0(route53)
 
         efs = c.pop("efs", None)
-        if efs is not None:
+        if efs:
             efs = EFS.from_0_0_0(efs)
 
         install = c.pop("install", None)
-        if install is not None:
+        if install:
             install = Install.from_0_0_1(install)
 
         return from_loader(

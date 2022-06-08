@@ -40,7 +40,7 @@ class DominoStack(cdk.Stack):
         for k, v in self.cfg.tags.items():
             cdk.Tags.of(self).add(str(k), str(v))
 
-        if self.cfg.s3 is not None:
+        if self.cfg.s3:
             self.s3_stack = DominoS3Provisioner(self, "S3Stack", self.name, self.cfg.s3, nest)
             self.monitoring_bucket = self.s3_stack.monitoring_bucket
 
@@ -56,18 +56,18 @@ class DominoStack(cdk.Stack):
             self.vpc_stack.vpc,
             self.vpc_stack.private_subnet_name,
             self.vpc_stack.bastion_sg,
-            self.cfg.route53.zone_ids if self.cfg.route53 is not None else [],
+            self.cfg.route53.zone_ids if self.cfg.route53 else [],
             nest,
             # Do not pass list of buckets to Eks provisioner if we are not using S3 access per node
             self.s3_stack.buckets
-            if self.s3_stack is not None and cfg.create_iam_roles_for_service_accounts is False
+            if self.s3_stack and cfg.create_iam_roles_for_service_accounts is False
             else [],
         )
 
         if cfg.create_iam_roles_for_service_accounts:
             DominoEksK8sIamRolesProvisioner(self).provision(self.name, self.eks_stack.cluster, self.s3_stack.buckets)
 
-        if self.cfg.efs is not None:
+        if self.cfg.efs:
             self.efs_stack = DominoEfsProvisioner(
                 self,
                 "EfsStack",
@@ -110,7 +110,7 @@ class DominoStack(cdk.Stack):
         self.generate_outputs()
 
     def generate_outputs(self):
-        if self.efs_stack is not None:
+        if self.efs_stack:
             efs_fs_ap_id = f"{self.efs_stack.efs.file_system_id}::{self.efs_stack.efs_access_point.access_point_id}"
             cdk.CfnOutput(
                 self,
@@ -118,7 +118,7 @@ class DominoStack(cdk.Stack):
                 value=efs_fs_ap_id,
             )
 
-        if self.cfg.route53 is not None:
+        if self.cfg.route53:
             r53_zone_ids = self.cfg.route53.zone_ids
             r53_owner_id = f"{self.name}CDK"
             cdk.CfnOutput(
@@ -132,7 +132,7 @@ class DominoStack(cdk.Stack):
                 value=r53_owner_id,
             )
 
-        if self.cfg.install is not None:
+        if self.cfg.install:
             agent_cfg = generate_install_config(
                 name=self.name,
                 install=self.cfg.install,
