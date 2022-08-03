@@ -134,6 +134,9 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "lambda:InvokeFunction",
             "lambda:PublishLayerVersion",
             "lambda:UpdateFunctionConfiguration",
+            "lambda:ListTags",
+            "lambda:TagResource",
+            "lambda:UntagResource",
         ],
         **from_cf_condition,
         "Resource": [
