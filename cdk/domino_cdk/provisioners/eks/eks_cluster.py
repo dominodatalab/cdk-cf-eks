@@ -77,6 +77,7 @@ class DominoEksClusterProvisioner:
             default_capacity=0,
             security_group=eks_sg,
             secrets_encryption_key=key,
+            prune=False,  # https://github.com/aws/aws-cdk/issues/19843
         )
 
         # To make sure log cleanup is called after cluster cleanup: cluster depends on custom so custom is guaranteed
