@@ -111,11 +111,15 @@ class DominoStack(cdk.Stack):
 
     def generate_outputs(self):
         if self.efs_stack is not None:
-            efs_fs_ap_id = f"{self.efs_stack.efs.file_system_id}::{self.efs_stack.efs_access_point.access_point_id}"
             cdk.CfnOutput(
                 self,
-                "efs-output",
-                value=efs_fs_ap_id,
+                "EFSFilesystemId",
+                value=self.efs_stack.efs.file_system_id,
+            )
+            cdk.CfnOutput(
+                self,
+                "EFSAccessPointId",
+                value=self.efs_stack.efs_access_point.access_point_id,
             )
 
         if self.cfg.route53 is not None:
@@ -142,7 +146,8 @@ class DominoStack(cdk.Stack):
                 global_node_selectors=self.cfg.eks.global_node_labels,
                 buckets=self.s3_stack.buckets,
                 monitoring_bucket=self.s3_stack.monitoring_bucket,
-                efs_fs_ap_id=efs_fs_ap_id,
+                efs_fsid=self.efs_stack.efs.file_system_id,
+                efs_apid=self.efs_stack.efs_access_point.access_point_id,
                 r53_zone_ids=r53_zone_ids,
                 r53_owner_id=r53_owner_id,
             )
