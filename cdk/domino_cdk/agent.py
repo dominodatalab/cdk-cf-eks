@@ -74,7 +74,7 @@ def generate_install_config(
                 "region": aws_region,
                 "bucket": buckets["registry"].bucket_name,
                 "sse_kms_key_id": None,
-            }
+            },
         },
         "metrics_server": {"install": True},
         "gpu": {"enabled": True},
