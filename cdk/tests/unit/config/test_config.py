@@ -134,7 +134,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(
             c.install.overrides,
             {
-                "services": {
+                "release_overrides": {
                     "nucleus": {
                         "chart_values": {
                             "replicaCount": {
