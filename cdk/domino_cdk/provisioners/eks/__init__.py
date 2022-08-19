@@ -31,7 +31,7 @@ class DominoEksProvisioner:
 
         self.scope.untagged_resources = parent.untagged_resources
 
-        eks_version = getattr(eks.KubernetesVersion, f"V{eks_cfg.version.replace('.', '_')}")
+        eks_version = eks.KubernetesVersion.of(eks_cfg.version)
 
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
             stack_name,
