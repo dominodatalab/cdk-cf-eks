@@ -27,12 +27,24 @@ def generate_install_config(
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {
+            "block": {
+                "create": True,
+                "name": "dominodisk",
+                "type": "ebs",
+                "access_modes": ["ReadWriteOnce"],
+                "base_path": "",
+            },
             "shared": {
+                "create": True,
+                "name": "dominoshared",
+                "type": "efs",
+                "access_modes": ["ReadWriteMany"],
+                "volume_capacity": "5Ti",
                 "efs": {
                     "region": aws_region,
                     "filesystem_id": efs_fsid,
                     "access_point_id": efs_apid,
-                }
+                },
             },
         },
         "blob_storage": {
