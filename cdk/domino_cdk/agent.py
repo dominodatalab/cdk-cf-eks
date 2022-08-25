@@ -81,7 +81,6 @@ def generate_install_config(
             },
         },
         "internal_docker_registry": {
-            "enabled": True,
             "s3_override": {
                 "region": aws_region,
                 "bucket": buckets["registry"].bucket_name,
@@ -92,13 +91,6 @@ def generate_install_config(
         "gpu": {"enabled": True},
         "release_overrides": {
             "nginx-ingress": {},
-            "forge": {
-                "chart_values": {
-                    "config": {
-                        "fullPrivilege": True,
-                    },
-                }
-            },
         },
     }
 
