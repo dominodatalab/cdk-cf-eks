@@ -191,10 +191,14 @@ def generate_install_config(
         )
 
     if install.registry_username:
-        agent_cfg["private_docker_registry"] = {
-            "server": "quay.io",
-            "username": install.registry_username,
-            "password": install.registry_password,
+        agent_cfg["helm"] = {
+            "image_registries": [
+                {
+                    "server": "quay.io",
+                    "username": install.registry_username,
+                    "password": install.registry_password,
+                }
+            ]
         }
 
     return agent_cfg
