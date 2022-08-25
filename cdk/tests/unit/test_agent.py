@@ -20,7 +20,7 @@ class TestAgent(TestCase):
             "registry": Bucket(self.stack, "s3-registry"),
         }
 
-    def test_generate_intsall_config_istio(self):
+    def test_generate_install_config_istio(self):
         config = generate_install_config(
             "test",
             Install(
@@ -55,6 +55,7 @@ class TestAgent(TestCase):
                         "type": "LoadBalancer",
                         "targetPorts": {"http": "http", "https": "https"},
                         "annotations": {
+                            "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy": "ELBSecurityPolicy-TLS-1-2-2017-01",
                             "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl",
                             "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "acm:cert:arn",
                             "service.beta.kubernetes.io/aws-load-balancer-internal": False,
@@ -72,7 +73,7 @@ class TestAgent(TestCase):
             },
         )
 
-    def test_generate_intsall_config(self):
+    def test_generate_install_config(self):
         config = generate_install_config(
             "test",
             Install(
@@ -107,6 +108,7 @@ class TestAgent(TestCase):
                         "type": "LoadBalancer",
                         "targetPorts": {"http": "http", "https": "http"},
                         "annotations": {
+                            "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy": "ELBSecurityPolicy-TLS-1-2-2017-01",
                             "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                             "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "acm:cert:arn",
                             "service.beta.kubernetes.io/aws-load-balancer-internal": False,
