@@ -20,7 +20,7 @@ class TestAgent(TestCase):
             "registry": Bucket(self.stack, "s3-registry"),
         }
 
-    def test_generate_intsall_config_istio(self):
+    def test_generate_install_config_istio(self):
         config = generate_install_config(
             "test",
             Install(
@@ -73,7 +73,7 @@ class TestAgent(TestCase):
             },
         )
 
-    def test_generate_intsall_config(self):
+    def test_generate_install_config(self):
         config = generate_install_config(
             "test",
             Install(
