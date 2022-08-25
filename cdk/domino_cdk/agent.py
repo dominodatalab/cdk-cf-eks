@@ -15,21 +15,36 @@ def generate_install_config(
     global_node_selectors: Dict[str, str],
     buckets: Dict[str, Bucket],
     monitoring_bucket: Optional[Bucket],
-    efs_fs_ap_id: str,
+    efs_fsid: str,
+    efs_apid: str,
     r53_zone_ids: str,
     r53_owner_id: str,
 ) -> Dict:
     agent_cfg: Dict[str, Any] = {
         "name": name,
+        "schema": "1.1",
         "hostname": install.hostname,
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,
         "storage_classes": {
+            "block": {
+                "create": True,
+                "name": "dominodisk",
+                "type": "ebs",
+                "access_modes": ["ReadWriteOnce"],
+                "base_path": "",
+            },
             "shared": {
+                "create": True,
+                "name": "dominoshared",
+                "type": "efs",
+                "access_modes": ["ReadWriteMany"],
+                "volume_capacity": "5Ti",
                 "efs": {
                     "region": aws_region,
-                    "filesystem_id": efs_fs_ap_id,
-                }
+                    "filesystem_id": efs_fsid,
+                    "access_point_id": efs_apid,
+                },
             },
         },
         "blob_storage": {
@@ -37,29 +52,26 @@ def generate_install_config(
                 "s3": {
                     "region": aws_region,
                     "bucket": buckets["blobs"].bucket_name,
+                    "sse_kms_key_id": None,
                 },
             },
             "logs": {
                 "s3": {
                     "region": aws_region,
                     "bucket": buckets["logs"].bucket_name,
+                    "sse_kms_key_id": None,
                 },
             },
             "backups": {
                 "s3": {
                     "region": aws_region,
                     "bucket": buckets["backups"].bucket_name,
-                },
-            },
-            "default": {
-                "s3": {
-                    "region": aws_region,
-                    "bucket": buckets["blobs"].bucket_name,
+                    "sse_kms_key_id": None,
                 },
             },
         },
         "autoscaler": {
-            "enabled": True,
+            "cloud_provider": "aws",
             "auto_discovery": {
                 "cluster_name": eks_cluster_name,
             },
@@ -72,33 +84,24 @@ def generate_install_config(
             "s3_override": {
                 "region": aws_region,
                 "bucket": buckets["registry"].bucket_name,
-            }
+                "sse_kms_key_id": None,
+            },
         },
         "metrics_server": {"install": True},
         "gpu": {"enabled": True},
-        "helm": {
-            "cache_path": "charts",
-        },
-        "services": {
-            "nginx_ingress": {},
-            "forge": {
-                "chart_values": {
-                    "config": {
-                        "fullPrivilege": True,
-                    },
-                }
-            },
+        "release_overrides": {
+            "nginx-ingress": {},
         },
     }
 
     if r53_zone_ids:
         agent_cfg["external_dns"] = {
-            "enabled": True,
+            "provider": "aws",
             "zone_id_filters": r53_zone_ids,
             "txt_owner_id": r53_owner_id,
         }
 
-    agent_cfg["services"]["nginx_ingress"]["chart_values"] = {
+    agent_cfg["release_overrides"]["nginx-ingress"]["chart_values"] = {
         "controller": {
             "kind": "Deployment",
             "hostNetwork": False,
@@ -130,8 +133,8 @@ def generate_install_config(
         agent_cfg = DominoCdkUtil.deep_merge(
             agent_cfg,
             {
-                "services": {
-                    "nginx_ingress": {
+                "release_overrides": {
+                    "nginx-ingress": {
                         "chart_values": {
                             "controller": {
                                 "config": {
@@ -157,8 +160,8 @@ def generate_install_config(
         agent_cfg = DominoCdkUtil.deep_merge(
             agent_cfg,
             {
-                "services": {
-                    "nginx_ingress": {
+                "release_overrides": {
+                    "nginx-ingress": {
                         "chart_values": {
                             "controller": {
                                 "config": {
@@ -178,7 +181,7 @@ def generate_install_config(
         )
 
     if monitoring_bucket:
-        agent_cfg["services"]["nginx_ingress"]["chart_values"]["controller"]["service"]["annotations"].update(
+        agent_cfg["release_overrides"]["nginx-ingress"]["chart_values"]["controller"]["service"]["annotations"].update(
             {
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-enabled": "true",
                 "service.beta.kubernetes.io/aws-load-balancer-access-log-emit-interval": "5",

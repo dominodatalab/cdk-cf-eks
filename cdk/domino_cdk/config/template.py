@@ -171,7 +171,7 @@ def config_template(
         overrides = DominoCdkUtil.deep_merge(
             overrides,
             {
-                "services": {
+                "release_overrides": {
                     "nucleus": {
                         "chart_values": {
                             "replicaCount": {

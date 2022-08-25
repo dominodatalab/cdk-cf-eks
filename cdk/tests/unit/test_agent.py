@@ -38,14 +38,15 @@ class TestAgent(TestCase):
             {},
             self.buckets,
             None,
-            "efs:ap-id",
+            "fsid-blah",
+            "apid-blah",
             "ZONE-ABC",
             "TXTOWNER",
         )
 
         self.assertEqual(config["istio"], {"enabled": True, "install": True, "cni": False})
         self.assertEqual(
-            config["services"]["nginx_ingress"]["chart_values"],
+            config["release_overrides"]["nginx-ingress"]["chart_values"],
             {
                 "controller": {
                     "kind": "Deployment",
@@ -91,14 +92,15 @@ class TestAgent(TestCase):
             {},
             self.buckets,
             None,
-            "efs:ap-id",
+            "fsid-blah",
+            "apid-blah",
             "ZONE-ABC",
             "TXTOWNER",
         )
 
         self.assertEqual(config.get("istio"), None)
         self.assertEqual(
-            config["services"]["nginx_ingress"]["chart_values"],
+            config["release_overrides"]["nginx-ingress"]["chart_values"],
             {
                 "controller": {
                     "kind": "Deployment",
