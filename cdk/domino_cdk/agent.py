@@ -106,6 +106,7 @@ def generate_install_config(
                 "enabled": True,
                 "type": "LoadBalancer",
                 "annotations": {
+                    "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy": "ELBSecurityPolicy-TLS-1-2-2017-01",
                     "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": install.acm_cert_arn or "__FILL__",
                     "service.beta.kubernetes.io/aws-load-balancer-internal": False,
                     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",

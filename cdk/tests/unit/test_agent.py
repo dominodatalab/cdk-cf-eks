@@ -55,6 +55,7 @@ class TestAgent(TestCase):
                         "type": "LoadBalancer",
                         "targetPorts": {"http": "http", "https": "https"},
                         "annotations": {
+                            "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy": "ELBSecurityPolicy-TLS-1-2-2017-01",
                             "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "ssl",
                             "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "acm:cert:arn",
                             "service.beta.kubernetes.io/aws-load-balancer-internal": False,
@@ -107,6 +108,7 @@ class TestAgent(TestCase):
                         "type": "LoadBalancer",
                         "targetPorts": {"http": "http", "https": "http"},
                         "annotations": {
+                            "service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy": "ELBSecurityPolicy-TLS-1-2-2017-01",
                             "service.beta.kubernetes.io/aws-load-balancer-backend-protocol": "tcp",
                             "service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "acm:cert:arn",
                             "service.beta.kubernetes.io/aws-load-balancer-internal": False,
