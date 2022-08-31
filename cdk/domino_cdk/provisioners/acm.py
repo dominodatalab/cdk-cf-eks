@@ -25,9 +25,9 @@ class DominoAcmProvisioner:
         self.provision_acm(stack_name, cfg)
 
     def provision_efs(self, stack_name: str, cfg: config.ACM):
-        self.acm_certs = [ create_cert(cert) for cert in cfg.certificates ]
+        self.acm_certs = [ self.create_cert(cert) for cert in cfg.certificates ]
 
-    def create_cert(c: config.ACM.Certificate):
+    def create_cert(self, c: config.ACM.Certificate):
         if c.zone_name is None:
           return acm.Certificate(self, "Certificate",
             domain_name = c.domain,
