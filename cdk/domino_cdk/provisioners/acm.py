@@ -25,21 +25,23 @@ class DominoAcmProvisioner:
         self.provision_acm(stack_name, cfg)
 
     def provision_efs(self, stack_name: str, cfg: config.ACM):
-        self.acm_certs = [ self.create_cert(cert) for cert in cfg.certificates ]
+        self.acm_certs = [self.create_cert(cert) for cert in cfg.certificates]
 
     def create_cert(self, c: config.ACM.Certificate):
         if c.zone_name is None:
-          return acm.Certificate(self, "Certificate",
-            domain_name = c.domain,
-            subject_alternative_names=[f"*.{c.domain}"],
-            validation=acm.CertificateValidation.from_dns()
-          )
+            return acm.Certificate(
+                self,
+                "Certificate",
+                domain_name=c.domain,
+                subject_alternative_names=[f"*.{c.domain}"],
+                validation=acm.CertificateValidation.from_dns(),
+            )
         else:
-          hosted_zone = route53.HostedZone(self, "HostedZone",
-              zone_name=c.zone_name
-          )
-          acm.Certificate(self, "Certificate",
-              domain_name = c.domain,
-              subject_alternative_names=[f"*.{c.domain}"],
-              validation=acm.CertificateValidation.from_dns(hosted_zone)
-          )
+            hosted_zone = route53.HostedZone(self, "HostedZone", zone_name=c.zone_name)
+            acm.Certificate(
+                self,
+                "Certificate",
+                domain_name=c.domain,
+                subject_alternative_names=[f"*.{c.domain}"],
+                validation=acm.CertificateValidation.from_dns(hosted_zone),
+            )

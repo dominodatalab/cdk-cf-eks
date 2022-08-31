@@ -6,7 +6,6 @@ from domino_cdk.config.util import from_loader
 
 @dataclass
 class ACM:
-
     @dataclass
     class Certificate:
         """
@@ -17,7 +16,6 @@ class ACM:
         domain: str
         zone_name: Optional[str]
 
-
     certificates: List[Certificate]
 
     @staticmethod
@@ -26,10 +24,7 @@ class ACM:
         return from_loader(
             "config.acm",
             ACM(
-                certificates = [
-                  ACM.Certificate(cert.pop("domain"), cert.pop("zone_name", None))
-                  for cert in certificates
-                ]
+                certificates=[ACM.Certificate(cert.pop("domain"), cert.pop("zone_name", None)) for cert in certificates]
             ),
             c,
         )
