@@ -7,6 +7,7 @@ from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
 from domino_cdk.config import DominoCDKConfig
 from domino_cdk.provisioners import (
+    DominoAcmProvisioner,
     DominoEfsProvisioner,
     DominoEksProvisioner,
     DominoS3Provisioner,
@@ -20,6 +21,7 @@ from domino_cdk.util import DominoCdkUtil
 
 
 class DominoStack(cdk.Stack):
+    acm_stack: Optional[DominoAcmProvisioner] = None
     efs_stack: Optional[DominoEfsProvisioner] = None
     s3_stack: Optional[DominoS3Provisioner] = None
     monitoring_bucket: Optional[s3.Bucket] = None
@@ -75,6 +77,15 @@ class DominoStack(cdk.Stack):
                 self.cfg.efs,
                 self.vpc_stack.vpc,
                 self.eks_stack.cluster.cluster_security_group,
+                nest,
+            )
+
+        if self.cfg.acm is not None:
+            self.acm_stack = DominoAcmProvisioner(
+                self,
+                "AcmStack",
+                self.name,
+                self.cfg.acm,
                 nest,
             )
 
