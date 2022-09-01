@@ -91,7 +91,7 @@ class DominoCDKConfig:
                 eks=EKS.from_0_0_0(c.pop("eks")),
                 s3=s3,
                 install=install,
-                acm=acm
+                acm=acm,
             ),
             c,
         )
@@ -133,7 +133,7 @@ class DominoCDKConfig:
                 eks=EKS.from_0_0_1(c.pop("eks")),
                 s3=s3,
                 install=install,
-                acm=acm
+                acm=acm,
             ),
             c,
         )

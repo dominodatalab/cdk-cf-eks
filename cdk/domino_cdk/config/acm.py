@@ -23,8 +23,6 @@ class ACM:
         certificates = c.pop("certificates")
         return from_loader(
             "config.acm",
-            ACM(
-                certificates=[ACM.Certificate(cert.pop("domain"), cert.pop("zone_name")) for cert in certificates]
-            ),
+            ACM(certificates=[ACM.Certificate(cert.pop("domain"), cert.pop("zone_name")) for cert in certificates]),
             c,
         )
