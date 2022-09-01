@@ -1,4 +1,3 @@
-from itertools import count
 import aws_cdk.aws_certificatemanager as acm
 import aws_cdk.aws_route53 as route53
 from aws_cdk import core as cdk
