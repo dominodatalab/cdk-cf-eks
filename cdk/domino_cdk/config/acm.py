@@ -10,7 +10,7 @@ class ACM:
     class Certificate:
         """
         domain: Name of domain to create the certificate for
-        zone_name: Zone to use for DNS validation  [Optional]
+        zone_name: Zone to use for DNS validation
         """
 
         domain: str
@@ -24,7 +24,7 @@ class ACM:
         return from_loader(
             "config.acm",
             ACM(
-                certificates=[ACM.Certificate(cert.pop("domain"), cert.pop("zone_name", None)) for cert in certificates]
+                certificates=[ACM.Certificate(cert.pop("domain"), cert.pop("zone_name")) for cert in certificates]
             ),
             c,
         )
