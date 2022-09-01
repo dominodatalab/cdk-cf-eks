@@ -3,6 +3,7 @@ from typing import Optional
 from semantic_version import Version
 
 from domino_cdk import __version__
+from domino_cdk.config.acm import ACM
 from domino_cdk.config.base import DominoCDKConfig
 from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS

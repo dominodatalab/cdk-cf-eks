@@ -7,6 +7,7 @@ from field_properties import field_property, unwrap_property
 from ruamel.yaml.comments import CommentedMap
 
 from domino_cdk import __version__
+from domino_cdk.config.acm import ACM
 from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS
 from domino_cdk.config.install import Install
@@ -38,6 +39,7 @@ class DominoCDKConfig:
     route53: Route53 = Optional[None]
     eks: EKS = None
     s3: Optional[S3] = None
+    acm: Optional[ACM] = None
 
     install: Optional[Install] = None
 
@@ -70,6 +72,10 @@ class DominoCDKConfig:
         if install is not None:
             install = Install.from_0_0_0(install)
 
+        acm = c.pop("acm", None)
+        if acm is not None:
+            acm = ACM.from_0_0_0(acm)
+
         return from_loader(
             "config",
             DominoCDKConfig(
@@ -85,6 +91,7 @@ class DominoCDKConfig:
                 eks=EKS.from_0_0_0(c.pop("eks")),
                 s3=s3,
                 install=install,
+                acm=acm,
             ),
             c,
         )
@@ -107,6 +114,10 @@ class DominoCDKConfig:
         if install is not None:
             install = Install.from_0_0_1(install)
 
+        acm = c.pop("acm", None)
+        if acm is not None:
+            acm = ACM.from_0_0_0(acm)
+
         return from_loader(
             "config",
             DominoCDKConfig(
@@ -122,6 +133,7 @@ class DominoCDKConfig:
                 eks=EKS.from_0_0_1(c.pop("eks")),
                 s3=s3,
                 install=install,
+                acm=acm,
             ),
             c,
         )
