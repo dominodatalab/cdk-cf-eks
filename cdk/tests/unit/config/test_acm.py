@@ -4,13 +4,11 @@ from copy import deepcopy
 from domino_cdk.config import ACM
 
 acm_0_0_0_cfg = {
-    "certificates": {
-        [
-            {"domain": "testdeploy1", "zone_name": "sandbox.domino.tech"},
-            {"domain": "testdeploy2", "zone_name": "sandbox.domino.tech"},
-            {"domain": "testdeploy3"},
-        ]
-    },
+    "certificates": [
+        {"domain": "testdeploy1", "zone_name": "sandbox.domino.tech"},
+        {"domain": "testdeploy2", "zone_name": "sandbox.domino.tech"},
+        {"domain": "testdeploy3"},
+    ],
 }
 
 acm_obj = ACM(
