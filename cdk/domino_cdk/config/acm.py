@@ -14,7 +14,7 @@ class ACM:
         """
 
         domain: str
-        zone_name: Optional[str]
+        zone_name: str
 
     certificates: List[Certificate]
 
