@@ -1,6 +1,7 @@
 from io import StringIO
 from os.path import isfile
 from pathlib import Path
+from re import sub
 
 import aws_cdk.aws_eks as eks
 from aws_cdk import core as cdk
@@ -48,7 +49,8 @@ class DominoAwsConfigurator:
             if isfile(filename):
                 stream = Path(filename)
             else:
-                stream = StringIO(requests_get(url).text)
+                # Something downstream will make this substitution anyway, cause fake diffs
+                stream = StringIO(sub(r'[“”]', '?', requests_get(url).text))
 
             yaml = YAML(typ="safe")
             loaded_manifests = list(yaml.load_all(stream))
