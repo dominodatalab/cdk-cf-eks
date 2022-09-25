@@ -24,7 +24,9 @@ class DominoAcmProvisioner:
         self.acm_certs = [self.create_cert(index, cert) for index, cert in enumerate(cfg.certificates)]
 
     def create_cert(self, index: int, c: config.ACM.Certificate):
-        hosted_zone = route53.HostedZone.from_hosted_zone_attributes(self.scope, f"HostedZone{index}", zone_name=c.zone_name, hosted_zone_id=c.zone_id)
+        hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
+            self.scope, f"HostedZone{index}", zone_name=c.zone_name, hosted_zone_id=c.zone_id
+        )
         acm.Certificate(
             self.scope,
             f"Certificate{index}",
