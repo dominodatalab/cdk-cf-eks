@@ -5,15 +5,15 @@ from domino_cdk.config import ACM
 
 acm_0_0_0_cfg = {
     "certificates": [
-        {"domain": "testdeploy1", "zone_name": "sandbox.domino.tech"},
-        {"domain": "testdeploy2", "zone_name": "sandbox.domino.tech"},
+        {"domain": "testdeploy1", "zone_name": "sandbox.domino.tech", "zone_id": "ZOJJZC49E0EPZ"},
+        {"domain": "testdeploy2", "zone_name": "sandbox.domino.tech", "zone_id": "ZOJJZC49E0EPZ"},
     ],
 }
 
 acm_obj = ACM(
     certificates=[
-        ACM.Certificate(domain="testdeploy1", zone_name="sandbox.domino.tech"),
-        ACM.Certificate(domain="testdeploy2", zone_name="sandbox.domino.tech"),
+        ACM.Certificate(domain="testdeploy1", zone_name="sandbox.domino.tech", zone_id="ZOJJZC49E0EPZ"),
+        ACM.Certificate(domain="testdeploy2", zone_name="sandbox.domino.tech", zone_id="ZOJJZC49E0EPZ"),
     ]
 )
 
