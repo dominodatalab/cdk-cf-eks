@@ -1,0 +1,267 @@
+schema: 0.0.2
+name: cdk-deploy-github-test
+aws_region: us-west-2
+aws_account_id: "667552661262"
+tags:
+  domino-infrastructure: 'true'
+create_iam_roles_for_service_accounts: false
+vpc:
+  # create: true/false - Either create a VPC, or use an existing one
+  # id: vpc-abc123 - VPC id when using an existing VPC
+  # cidr: 10.0.0.0/16 - Primary CIDR range for VPC
+  #                     NOTE: EKS needs _lots_ of IPs
+  # private_cidr_mask: 19 - CIDR size of private subnets. Should be large enough
+  #                         to accomodate all potential compute needs.
+  # public_cidr_mask: 27 - CIDR size of public subnets. Usually just houses NAT
+  #                        gateways/bastions/public load balancers/etc.
+  # availability_zones: Specific availability zones to use with vpc (optional)
+  # max_azs: 3 - Maximum amount of availability zones to configure for the VPC
+  #              MUST have at least two for the EKS control plane to provision
+  # flow_logging: false - Whether or not to enable VPC flow logging
+  create: true
+  id:
+  cidr: 10.0.0.0/16
+  private_cidr_mask: 19
+  public_cidr_mask: 27
+  availability_zones: []
+  max_azs: 3
+  bastion:
+    # enabled: true/false - Provision a bastion. If config.eks.private_api is true,
+    #                       you may need this to access your cluster.
+    # key_name: some-key-pair - Pre-existing AWS key pair to configure for the bastion
+    #                           instance. [Optional]
+    # instance_type: t2.micro, etc.
+    # ingress_ports: list of ingress rules in the following format:
+    #                - name: ssh
+    #                  from_port: 22
+    #                  to_port: 22
+    #                  protocol: TCP
+    #                  ip_cidrs:
+    #                  - 0.0.0.0/0
+    #                (customizing cidrs aside, this would be the most common rule for this)
+    # ami_id: ami-123abc - AMI to use for the bastion. Defaults to ubuntu.
+    # user_data: ... - user_data to use to setup the bastion. Default: blank
+    enabled: false
+    key_name:
+    instance_type: t2.micro
+    ingress_ports:
+    - name: ssh
+      from_port: 22
+      to_port: 22
+      protocol: TCP
+      ip_cidrs:
+      - 0.0.0.0/0
+    ami_id:
+    user_data:
+  flow_logging: true
+efs:
+  # removal_policy_destroy: true/false - Destroy EFS filesystem when destroying CloudFormation stack
+  backup:
+    # enable: true/false - Enable the EFS backup vault, default: true
+    # schedule: "0 12 * * ? *" - Schedule for efs backups in cron-like format, see here for docs:
+    #                            https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html#CronExpressions
+    # move_to_cold_storage_after: 35 - Numberof days (null to disable)
+    # delete_after: 125 - Number of days, must be 90 days after cold storage (null to disable)
+    # removal_policy: RETAIN - DESTROY, RETAIN or SNAPSHOT
+    enable: true
+    schedule: 0 12 * * ? *
+    move_to_cold_storage_after: 35
+    delete_after: 125
+    removal_policy: DESTROY
+  removal_policy_destroy: true
+route53:
+  # zone_ids: ["ABCDEFG123"] - List of Route53 Zone IDs to add to cluster IAM policy for
+  # cloud integration (ie external-dns).
+  zone_ids: []
+eks:
+  # version: "1.21" - Kubernetes version for EKS cluster. _MUST BE A STRING_!
+  # private_api: true/false - Limits Kubernetes API access to the VPC. Access must be through a
+  #                           bastion, peered network, or other in-VPC resource.
+  # max_nodegroup_azs: 3 - Will provision nodegroups in up to this many availability zones.
+  # global_node_labels: some-label: "true"  - Labels to apply to all kubernetes nodes
+  # global_node_tags: some-tags: "true"  - Labels to apply to all kubernetes nodes
+  # secrets_encryption_key_arn: ARN  - KMS key arn to encrypt kubernetes secrets. A new key will be created if omitted.
+  version: '1.21'
+  private_api: false
+  max_nodegroup_azs: 3
+  global_node_labels:
+    dominodatalab.com/domino-node: 'true'
+  global_node_tags: {}
+  secrets_encryption_key_arn:
+  # Nodegroup Configuration:
+  # disk_size: 1000 - Size in GB for disk on nodes in nodegroup
+  # key_name: some-key-pair - Pre-existing AWS key pair to configure for instances in the nodegorup
+  # min_size: 1 - Minimum node count for nodegroup. Can't be 0 on managed nodegroups.
+  # max_size: 10 - Maximum limit for node count in node gorup
+  # availability_zones: Availability zones to greate subnets in. Leave this null to autogenerate.
+  # ami_id: ami-123abc - AMI to use for nodegroup, empty/null will default to the current EKS AMI.
+  #                      When specifying an AMI, you MUST specify a custom user_data script to join
+  #                      the node to the cluster, and this script must do any sort of node setup that
+  #                      is desired. Additionally, some nodegroup options (ie labels, taints,
+  #                      ssm_agent) are only allowed when using the default EKS AMI, as they may not
+  #                      be compatible with other AMIs. When specifying an AMI, you must implement
+  #                      those options manually via your user_data script.
+  # user_data: ... - Custom script for user_data, ran by cloud_init on node startup. When using the
+  #                  default EKS AMI, this does not replace the default user_data. Your custom script
+  #                  will be injected _before_ the default one, and both will be ran. However, when
+  #                  specifying a custom AMI, this will be the *only* user_data script in use.
+  # instance_types: ["m5.2xlarge", "m5.4xlarge"] - Instance types available to nodegroup
+  # labels: some-label: "true" - Labels to apply to all nodes in nodegroup
+  # tags: some-tag: "true" - Tags to apply to all nodes in nodegroup
+  # ...
+  # Managed nodegroup-specific options:
+  # spot: true/false - Use spot instances, may affect reliability/availability of nodegroup
+  # desired_size: 1 - Preferred size of nodegroup
+  # ...
+  # Unmanaged nodegroup-specific options:
+  # gpu: true/false - Setup GPU instance support
+  # ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
+  # taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
+  #                              ie to taint gpu nodes, etc.)
+  managed_nodegroups: {}
+  unmanaged_nodegroups:
+    platform-0:
+      ssm_agent: true
+      disk_size: 100
+      key_name:
+      min_size: 1
+      max_size: 10
+      availability_zones:
+      ami_id:
+      user_data:
+      instance_types:
+      - m5.4xlarge
+      labels:
+        dominodatalab.com/node-pool: platform
+      tags: {}
+      spot: false
+      gpu: false
+      imdsv2_required: true
+      taints: {}
+    platform-1:
+      ssm_agent: true
+      disk_size: 100
+      key_name:
+      min_size: 1
+      max_size: 10
+      availability_zones:
+      ami_id:
+      user_data:
+      instance_types:
+      - m5.4xlarge
+      labels:
+        dominodatalab.com/node-pool: platform
+      tags: {}
+      spot: false
+      gpu: false
+      imdsv2_required: true
+      taints: {}
+    compute-0:
+      ssm_agent: true
+      disk_size: 100
+      key_name:
+      min_size: 0
+      max_size: 30
+      availability_zones:
+      ami_id:
+      user_data:
+      instance_types:
+      - m5.2xlarge
+      labels:
+        dominodatalab.com/node-pool: default
+      tags: {}
+      spot: false
+      gpu: false
+      imdsv2_required: true
+      taints: {}
+    gpu-0:
+      ssm_agent: true
+      disk_size: 100
+      key_name:
+      min_size: 0
+      max_size: 10
+      availability_zones:
+      ami_id:
+      user_data:
+      instance_types:
+      - g4dn.xlarge
+      labels:
+        dominodatalab.com/node-pool: default-gpu
+        nvidia.com/gpu: 'true'
+      tags: {}
+      spot: false
+      gpu: true
+      imdsv2_required: true
+      taints:
+        nvidia.com/gpu: true:NoSchedule
+s3:
+  # Map of buckets to create and provide IAM access from the EKS cluster.
+
+  # "blobs", "logs", "backups" and "registry" buckets are MANDATORY.
+
+  # The "monitoring" bucket is optionally created to store various operational logs: VPC flow logs, S3 and ELB access logs.
+
+  # Bucket parameters:
+  # name: "my-bucket-name" - Optional name to override default bucketname of deployname-bucket-type
+  # auto_delete_objects: true/false - Delete entire contents of bucket when destroying the CloudFormation stack
+  # removal_policy_destroy: true/false - Delete bucket when destroying stack. If auto_delete_objects is false,
+  #                                      destroys will fail unless buckets are emptied.
+  # sse_kms_key_id: XXX - Specific KMS key ID to setup with bucket. Otherwise, defaults to AES256
+  buckets:
+    blobs:
+      auto_delete_objects: true
+      removal_policy_destroy: true
+      sse_kms_key_id:
+    logs:
+      auto_delete_objects: true
+      removal_policy_destroy: true
+      sse_kms_key_id:
+    backups:
+      auto_delete_objects: true
+      removal_policy_destroy: true
+      sse_kms_key_id:
+    registry:
+      auto_delete_objects: true
+      removal_policy_destroy: true
+      sse_kms_key_id:
+    monitoring:
+      auto_delete_objects: true
+      removal_policy_destroy: true
+      sse_kms_key_id:
+acm:
+  # ACM(certificates: List[domino_cdk.config.acm.ACM.Certificate])
+  certificates:
+  - domain: test1234.gambit-sandbox.domino.tech
+    zone_name: gambit-sandbox.domino.tech
+    zone_id: ZOJJZC49E0EPZ
+  - domain: test12345678.gambit-sandbox.domino.tech
+    zone_name: gambit-sandbox.domino.tech
+    zone_id: ZOJJZC49E0EPZ
+install:
+  # Values to pass to the Domino Installer (fleetcommand-agent).
+
+  # Quay credentials are for Domino's default public registry.
+  # Configuration for custom registries should be done via direct configuration of installer overrides.
+
+  # access_list: ["0.0.0.0/0", ...] - List of CIDRs that can access Domino's primary LoadBalancer
+  # acm_cert_arn: ARN - ARN of ACM SSL cert to be used for Domino install
+  # hostname: domino.example.com - Hostname of Domino install
+  # registry_username: some-username - Username for Domino quay.io image repositories
+  # registry_password: some-password - Password for Domino quay.io image repoistories
+  # overrides: <dict/hash> - Overrides of Domino Installer (fleetcommand-agent) configuration.
+  access_list:
+  - 0.0.0.0/1
+  acm_cert_arn: __FILL__
+  hostname: cdk-deploy-github-test.example.com
+  registry_username: username
+  registry_password:
+  overrides:
+    release_overrides:
+      nucleus:
+        chart_values:
+          replicaCount:
+            dispatcher: 1
+            frontend: 1
+          keycloak:
+            createIntegrationTestUser: true
+  istio_compatible: false

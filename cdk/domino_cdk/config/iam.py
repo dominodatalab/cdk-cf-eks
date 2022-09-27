@@ -324,7 +324,6 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "acm:ListTagsForCertificate",
             "acm:RemoveTagsFromCertificate",
             "acm:RequestCertificate",
-
         ],
         **from_cf_condition,
         "Resource": f"arn:{partition}:acm:*:{aws_account_id}:certificate/*",
