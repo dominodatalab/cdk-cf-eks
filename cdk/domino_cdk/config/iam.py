@@ -314,9 +314,31 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
         "Resource": "*",
     }
 
+    acm = {
+        "Effect": "Allow",
+        "Action": [
+            "acm:AddTagsToCertificate",
+            "acm:DeleteCertificate",
+            "acm:DescribeCertificate",
+            "acm:GetCertificate",
+            "acm:ListTagsForCertificate",
+            "acm:RemoveTagsFromCertificate",
+            "acm:RequestCertificate",
+        ],
+        **from_cf_condition,
+        "Resource": f"arn:{partition}:acm:*:{aws_account_id}:certificate/*",
+    }
+
     general = {
         "Effect": "Allow",
         "Action": [
+            "acm:AddTagsToCertificate",
+            "acm:DeleteCertificate",
+            "acm:DescribeCertificate",
+            "acm:GetCertificate",
+            "acm:ListTagsForCertificate",
+            "acm:RemoveTagsFromCertificate",
+            "acm:RequestCertificate",
             "autoscaling:CreateAutoScalingGroup",
             "autoscaling:CreateOrUpdateTags",
             "autoscaling:DeleteAutoScalingGroup",
@@ -370,6 +392,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "elasticfilesystem:UntagResource",
             "iam:GetRole",
             "iam:GetRolePolicy",
+            "route53:ChangeResourceRecordSets",
         ],
         **do_cf(),
         "Resource": "*",
@@ -451,6 +474,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
                 *bastion,
                 general,
                 kms,
+                acm,
             ],
         },
     ]
