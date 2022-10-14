@@ -92,6 +92,21 @@ def generate_install_config(
         "release_overrides": {
             "nginx-ingress": {},
         },
+        "version": "0.0.0",
+        "git": {"storage_class": "dominodisk"},
+        "email_notifications": {
+            "enabled": False,
+            "server": "",
+            "port": 465,
+            "enable_ssl": True,
+            "from_address": "noone@example.com",
+            "authentication": {"username": "", "password": ""},
+        },
+        "telemetry": {
+            "intercom": {"enabled": False},
+            "mixpanel": {"enabled": False, "token": ""},
+        },
+        "monitoring": {"prometheus_metrics": True},
     }
 
     if r53_zone_ids:
