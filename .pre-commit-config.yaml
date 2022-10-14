@@ -13,16 +13,16 @@ repos:
         args: [-b, master, -b, develop]
     -   id: trailing-whitespace
 -   repo: https://gitlab.com/pycqa/flake8
-    rev: 3.9.1
+    rev: 4.0.1
     hooks:
     -   id: flake8
         args: [--config, cdk/.flake8]
 -   repo: https://github.com/PyCQA/isort
-    rev: 5.8.0
+    rev: 5.10.1
     hooks:
     -   id: isort
 -   repo: https://github.com/psf/black
-    rev: 21.4b2 # Replace by any tag/version: https://github.com/psf/black/tags
+    rev: 22.6.0
     hooks:
     -   id: black
         language_version: python3
