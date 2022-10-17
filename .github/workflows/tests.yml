@@ -14,18 +14,18 @@ jobs:
   test-build-deploy:
     runs-on: ubuntu-latest
     env:
-      DEPLOYER_IMAGE: quay.io/domino/deployer:schema1_2.latest
+      DEPLOYER_IMAGE: quay.io/domino/deployer:develop.latest
     defaults:
       run:
         working-directory: ./cdk
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.8
-      uses: actions/setup-python@v2
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Setup nodejs
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3
       with:
         node-version: 16
     - name: Determine deployer image
@@ -41,7 +41,7 @@ jobs:
         pip install -r requirements.txt
         pip install awscli==1.25.57 build
     - name: Install aws-cdk
-      run: npm install -g aws-cdk@$(pip freeze | grep aws-cdk.core | sed -e 's/.*==//')
+      run: npm install -g aws-cdk@$(pip freeze | grep aws-cdk-lib | sed -e 's/.*==//')
     - name: Lint with flake8/black/isort
       run: |
         export FILES=(*.py domino_cdk tests)
