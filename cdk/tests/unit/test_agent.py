@@ -1,7 +1,7 @@
 from unittest import TestCase
 
+from aws_cdk import App, Environment, Stack
 from aws_cdk.aws_s3 import Bucket
-from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.agent import generate_install_config
 from domino_cdk.config import Install

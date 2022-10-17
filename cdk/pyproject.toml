@@ -1,6 +1,7 @@
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta:__legacy__"
+
 [tool.black]
 line-length = 120
 skip-string-normalization = true
@@ -19,6 +20,7 @@ exclude = '''
   | dist
 )/
 '''
+
 [tool.isort]
 profile = "black"
 src_paths = [".", "test"]

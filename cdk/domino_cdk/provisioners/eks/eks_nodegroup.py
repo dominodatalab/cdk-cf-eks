@@ -1,10 +1,11 @@
 from typing import Any, Dict, List, Optional, Union
 
+import aws_cdk as cdk
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
 from aws_cdk import aws_autoscaling
-from aws_cdk import core as cdk
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -12,7 +13,7 @@ from domino_cdk import config
 class DominoEksNodegroupProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
         cluster: eks.Cluster,
         ng_role: iam.Role,
         stack_name: str,
@@ -132,7 +133,7 @@ class DominoEksNodegroupProvisioner:
                 ),
             )
 
-        scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
+        scope = Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None
         availability_zones = ng.availability_zones or self.vpc.availability_zones[:max_nodegroup_azs]
         for i, az in enumerate(availability_zones):

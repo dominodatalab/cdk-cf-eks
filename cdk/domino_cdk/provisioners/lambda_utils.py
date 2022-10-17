@@ -1,21 +1,22 @@
 from os import path
 from typing import Any, Dict, List, Optional
 
+import aws_cdk as cdk
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_lambda as lambda_
 import aws_cdk.aws_logs as logs
-from aws_cdk import core as cdk
+from constructs import Construct
 
 
 def create_lambda(
-    scope: cdk.Construct,
+    scope: Construct,
     stack_name: str,
     name: str,
     resources: List[str],
     actions: List[str],
     properties: Optional[Dict[str, Any]] = None,
     environment: Optional[Dict[str, Any]] = None,
-) -> cdk.Construct:
+) -> Construct:
     dirname = path.dirname(path.abspath(__file__))
     with open(path.join(dirname, "lambda_files", f"{name}.py"), encoding="utf-8") as fp:
         on_event_code_body = fp.read()

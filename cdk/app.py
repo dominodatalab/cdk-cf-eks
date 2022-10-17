@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
+import aws_cdk as cdk
 import boto3
-from aws_cdk import core
 from ruamel.yaml import SafeLoader
 from ruamel.yaml import load as yaml_load
 
@@ -15,7 +15,7 @@ except Exception:
     raise
 
 
-app = core.App()
+app = cdk.App()
 
 with open(app.node.try_get_context("config") or "config.yaml") as f:
     cfg = config_loader(yaml_load(f, Loader=SafeLoader))
@@ -35,7 +35,7 @@ DominoStack(
     # want to deploy the stack to. */
     # env=core.Environment(account='123456789012', region='us-east-1'),
     # For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html
-    env=core.Environment(region=cfg.aws_region, account=cfg.aws_account_id),
+    env=cdk.Environment(region=cfg.aws_region, account=cfg.aws_account_id),
     cfg=cfg,
     nest=nest,
 )

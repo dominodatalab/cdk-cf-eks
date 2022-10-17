@@ -3,8 +3,8 @@ from os import chdir
 from tempfile import TemporaryDirectory
 
 import aws_cdk.aws_eks as eks
+from aws_cdk import App, Environment, Stack
 from aws_cdk.assertions import Template
-from aws_cdk.core import App, Environment, Stack
 from ruamel.yaml import YAML
 
 from domino_cdk.aws_configurator import DominoAwsConfigurator
@@ -24,7 +24,7 @@ class TestDominoAwsConfigurator(TestCase):
         assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 21)  # 20 calico, one aws-auth
 
-        template = self.app.synth().get_stack("calico").template
+        template = self.app.synth().get_stack_artifact("calico").template
 
         crds_resource = next(res for name, res in template["Resources"].items() if name.startswith("calicocrds"))
         self.assertTrue(len(loads(crds_resource["Properties"]["Manifest"])) > 0)
@@ -46,7 +46,7 @@ class TestDominoAwsConfigurator(TestCase):
         assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 2)  # two calico, one aws-auth
 
-        template = self.app.synth().get_stack("calico").template
+        template = self.app.synth().get_stack_artifact("calico").template
 
         crds_resource = next(
             (res for name, res in template["Resources"].items() if name.startswith("calicocrds")), None

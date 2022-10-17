@@ -1,10 +1,11 @@
 from typing import Dict, List
 
+import aws_cdk as cdk
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
+from constructs import Construct
 
 from domino_cdk import config
 from domino_cdk.provisioners.eks.eks_cluster import DominoEksClusterProvisioner
@@ -15,7 +16,7 @@ from domino_cdk.provisioners.eks.eks_nodegroup import DominoEksNodegroupProvisio
 class DominoEksProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         stack_name: str,
         eks_cfg: config.EKS,

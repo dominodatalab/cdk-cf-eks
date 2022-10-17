@@ -1,12 +1,13 @@
 from ipaddress import ip_network
 from typing import Any, Dict, Optional
 
+import aws_cdk as cdk
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.aws_s3 as s3
 import aws_cdk.custom_resources as cr
-from aws_cdk import core as cdk
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -14,7 +15,7 @@ from domino_cdk import config
 class DominoVpcProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         name: str,
         vpc: config.VPC,
@@ -51,7 +52,7 @@ class DominoVpcProvisioner:
                     cidr_mask=vpc.public_cidr_mask,  # can't use token ids
                 ),
                 ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PRIVATE,
+                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
                     name=self.private_subnet_name,
                     cidr_mask=vpc.private_cidr_mask,  # can't use token ids
                 ),
@@ -154,7 +155,7 @@ class DominoVpcProvisioner:
                 vpc=self.vpc,
                 security_groups=[endpoint_sg],
                 service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
-                subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
+                subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             )
 
         # TODO until https://github.com/aws/aws-cdk/issues/14194

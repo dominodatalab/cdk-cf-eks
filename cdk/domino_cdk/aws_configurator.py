@@ -4,7 +4,7 @@ from pathlib import Path
 from re import sub
 
 import aws_cdk.aws_eks as eks
-from aws_cdk import core as cdk
+from constructs import Construct
 from requests import get as requests_get
 from ruamel.yaml import YAML
 
@@ -25,7 +25,7 @@ manifests = [
 # deprovisoning efs backups/route53, tagging the eks cluster until
 # the CloudFormation api supports it, etc.)
 class DominoAwsConfigurator:
-    def __init__(self, scope: cdk.Construct, eks_cluster: eks.Cluster):
+    def __init__(self, scope: Construct, eks_cluster: eks.Cluster):
         self.scope = scope
         self.eks_cluster = eks_cluster
 

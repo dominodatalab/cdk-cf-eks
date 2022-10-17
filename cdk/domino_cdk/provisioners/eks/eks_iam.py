@@ -1,14 +1,15 @@
 from typing import Dict, List
 
+import aws_cdk as cdk
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
+from constructs import Construct
 
 
 class DominoEksIamProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
     ) -> None:
         self.scope = scope
 

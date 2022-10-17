@@ -1,7 +1,7 @@
 from typing import Optional
 
+import aws_cdk as cdk
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import (
     BlockPublicAccess,
@@ -10,12 +10,13 @@ from aws_cdk.aws_s3 import (
     BucketEncryption,
 )
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 from domino_cdk import config
 
 
 class DominoS3Provisioner:
-    def __init__(self, parent: cdk.Construct, construct_id: str, name: str, s3: config.S3, nest: bool, **kwargs):
+    def __init__(self, parent: Construct, construct_id: str, name: str, s3: config.S3, nest: bool, **kwargs):
         self.parent = parent
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
         self.monitoring_bucket: Optional[Bucket] = None

@@ -1,10 +1,11 @@
+import aws_cdk as cdk
 import aws_cdk.aws_backup as backup
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -16,7 +17,7 @@ _DominoEfsStack = None
 class DominoEfsProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         stack_name: str,
         cfg: config.EFS,

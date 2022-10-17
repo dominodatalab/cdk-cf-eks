@@ -1,6 +1,7 @@
+import aws_cdk as cdk
 import aws_cdk.aws_certificatemanager as acm
 import aws_cdk.aws_route53 as route53
-from aws_cdk import core as cdk
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -8,7 +9,7 @@ from domino_cdk import config
 class DominoAcmProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         stack_name: str,
         cfg: config.ACM,

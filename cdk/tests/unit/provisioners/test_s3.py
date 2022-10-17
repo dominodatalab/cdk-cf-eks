@@ -1,7 +1,7 @@
 from os import environ
 
+from aws_cdk import App, Environment, Stack
 from aws_cdk.assertions import Template
-from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.config import S3
 from domino_cdk.provisioners.s3 import DominoS3Provisioner
@@ -28,7 +28,7 @@ class TestDominoS3Provisioner(TestCase):
 
         assertion = Template.from_stack(self.stack)
 
-        template = self.app.synth().get_stack("S3").template
+        template = self.app.synth().get_stack_artifact("S3").template
 
         assertion.resource_count_is("AWS::S3::Bucket", 1)
         assertion.has_resource(
@@ -72,7 +72,14 @@ class TestDominoS3Provisioner(TestCase):
                     "Effect": "Allow",
                 },
                 {
-                    "Action": ["s3:PutObject*", "s3:Abort*"],
+                    "Action": [
+                        "s3:PutObject",
+                        "s3:PutObjectLegalHold",
+                        "s3:PutObjectRetention",
+                        "s3:PutObjectTagging",
+                        "s3:PutObjectVersionTagging",
+                        "s3:Abort*",
+                    ],
                     "Effect": "Allow",
                 },
                 {
@@ -228,7 +235,7 @@ class TestDominoS3Provisioner(TestCase):
 
             assertion.resource_count_is("AWS::S3::BucketPolicy", 1)
 
-            template = app.synth().get_stack("S3").template
+            template = app.synth().get_stack_artifact("S3").template
             policy = self.find_resource(template, "AWS::S3::BucketPolicy")
 
             statements = policy["Properties"]["PolicyDocument"]["Statement"]

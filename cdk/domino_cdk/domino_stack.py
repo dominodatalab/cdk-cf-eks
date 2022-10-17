@@ -1,7 +1,8 @@
 from typing import Optional
 
+import aws_cdk as cdk
 import aws_cdk.aws_s3 as s3
-from aws_cdk import core as cdk
+from constructs import Construct
 
 from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
@@ -26,9 +27,7 @@ class DominoStack(cdk.Stack):
     s3_stack: Optional[DominoS3Provisioner] = None
     monitoring_bucket: Optional[s3.Bucket] = None
 
-    def __init__(
-        self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = True, **kwargs
-    ) -> None:
+    def __init__(self, scope: Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = True, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # The code that defines your stack goes here

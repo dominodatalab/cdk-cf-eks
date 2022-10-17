@@ -1,11 +1,12 @@
 from typing import Dict
 
+import aws_cdk as cdk
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import boto3
-from aws_cdk import core as cdk
 from aws_cdk.aws_kms import Key
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 from ..lambda_utils import create_lambda
 
@@ -13,7 +14,7 @@ from ..lambda_utils import create_lambda
 class DominoEksClusterProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
     ) -> None:
         self.scope = scope
         self._addon_cache = None
