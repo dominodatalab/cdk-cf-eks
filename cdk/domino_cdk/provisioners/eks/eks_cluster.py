@@ -73,7 +73,7 @@ class DominoEksClusterProvisioner:
             cluster_name=stack_name,
             vpc=vpc,
             endpoint_access=eks.EndpointAccess.PRIVATE if private_api else None,
-            vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE)],
+            vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
             version=eks_version,
             default_capacity=0,
             security_group=eks_sg,
