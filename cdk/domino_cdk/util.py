@@ -22,8 +22,9 @@ class DominoCdkUtil:
         with open(manifest_file) as f:
             try:
                 artifacts = json_loads(f.read())["artifacts"]
-                artifacts.pop("Tree")
-                stack_name = list(artifacts)[0]
+                stack_name = next(
+                    key for key, artifact in artifacts.items() if artifact["type"] == "aws:cloudformation:stack"
+                )
                 env = artifacts[stack_name]["environment"]
                 aws_region = basename(urlparse(env).path)
                 metadata = artifacts[stack_name]["metadata"][f"/{stack_name}"]
