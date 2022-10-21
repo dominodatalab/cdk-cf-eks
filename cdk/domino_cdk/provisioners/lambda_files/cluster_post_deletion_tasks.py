@@ -1,34 +1,28 @@
-import json
 import os
 import traceback
 
 import boto3
-import requests
+import cfnresponse
 
 
 def on_event(event, context):
     print('Debug: event: ', event)
     print('Debug: environ:', os.environ)
+
     request_type = event['RequestType']
-    response = {}
+    cluster_name = event['ResourceProperties']['cluster_name']
+    physical_resource_id = f'domino-cluster-{cluster_name}-logs-cleanup'
+    status = cfnresponse.FAILED
+
     try:
-        if request_type == 'Create':
-            response = on_create(event)
         if request_type == 'Delete':
-            response = on_delete(event)
-        if response:
-            event.update(response)
-        event['Status'] = 'SUCCESS'
+            on_delete(event)
+
+        status = cfnresponse.SUCCESS
     except:  # noqa: E722
         traceback.print_exc()
-        event['Status'] = 'FAILED'
-    requests.put(event['ResponseURL'], data=json.dumps(event))
 
-
-def on_create(event):
-    cluster_name = event['ResourceProperties']['cluster_name']
-    physical_id = f'domino-cluster-{cluster_name}-logs-cleanup'
-    return {'PhysicalResourceId': physical_id}
+    cfnresponse.send(event, context, status, {}, physical_resource_id)
 
 
 def on_delete(event):
@@ -36,7 +30,6 @@ def on_delete(event):
     cluster_name = event['ResourceProperties']['cluster_name']
     set_log_groups_retention(f'/aws/lambda/{cluster_name}', logs_client)
     set_log_groups_retention(f'/aws/eks/{cluster_name}/cluster', logs_client)
-    return {}
 
 
 def set_log_groups_retention(log_group_name_prefix, logs_client):
