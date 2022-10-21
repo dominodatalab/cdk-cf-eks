@@ -35,9 +35,9 @@ def config_template(
 ):
     fill = "__FILL__"
 
-    destroy_on_destroy = True if dev_defaults else False
+    destroy_on_destroy = dev_defaults
     disk_size = 100 if dev_defaults else 1000
-    platform_instance_type = "m5.4xlarge" if dev_defaults or istio_compatible else "m5.2xlarge"
+    platform_instance_type = "m5.4xlarge" if istio_compatible else "m5.2xlarge"
 
     unmanaged_nodegroups = {}
 
@@ -105,7 +105,7 @@ def config_template(
         public_cidr_mask=27,
         private_cidr_mask=19,
         availability_zones=[],
-        max_azs=3,
+        max_azs=2 if dev_defaults else 3,
         flow_logging=not disable_flow_logs,
         bastion=VPC.Bastion(
             enabled=bastion,
