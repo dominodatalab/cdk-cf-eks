@@ -41,8 +41,8 @@ def tag_ec2(tags, stack_name, vpc_id, resource_ids):
     security_groups = client.describe_security_groups(
         Filters=[*vpc_filter, {"Name": "group-name", "Values": ["default"]}]
     )
-    if sg := security_groups["SecurityGroups"]:
-        resource_ids.append(sg[0]["GroupId"])
+    if security_groups["SecurityGroups"]:
+        resource_ids.append(security_groups["SecurityGroups"][0]["GroupId"])
 
     network_acls = client.describe_network_acls(Filters=vpc_filter)
     resource_ids.extend([acl["NetworkAclId"] for acl in network_acls["NetworkAcls"]])
