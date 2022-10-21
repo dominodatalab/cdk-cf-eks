@@ -1,3 +1,4 @@
+import re
 from typing import Dict
 
 import aws_cdk.aws_ec2 as ec2
@@ -153,4 +154,4 @@ class DominoEksClusterProvisioner:
 
         versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
 
-        return sorted(versions)[-1]
+        return sorted(versions, key=lambda version: [int(part) for part in re.findall(r"([0-9]+)", version)])[-1]
