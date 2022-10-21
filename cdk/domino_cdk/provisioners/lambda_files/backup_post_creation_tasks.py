@@ -30,6 +30,4 @@ def on_delete(event):
     print(f'Delete backup points in backup vault {backup_vault_name}')
     response = client.list_recovery_points_by_backup_vault(BackupVaultName=backup_vault_name)
     for rp in response['RecoveryPoints']:
-        response = client.delete_recovery_point(
-            BackupVaultName=backup_vault_name, RecoveryPointArn=rp['RecoveryPointArn']
-        )
+        client.delete_recovery_point(BackupVaultName=backup_vault_name, RecoveryPointArn=rp['RecoveryPointArn'])

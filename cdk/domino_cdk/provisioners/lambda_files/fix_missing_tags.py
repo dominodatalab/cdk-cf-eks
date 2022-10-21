@@ -14,9 +14,7 @@ def on_event(event, context):
     status = cfnresponse.FAILED
 
     try:
-        if request_type == 'Create':
-            tag_stuff(event)
-        if request_type == 'Update':
+        if request_type in ['Create', 'Update']:
             tag_stuff(event)
 
         status = cfnresponse.SUCCESS
@@ -43,14 +41,16 @@ def tag_ec2(tags, stack_name, vpc_id, resource_ids):
     security_groups = client.describe_security_groups(
         Filters=[*vpc_filter, {"Name": "group-name", "Values": ["default"]}]
     )
-    resource_ids.append(security_groups["SecurityGroups"][0]["GroupId"])
+    if sg := security_groups["SecurityGroups"]:
+        resource_ids.append(sg[0]["GroupId"])
 
     network_acls = client.describe_network_acls(Filters=vpc_filter)
     resource_ids.extend([acl["NetworkAclId"] for acl in network_acls["NetworkAcls"]])
 
     print(resource_ids)
 
-    client.create_tags(Resources=resource_ids, Tags=tags)
+    if resource_ids:
+        client.create_tags(Resources=resource_ids, Tags=tags)
 
 
 def tag_iam(tags, stack_name, resource_arns):
