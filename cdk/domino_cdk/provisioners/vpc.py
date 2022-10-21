@@ -58,7 +58,9 @@ class DominoVpcProvisioner:
             ],
             gateway_endpoints={
                 "S3": ec2.GatewayVpcEndpointOptions(service=ec2.GatewayVpcEndpointAwsService.S3),
-            },
+            }
+            if vpc.endpoints
+            else {},
             nat_gateway_provider=nat_provider,
         )
         cdk.Tags.of(self.vpc).add("Name", stack_name)
@@ -141,21 +143,22 @@ class DominoVpcProvisioner:
                 ),
             )
 
-        for endpoint in [
-            "ec2",  # Only these first three have predefined consts
-            "sts",
-            "ecr.api",
-            "autoscaling",
-            "ecr.dkr",
-        ]:  # TODO: Do we need an s3 interface as well? or just the gateway?
-            self.vpc_endpoint = ec2.InterfaceVpcEndpoint(
-                self.scope,
-                f"{endpoint}-ENDPOINT",
-                vpc=self.vpc,
-                security_groups=[endpoint_sg],
-                service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
-                subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
-            )
+        if vpc.endpoints:
+            for endpoint in [
+                "ec2",  # Only these first three have predefined consts
+                "sts",
+                "ecr.api",
+                "autoscaling",
+                "ecr.dkr",
+            ]:  # TODO: Do we need an s3 interface as well? or just the gateway?
+                self.vpc_endpoint = ec2.InterfaceVpcEndpoint(
+                    self.scope,
+                    f"{endpoint}-ENDPOINT",
+                    vpc=self.vpc,
+                    security_groups=[endpoint_sg],
+                    service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
+                    subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE),
+                )
 
         # TODO until https://github.com/aws/aws-cdk/issues/14194
         for idx, subnet_id in enumerate(self.vpc.select_subnets(subnet_type=ec2.SubnetType.PUBLIC).subnet_ids):

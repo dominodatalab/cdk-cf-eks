@@ -107,6 +107,7 @@ def config_template(
         availability_zones=[],
         max_azs=2 if dev_defaults else 3,
         flow_logging=not disable_flow_logs,
+        endpoints=not dev_defaults,
         bastion=VPC.Bastion(
             enabled=bastion,
             key_name=keypair_name,

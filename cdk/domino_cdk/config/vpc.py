@@ -57,6 +57,7 @@ class VPC:
     max_azs: int
     bastion: Bastion
     flow_logging: bool
+    endpoints: bool
 
     def __post_init__(self):
         if not self.id and not self.create:
@@ -79,6 +80,7 @@ class VPC:
                 availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
                 flow_logging=c.pop("flow_logging", False),
+                endpoints=c.pop("endpoints", True),
                 bastion=VPC.Bastion(
                     enabled=False,
                     key_name=None,
@@ -105,6 +107,7 @@ class VPC:
                 availability_zones=c.pop("availability_zones", []),
                 max_azs=c.pop("max_azs"),
                 flow_logging=c.pop("flow_logging", False),
+                endpoints=c.pop("endpoints", True),
                 bastion=VPC.Bastion(
                     enabled=bastion.pop("enabled"),
                     key_name=bastion.pop("key_name", None),
