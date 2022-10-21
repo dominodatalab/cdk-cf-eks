@@ -48,6 +48,7 @@ vpc_object = VPC(
     availability_zones=[],
     max_azs=3,
     flow_logging=False,
+    endpoints=True,
     bastion=VPC.Bastion(
         enabled=False, key_name=None, instance_type=None, ingress_ports=None, ami_id=None, user_data=None
     ),

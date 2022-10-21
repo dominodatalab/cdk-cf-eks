@@ -121,7 +121,7 @@ class TestConfig(unittest.TestCase):
 
     def test_dev(self):
         c = config_template(dev_defaults=True)
-        self.assertEqual(["m5.4xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
+        self.assertEqual(["m5.2xlarge"], c.eks.unmanaged_nodegroups["platform-0"].instance_types)
         for ng in c.eks.unmanaged_nodegroups.values():
             self.assertEqual(ng.disk_size, 100)
         self.assertEqual(c.efs.backup.removal_policy, "DESTROY")

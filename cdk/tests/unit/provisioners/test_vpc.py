@@ -23,6 +23,7 @@ class TestDominoVPCProvisioner(TestCase):
             availability_zones=[],
             max_azs=3,
             flow_logging=False,
+            endpoints=False,
             bastion=VPC.Bastion(
                 enabled=True,
                 key_name="domino-test",
@@ -67,6 +68,7 @@ class TestDominoVPCProvisioner(TestCase):
             availability_zones=[],
             max_azs=3,
             flow_logging=True,
+            endpoints=True,
             bastion=VPC.Bastion(
                 enabled=False,
                 key_name="",
@@ -90,6 +92,7 @@ class TestDominoVPCProvisioner(TestCase):
             availability_zones=[],
             max_azs=3,
             flow_logging=True,
+            endpoints=True,
             bastion=VPC.Bastion(
                 enabled=False,
                 key_name="",
@@ -116,6 +119,7 @@ class TestDominoVPCProvisioner(TestCase):
             availability_zones=[],
             max_azs=3,
             flow_logging=False,
+            endpoints=True,
             bastion=VPC.Bastion(
                 enabled=False,
                 key_name="",
@@ -141,6 +145,7 @@ class TestDominoVPCProvisioner(TestCase):
             availability_zones=[],
             max_azs=3,
             flow_logging=False,
+            endpoints=True,
             bastion=VPC.Bastion(
                 enabled=True,
                 key_name="domino-test",
