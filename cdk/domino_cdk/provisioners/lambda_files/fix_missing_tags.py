@@ -1,28 +1,27 @@
-import json
 import os
 import traceback
 
 import boto3
-import requests
+import cfnresponse
 
 
 def on_event(event, context):
     print('Debug: event: ', event)
     print('Debug: environ:', os.environ)
+
     request_type = event['RequestType']
-    response = {}
+    physical_resource_id = f'domino-tag-fixer-{event["ResourceProperties"]["stack_name"]}'
+    status = cfnresponse.FAILED
+
     try:
-        if request_type == 'Create':
-            response = on_create(event)
-        if request_type == 'Update':
-            response = on_update(event)
-        if response:
-            event.update(response)
-        event['Status'] = 'SUCCESS'
+        if request_type in ['Create', 'Update']:
+            tag_stuff(event)
+
+        status = cfnresponse.SUCCESS
     except:  # noqa: E722
         traceback.print_exc()
-        event['Status'] = 'FAILED'
-    requests.put(event['ResponseURL'], data=json.dumps(event))
+
+    cfnresponse.send(event, context, status, {}, physical_resource_id)
 
 
 def tag_ec2(tags, stack_name, vpc_id, resource_ids):
@@ -42,14 +41,16 @@ def tag_ec2(tags, stack_name, vpc_id, resource_ids):
     security_groups = client.describe_security_groups(
         Filters=[*vpc_filter, {"Name": "group-name", "Values": ["default"]}]
     )
-    resource_ids.append(security_groups["SecurityGroups"][0]["GroupId"])
+    if security_groups["SecurityGroups"]:
+        resource_ids.append(security_groups["SecurityGroups"][0]["GroupId"])
 
     network_acls = client.describe_network_acls(Filters=vpc_filter)
     resource_ids.extend([acl["NetworkAclId"] for acl in network_acls["NetworkAcls"]])
 
     print(resource_ids)
 
-    client.create_tags(Resources=resource_ids, Tags=tags)
+    if resource_ids:
+        client.create_tags(Resources=resource_ids, Tags=tags)
 
 
 def tag_iam(tags, stack_name, resource_arns):
@@ -69,14 +70,3 @@ def tag_stuff(event):
 
     tag_ec2(tags, stack_name, vpc_id, untagged_resources["ec2"])
     tag_iam(tags, stack_name, untagged_resources["iam"])
-
-
-def on_update(event):
-    tag_stuff(event)
-
-
-def on_create(event):
-    tag_stuff(event)
-
-    physical_id = f'domino-tag-fixer-{event["ResourceProperties"]["stack_name"]}'
-    return {'PhysicalResourceId': physical_id}
