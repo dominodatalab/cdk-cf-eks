@@ -1,9 +1,12 @@
 -e .
 
+awslambdaric~=2.0
+black~=22.3.0
+cfnresponse
 coverage~=5.5
-pytest~=6.2
 flake8~=3.9
 isort~=5.8.0
-types-requests~=2.25.0
+moto[iam,ec2]~=4.0
+pytest~=6.2
 types-PyYAML~=5.4.1
-black~=22.3.0
+types-requests~=2.25.0
