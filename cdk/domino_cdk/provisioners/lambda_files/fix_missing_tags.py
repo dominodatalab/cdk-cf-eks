@@ -1,28 +1,29 @@
-import json
 import os
 import traceback
 
 import boto3
-import requests
+import cfnresponse
 
 
 def on_event(event, context):
     print('Debug: event: ', event)
     print('Debug: environ:', os.environ)
+
     request_type = event['RequestType']
-    response = {}
+    physical_resource_id = f'domino-tag-fixer-{event["ResourceProperties"]["stack_name"]}'
+    status = cfnresponse.FAILED
+
     try:
         if request_type == 'Create':
-            response = on_create(event)
+            tag_stuff(event)
         if request_type == 'Update':
-            response = on_update(event)
-        if response:
-            event.update(response)
-        event['Status'] = 'SUCCESS'
+            tag_stuff(event)
+
+        status = cfnresponse.SUCCESS
     except:  # noqa: E722
         traceback.print_exc()
-        event['Status'] = 'FAILED'
-    requests.put(event['ResponseURL'], data=json.dumps(event))
+
+    cfnresponse.send(event, context, status, {}, physical_resource_id)
 
 
 def tag_ec2(tags, stack_name, vpc_id, resource_ids):
@@ -69,14 +70,3 @@ def tag_stuff(event):
 
     tag_ec2(tags, stack_name, vpc_id, untagged_resources["ec2"])
     tag_iam(tags, stack_name, untagged_resources["iam"])
-
-
-def on_update(event):
-    tag_stuff(event)
-
-
-def on_create(event):
-    tag_stuff(event)
-
-    physical_id = f'domino-tag-fixer-{event["ResourceProperties"]["stack_name"]}'
-    return {'PhysicalResourceId': physical_id}

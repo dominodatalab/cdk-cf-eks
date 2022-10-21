@@ -1,29 +1,30 @@
-import json
 import os
 import time
 import traceback
 
 import boto3
-import requests
+import cfnresponse
 
 
 def on_event(event, context):
     print('Debug: event: ', event)
     print('Debug: environ:', os.environ)
+
     request_type = event['RequestType']
-    response = {}
+    cluster_name = event['ResourceProperties']['cluster_name']
+    physical_resource_id = f'domino-cluster-{cluster_name}-eks-cluster-task'
+    status = cfnresponse.FAILED
+
     try:
         if request_type == 'Create':
-            response = on_create(event)
+            on_create(event)
         if request_type == 'Update':
-            response = on_update(event)
-        if response:
-            event.update(response)
-        event['Status'] = 'SUCCESS'
+            on_update(event)
+        status = cfnresponse.SUCCESS
     except:  # noqa: E722
         traceback.print_exc()
-        event['Status'] = 'FAILED'
-    requests.put(event['ResponseURL'], data=json.dumps(event))
+
+    cfnresponse.send(event, context, status, {}, physical_resource_id)
 
 
 def tag_cluster(event, eks_client):
@@ -67,9 +68,6 @@ def on_create(event):
     while not set_log_groups_retention(f'/aws/eks/{cluster_name}/cluster', logs_client):
         # No limit here. Wait till lambda timeout is reached
         time.sleep(30)
-
-    physical_id = f'domino-cluster-{cluster_name}-eks-cluster-task'
-    return {'PhysicalResourceId': physical_id}
 
 
 def set_log_groups_retention(log_group_name_prefix, logs_client):
