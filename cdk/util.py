@@ -167,6 +167,7 @@ def generate_config_template(args):
             gpu_nodegroups=args.gpu_nodegroups,
             keypair_name=args.keypair_name,
             secrets_encryption_key_arn=args.secrets_encryption_key_arn,
+            service_ipv4_cidr=args.service_ipv4_cidr,
             bastion=args.bastion,
             private_api=args.private_api,
             dev_defaults=args.dev,

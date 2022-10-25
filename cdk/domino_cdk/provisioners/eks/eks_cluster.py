@@ -24,6 +24,7 @@ class DominoEksClusterProvisioner:
         stack_name: str,
         eks_version: eks.KubernetesVersion,
         private_api: bool,
+        service_ipv4_cidr: str,
         secrets_encryption_key_arn: str,
         vpc: ec2.Vpc,
         bastion_sg: ec2.SecurityGroup,
@@ -78,6 +79,7 @@ class DominoEksClusterProvisioner:
             default_capacity=0,
             security_group=eks_sg,
             secrets_encryption_key=key,
+            service_ipv4_cidr=service_ipv4_cidr,
             prune=False,  # https://github.com/aws/aws-cdk/issues/19843
         )
 

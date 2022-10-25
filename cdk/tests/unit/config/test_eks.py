@@ -167,6 +167,17 @@ class TestConfigEKS(unittest.TestCase):
         eks = EKS.from_0_0_1(eks_cfg)
         self.assertIsNone(eks.secrets_encryption_key_arn)
 
+    def test_from_0_0_1_with_service_ipv4_cidr(self):
+        eks_cfg = deepcopy(eks_0_0_1_cfg)
+        eks_cfg["service_ipv4_cidr"] = "1.1.1.1"
+        eks = EKS.from_0_0_1(eks_cfg)
+        self.assertEqual(eks.service_ipv4_cidr, "1.1.1.1")
+
+    def test_from_0_0_1_with_no_service_ipv4_cidr(self):
+        eks_cfg = deepcopy(eks_0_0_1_cfg)
+        eks = EKS.from_0_0_1(eks_cfg)
+        self.assertIsNone(eks.service_ipv4_cidr)
+
     def test_oldest_newest_loaders_identical_result(self):
         eks_old = EKS.from_0_0_0(deepcopy(eks_0_0_0_cfg))
         eks_new = EKS.from_0_0_1(deepcopy(eks_0_0_1_cfg))

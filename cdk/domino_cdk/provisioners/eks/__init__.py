@@ -38,6 +38,7 @@ class DominoEksProvisioner:
             eks_version,
             eks_cfg.private_api,
             eks_cfg.secrets_encryption_key_arn,
+            eks_cfg.service_ipv4_cidr,
             vpc,
             bastion_sg,
             parent.cfg.tags,

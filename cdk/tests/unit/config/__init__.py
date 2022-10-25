@@ -119,6 +119,7 @@ default_config = DominoCDKConfig(
             ),
         },
         secrets_encryption_key_arn=None,
+        service_ipv4_cidr=None,
     ),
     s3=S3(
         buckets=S3.BucketList(
@@ -315,6 +316,7 @@ legacy_config = DominoCDKConfig(
             ),
         },
         secrets_encryption_key_arn=None,
+        service_ipv4_cidr=None,
     ),
     s3=S3(
         buckets=S3.BucketList(
