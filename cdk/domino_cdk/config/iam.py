@@ -261,6 +261,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "kms:DescribeKey",
             "kms:EnableKeyRotation",
             "kms:GenerateDataKey",
+            "kms:ListResourceTags",
             "kms:PutKeyPolicy",
             "kms:RetireGrant",
             "kms:ScheduleKeyDeletion",
