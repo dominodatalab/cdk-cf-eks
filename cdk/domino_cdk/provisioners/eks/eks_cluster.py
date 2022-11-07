@@ -1,5 +1,5 @@
 import re
-from typing import Dict
+from typing import Any, Dict, Optional
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
@@ -17,7 +17,7 @@ class DominoEksClusterProvisioner:
         scope: cdk.Construct,
     ) -> None:
         self.scope = scope
-        self._addon_cache = None
+        self._addon_cache: Optional[Dict[str, Any]] = None
 
     def provision(
         self,
@@ -152,6 +152,17 @@ class DominoEksClusterProvisioner:
             result = eks_client.describe_addon_versions(kubernetesVersion=eks_version)
             self._addon_cache = {a["addonName"]: a for a in result["addons"]}
 
-        versions = [v["addonVersion"] for v in self._addon_cache[addon]["addonVersions"]]
+        addon_versions = self._addon_cache[addon]["addonVersions"]
 
+        if default_version := next(
+            (
+                version["addonVersion"]
+                for version in addon_versions
+                if any(c["defaultVersion"] for c in version["compatibilities"])
+            ),
+            None,
+        ):
+            return default_version
+
+        versions = [v["addonVersion"] for v in addon_versions]
         return sorted(versions, key=lambda version: [int(part) for part in re.findall(r"([0-9]+)", version)])[-1]
