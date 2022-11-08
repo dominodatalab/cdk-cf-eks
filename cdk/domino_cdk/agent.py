@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from aws_cdk.aws_s3 import Bucket
 
@@ -12,17 +12,17 @@ def generate_install_config(
     aws_region: str,
     eks_cluster_name: str,
     pod_cidr: str,
-    global_node_selectors: Dict[str, str],
-    buckets: Dict[str, Bucket],
+    global_node_selectors: dict[str, str],
+    buckets: dict[str, Bucket],
     monitoring_bucket: Optional[Bucket],
     efs_fsid: str,
     efs_apid: str,
     r53_zone_ids: str,
     r53_owner_id: str,
-) -> Dict:
-    agent_cfg: Dict[str, Any] = {
+) -> dict:
+    agent_cfg: dict[str, Any] = {
         "name": name,
-        "schema": "1.1",
+        "schema": "1.2",
         "hostname": install.hostname,
         "pod_cidr": pod_cidr,
         "global_node_selectors": global_node_selectors,

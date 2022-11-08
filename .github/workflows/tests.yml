@@ -14,16 +14,16 @@ jobs:
   test-build-deploy:
     runs-on: ubuntu-latest
     env:
-      DEPLOYER_IMAGE: quay.io/domino/deployer:develop.50b440689b18e42391e8d07b54a9ea3fa8a4ae61
+      DEPLOYER_IMAGE: quay.io/domino/deployer:develop.172eca181b23921105a40286e064c4e6cd6d8186
     defaults:
       run:
         working-directory: ./cdk
     steps:
     - uses: actions/checkout@v2
-    - name: Set up Python 3.8
+    - name: Set up Python 3.9
       uses: actions/setup-python@v2
       with:
-        python-version: 3.8
+        python-version: 3.9
     - name: Setup nodejs
       uses: actions/setup-node@v2
       with:
