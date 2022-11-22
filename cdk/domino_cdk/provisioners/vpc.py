@@ -104,7 +104,7 @@ class DominoVpcProvisioner:
         )
 
         # ripped off this: https://github.com/aws/aws-cdk/issues/9573
-        pod_cidr_block = ip_network("100.164.0.0/16")
+        pod_cidr_block = ip_network("100.64.0.0/16")
         pod_cidr_subnets = [str(x) for x in pod_cidr_block.subnets(prefixlen_diff=2)]
         pod_cidr = ec2.CfnVPCCidrBlock(self.scope, "PodCidr", vpc_id=self.vpc.vpc_id, cidr_block=str(pod_cidr_block))
         for c, az in enumerate(self.vpc.availability_zones):
