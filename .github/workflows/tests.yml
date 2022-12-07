@@ -14,7 +14,7 @@ jobs:
   test-build-deploy:
     runs-on: ubuntu-latest
     env:
-      DEPLOYER_IMAGE: quay.io/domino/deployer:develop.172eca181b23921105a40286e064c4e6cd6d8186
+      DEPLOYER_IMAGE: quay.io/domino/deployer:develop.fd54002c320071e9133074d545843c7aac8d3e44
     defaults:
       run:
         working-directory: ./cdk
