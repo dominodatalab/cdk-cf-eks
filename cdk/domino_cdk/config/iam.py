@@ -35,7 +35,7 @@ def generate_iam(stack_name: str, aws_account_id: str, region: str, manual: bool
             "cloudformation:GetTemplate",
         ],
         "Resource": [
-            # f"arn:aws:cloudformation:*:{aws_account_id}:stack/{stack_name}-eks-stack/*",
+            # f"arn:{partition}:cloudformation:*:{aws_account_id}:stack/{stack_name}-eks-stack/*",
             f"arn:{partition}:cloudformation:*:{aws_account_id}:stack/{stack_name}*",
         ],
     }
