@@ -3,6 +3,7 @@ from typing import Dict, List
 import aws_cdk.aws_iam as iam
 from aws_cdk import core as cdk
 from aws_cdk.aws_s3 import Bucket
+from aws_cdk.region_info import Fact, FactName
 
 
 class DominoEksIamProvisioner:
@@ -12,7 +13,14 @@ class DominoEksIamProvisioner:
     ) -> None:
         self.scope = scope
 
-    def provision(self, stack_name: str, cluster_name: str, r53_zone_ids: List[str], buckets: Dict[str, Bucket]):
+    def provision(
+        self,
+        stack_name: str,
+        cluster_name: str,
+        r53_zone_ids: List[str],
+        buckets: Dict[str, Bucket],
+    ):
+        partition = Fact.require_fact(self.scope.region, FactName.PARTITION)
         asg_group_statement = iam.PolicyStatement(
             actions=[
                 "autoscaling:DescribeAutoScalingInstances",
@@ -115,13 +123,19 @@ class DominoEksIamProvisioner:
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
                     actions=["ec2:CreateTags"],
-                    resources=["arn:aws:ec2:*:*:volume/*", "arn:aws:ec2:*:*:snapshot/*"],
+                    resources=[
+                        f"arn:{partition}:ec2:*:*:volume/*",
+                        f"arn:{partition}:ec2:*:*:snapshot/*",
+                    ],
                     conditions={"StringEquals": {"ec2:CreateAction": ["CreateVolume", "CreateSnapshot"]}},
                 ),
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
                     actions=["ec2:DeleteTags"],
-                    resources=["arn:aws:ec2:*:*:volume/*", "arn:aws:ec2:*:*:snapshot/*"],
+                    resources=[
+                        f"arn:{partition}:ec2:*:*:volume/*",
+                        f"arn:{partition}:ec2:*:*:snapshot/*",
+                    ],
                 ),
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
