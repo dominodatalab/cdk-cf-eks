@@ -59,7 +59,7 @@ default_config = DominoCDKConfig(
     ),
     route53=Route53(zone_ids=[]),
     eks=EKS(
-        version="1.21",
+        version="1.24",
         private_api=False,
         max_nodegroup_azs=3,
         global_node_labels={'dominodatalab.com/domino-node': 'true'},
