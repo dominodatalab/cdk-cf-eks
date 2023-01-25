@@ -260,7 +260,7 @@ class DominoEksNodegroupProvisioner:
 
             if gpu:
                 mime_user_data.add_part(
-                    ec2.MultiPartBody.from_user_data(
+                    ec2.MultipartBody.from_user_data(
                         ec2.UserData.custom(
                             'EKS_CONTAINERD_CFG="/etc/eks/containerd/containerd-config.toml"'
                             'if [ -z "$(egrep \'certs\.d\' $EKS_CONTAINERD_CFG)" ]; then'
