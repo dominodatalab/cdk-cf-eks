@@ -167,7 +167,7 @@ jobs:
         sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
     - name: Fail without deploy
-      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master') }}
+      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/master') }}
       run: |
         echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
         exit 1
