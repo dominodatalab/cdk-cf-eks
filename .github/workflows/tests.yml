@@ -83,7 +83,7 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.DOMINO_ARTIFACTS_ACCESS_KEY }}
-        DOMINO_CDK_VERSION: ${{ github.sha }}
+        DOMINO_CDK_VERSION: "0.0.0-${{ github.sha }}"
         DATEDIR: "date +%Y%m%d"
       run: |
         cd ..
