@@ -83,7 +83,7 @@ jobs:
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.DOMINO_ARTIFACTS_ACCESS_KEY }}
-        DOMINO_CDK_VERSION: ${{ github.sha }}
+        DOMINO_CDK_VERSION: "0.0.0+${{ github.sha }}"
         DATEDIR: "date +%Y%m%d"
       run: |
         cd ..
@@ -167,7 +167,7 @@ jobs:
         sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
     - name: Fail without deploy
-      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master') }}
+      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/master') }}
       run: |
         echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
         exit 1
