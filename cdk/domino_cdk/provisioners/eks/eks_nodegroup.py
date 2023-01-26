@@ -262,12 +262,12 @@ class DominoEksNodegroupProvisioner:
                 mime_user_data.add_part(
                     ec2.MultipartBody.from_user_data(
                         ec2.UserData.custom(
-                            'EKS_CONTAINERD_CFG="/etc/eks/containerd/containerd-config.toml"'
-                            'if [ -z "$(egrep \'certs\.d\' $EKS_CONTAINERD_CFG)" ]; then'
-                            '    if [ -n "$(egrep \'plugins\.cri\.containerd\.runtimes\.nvidia\' $EKS_CONTAINERD_CFG)" ]; then'
-                            '        printf \'\n\n[plugins.cri.registry]\nconfig_path = "/etc/containerd/certs.d:/etc/docker/certs.d"\n\' >> $EKS_CONTAINERD_CFG'
-                            '    fi'
-                            'fi'
+                            'EKS_CONTAINERD_CFG="/etc/eks/containerd/containerd-config.toml"\n'
+                            'if [ -z "$(egrep \'certs\.d\' $EKS_CONTAINERD_CFG)" ]; then\n'
+                            '    if [ -n "$(egrep \'plugins\.cri\.containerd\.runtimes\.nvidia\' $EKS_CONTAINERD_CFG)" ]; then\n'
+                            '        printf \'\n\n[plugins.cri.registry]\nconfig_path = "/etc/containerd/certs.d:/etc/docker/certs.d"\n\' >> $EKS_CONTAINERD_CFG\n'
+                            '    fi\n'
+                            'fi\n'
                         )
                     )
                 )
