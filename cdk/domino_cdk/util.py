@@ -115,9 +115,30 @@ class DominoCdkUtil:
                 },
             },
             "output": {
+                "S3_BUCKET_NAME": {
+                    "value": "${module.cdk.S3_BUCKET_NAME}",
+                },
+                "S3_LOG_SNAPS_BUCKET_NAME": {
+                    "value": "${module.cdk.S3_LOG_SNAPS_BUCKET_NAME}",
+                },
+                "S3_BACKUPS_BUCKET_NAME": {
+                    "value": "${module.cdk.S3_BACKUPS_BUCKET_NAME}",
+                },
+                "S3_REGISTRY_BUCKET_NAME": {
+                    "value": "${module.cdk.S3_REGISTRY_BUCKET_NAME}",
+                },
+                "S3_MONITORING_BUCKET_NAME": {
+                    "value": "${module.cdk.S3_MONITORING_BUCKET_NAME}",
+                },
+                "EXECUTOR_EFS_FS_ID": {
+                    "value": "${module.cdk.EXECUTOR_EFS_FS_ID}",
+                },
+                "EXECUTOR_EFS_AP_ID": {
+                    "value": "${module.cdk.EXECUTOR_EFS_AP_ID}",
+                },
                 "cloudformation_outputs": {
                     "value": "${module.cdk.cloudformation_outputs}",
-                }
+                },
             },
         }
 
