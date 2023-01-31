@@ -28,13 +28,6 @@ output "cloudformation_outputs" {
   value = aws_cloudformation_stack.cdk_stack.outputs
 }
 
-resource "local_file" "agent_template" {
-  content         = lookup(aws_cloudformation_stack.cdk_stack.outputs, "agentconfig", "")
-  filename        = abspath("${var.output_dir}/agent_template.yaml")
-  file_permission = "0600"
-  depends_on      = [aws_cloudformation_stack.cdk_stack]
-}
-
 resource "null_resource" "kubeconfig" {
   provisioner "local-exec" {
     command = "${lookup(aws_cloudformation_stack.cdk_stack.outputs, "ekskubeconfigcmd", "")} --kubeconfig ${abspath("${var.output_dir}/kubeconfig")} && chmod 600 ${abspath("${var.output_dir}/kubeconfig")}"
