@@ -91,7 +91,8 @@ jobs:
         for suffix in "" "-terraform"; do
         filename="domino-cdk$suffix-$DOMINO_CDK_VERSION.tar.gz"
         aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
-        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
+        urlfile=$(python -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))' <<< "$filename")
+        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$urlfile"
         done
     - name: Deploy CDK
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
