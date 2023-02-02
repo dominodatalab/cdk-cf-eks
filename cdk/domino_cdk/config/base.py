@@ -10,7 +10,6 @@ from domino_cdk import __version__
 from domino_cdk.config.acm import ACM
 from domino_cdk.config.efs import EFS
 from domino_cdk.config.eks import EKS
-from domino_cdk.config.install import Install
 from domino_cdk.config.route53 import Route53
 from domino_cdk.config.s3 import S3
 from domino_cdk.config.util import from_loader
@@ -41,8 +40,6 @@ class DominoCDKConfig:
     s3: Optional[S3] = None
     acm: Optional[ACM] = None
 
-    install: Optional[Install] = None
-
     @field_property(tags)
     def get_tags(self) -> Dict[str, str]:
         return {**unwrap_property(self).tags, **{"domino-deploy-id": self.name}}
@@ -68,9 +65,8 @@ class DominoCDKConfig:
         if efs is not None:
             efs = EFS.from_0_0_0(efs)
 
-        install = c.pop("install", None)
-        if install is not None:
-            install = Install.from_0_0_0(install)
+        # Install is no longer supported
+        c.pop("install", None)
 
         acm = c.pop("acm", None)
         if acm is not None:
@@ -90,7 +86,6 @@ class DominoCDKConfig:
                 route53=route53,
                 eks=EKS.from_0_0_0(c.pop("eks")),
                 s3=s3,
-                install=install,
                 acm=acm,
             ),
             c,
@@ -110,9 +105,8 @@ class DominoCDKConfig:
         if efs is not None:
             efs = EFS.from_0_0_0(efs)
 
-        install = c.pop("install", None)
-        if install is not None:
-            install = Install.from_0_0_1(install)
+        # Install is no longer supported
+        c.pop("install", None)
 
         acm = c.pop("acm", None)
         if acm is not None:
@@ -132,7 +126,6 @@ class DominoCDKConfig:
                 route53=route53,
                 eks=EKS.from_0_0_1(c.pop("eks")),
                 s3=s3,
-                install=install,
                 acm=acm,
             ),
             c,

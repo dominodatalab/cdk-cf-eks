@@ -3,7 +3,6 @@ from typing import Optional
 import aws_cdk.aws_s3 as s3
 from aws_cdk import core as cdk
 
-from domino_cdk.agent import generate_install_config
 from domino_cdk.aws_configurator import DominoAwsConfigurator
 from domino_cdk.config import DominoCDKConfig
 from domino_cdk.provisioners import (
@@ -146,25 +145,5 @@ class DominoStack(cdk.Stack):
                 "route53-txt-owner-id",
                 value=r53_owner_id,
             )
-
-        if self.cfg.install is not None:
-            agent_cfg = generate_install_config(
-                name=self.name,
-                install=self.cfg.install,
-                aws_region=self.cfg.aws_region,
-                eks_cluster_name=self.eks_stack.cluster.cluster_name,
-                pod_cidr=self.vpc_stack.vpc.vpc_cidr_block,
-                global_node_selectors=self.cfg.eks.global_node_labels,
-                buckets=self.s3_stack.buckets,
-                monitoring_bucket=self.s3_stack.monitoring_bucket,
-                efs_fsid=self.efs_stack.efs.file_system_id,
-                efs_apid=self.efs_stack.efs_access_point.access_point_id,
-                r53_zone_ids=r53_zone_ids,
-                r53_owner_id=r53_owner_id,
-            )
-
-            merged_cfg = DominoCdkUtil.deep_merge(agent_cfg, self.cfg.install.overrides)
-
-            cdk.CfnOutput(self, "agent_config", value=DominoCdkUtil.ruamel_dump(merged_cfg))
 
         cdk.CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
