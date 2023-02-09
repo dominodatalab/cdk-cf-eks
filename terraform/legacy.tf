@@ -1,3 +1,7 @@
+output "BASTION_IP" {
+  value = aws_cloudformation_stack.cdk_stack.outputs.bastionpublicip
+}
+
 output "S3_BUCKET_NAME" {
   value = aws_cloudformation_stack.cdk_stack.outputs.blobsbucketoutput
 }
