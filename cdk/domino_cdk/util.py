@@ -115,6 +115,9 @@ class DominoCdkUtil:
                 },
             },
             "output": {
+                "BASTION_IP": {
+                    "value": "${module.cdk.BASTION_IP}",
+                },
                 "S3_BUCKET_NAME": {
                     "value": "${module.cdk.S3_BUCKET_NAME}",
                 },
