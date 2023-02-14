@@ -161,10 +161,11 @@ Enter the `cloudformation-only/` subdirectory, and provision that terraform:
 
 This will provision an IAM role that *only has permission to CloudFormation and _nothing else_*.
 
-Once this is provisioned, run `convert.py`'s `delete-stack` command and follow its instructions:
+Once this is provisioned, run `convert.py`'s `delete-stack` command and read its instructions:
 
     ./convert.py delete-stack --region us-east-1 --stack-name mystack
     
+    Manual instructions:
     First run this delete-stack command using the cloudformation-only role:
     
     aws cloudformation delete-stack --region us-east-1 --stack-name mystack --role arn:aws:iam::1234567890:role/cloudformation-only
@@ -172,8 +173,12 @@ Once this is provisioned, run `convert.py`'s `delete-stack` command and follow i
     This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:
     
     <various delete-stack commands for each stack, with the --retain-resources argument propagated>
+    
+    To perform this process automatically, add the --delete argument
 
-As the instructions state, run the first `aws cloudformation delete-stack` command, and wait for the stack deletion to fail. Once that has happened, *re-run* `convert.py`'s `delete-stack` command, and execute the subsequent series of `aws cloudformation delete-stack` commands.
+Rerun the `delete-stack` command with `--delete` (or run the boto commands manually, if you prefer):
+
+    ./convert.py delete-stack --region us-east-1 --stack-name mystack --delete
 
 This may seem a bit strange, but there is no direct way to only remove a CloudFormation stack, while retaining all the resources. However, once a CloudFormation stack deletion even has failed, it is possible to re-attempt this stack deletion and specify failed resources to retain. So what this process does is use the limited permission role to cause all resource deletions to fail, and then specifies all extant resources as resources to retain on the subsequent attempt.
 

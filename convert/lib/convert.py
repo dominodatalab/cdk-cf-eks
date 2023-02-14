@@ -8,8 +8,9 @@ from copy import deepcopy
 from functools import reduce
 from pprint import pprint
 from subprocess import run
+from time import sleep
 
-from .meta import cdk_ids, resource_template, efs_backup_resources, route53_resource, stack_map
+from .meta import cdk_ids, cf_status, resource_template, efs_backup_resources, route53_resource, stack_map
 from .nuke import nuke
 
 
@@ -47,7 +48,26 @@ class app:
         self.cf = boto3.client("cloudformation", self.region)
 
         if not no_stacks:
+            self.sanity()
             self.stacks = self.get_stacks(full=full)
+
+    def sanity(self):
+            extra_args = {}
+            stacks = []
+            while True:
+                list_result = self.cf.list_stacks(StackStatusFilter=[s for s in cf_status if s != "DELETE_COMPLETE"], **extra_args)
+                stacks.extend([s["StackName"] for s in list_result["StackSummaries"] if s["StackName"] == self.stack_name])
+                if next_token := list_result.get("NextToken"):
+                    extra_args = {"NextToken": next_token}
+                else:
+                    break
+
+            if len(stacks) > 1:
+                print(f"Multiple stacks named {self.stack_name}, bailing...")
+                exit(1)
+            elif len(stacks) == 0:
+                print(f"No live stacks named {self.stack_name}, stack already deleted?")
+                exit(0)
 
     def parse_args(self):
         parser = argparse.ArgumentParser(
@@ -88,6 +108,7 @@ class app:
         clean_stack_parser.set_defaults(command=self.clean_stack)
 
         delete_stack_parser = subparsers.add_parser(name="delete-stack", help="Get commands to delete old stack", parents=[common_parser])
+        delete_stack_parser.add_argument("--delete", help="Delete unneeded stack items", default=False, action="store_true")
         delete_stack_parser.set_defaults(command=self.delete_stack)
 
         print_stack_parser = subparsers.add_parser(name="print-stack", help="Print CDK stack resources", parents=[common_parser])
@@ -316,6 +337,23 @@ class app:
             print("Please run the terraform module in the 'cloudformation-only' subdirectory...")
             exit(1)
 
+        if self.args.delete:
+            self.cf.delete_stack(StackName=self.stack_name, RoleARN=cf_only_role['value'])
+
+            while True:
+                desc_output = self.cf.describe_stacks(StackName=self.stack_name)
+                status = desc_output["Stacks"][0]["StackStatus"]
+                if status == "DELETE_IN_PROGRESS":
+                    sleep(5)
+                elif status == "DELETE_FAILED":
+                    break
+
+        root_resources = self.cf.describe_stack_resources(StackName=self.stack_name)["StackResources"]
+
+        stacks = {
+            self.stack_name: [r["LogicalResourceId"] for r in root_resources if r["ResourceStatus"] != "DELETE_COMPLETE"]
+        }
+
         def get_stack_resources(s) -> dict:
             child_id = s["PhysicalResourceId"]
             child_name = re.search(r':stack/(.*)/', child_id).group(1)
@@ -327,19 +365,17 @@ class app:
                 if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
                     get_stack_resources(r)
 
-        root_resources = self.cf.describe_stack_resources(StackName=self.stack_name)["StackResources"]
-
-        stacks = {
-            self.stack_name: [r["LogicalResourceId"] for r in root_resources if r["ResourceStatus"] != "DELETE_COMPLETE"]
-        }
-
         for s in root_resources:
             if s["ResourceType"] == cdk_ids.cloudformation_stack.value:
                 get_stack_resources(s)
 
         for i, (stack, resources) in enumerate(stacks.items()):
-            if i == 0:
-                print("First run this delete-stack command using the cloudformation-only role:\n")
-                print(f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --role {cf_only_role['value']}\n")
-                print("This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:\n")
-            print(f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role['value']}\n")
+            if self.args.delete:
+                self.cf.delete_stack(StackName=stack, RoleARN=cf_only_role['value'], RetainResources=resources)
+            else:
+                if i == 0:
+                    print("Manual instructions:\nFirst run this delete-stack command using the cloudformation-only role:\n")
+                    print(f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --role {cf_only_role['value']}\n")
+                    print("This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:\n")
+                print(f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role['value']}\n")
+                print("\nTo perform this process automatically, add the --delete argument")
