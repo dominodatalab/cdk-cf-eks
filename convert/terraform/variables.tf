@@ -97,3 +97,9 @@ variable "eks_master_role_names" {
   description = "Extra roles for EKS master IAM role for monitoring, etc. (optional)"
   default     = []
 }
+
+variable "eks_custom_role_maps" {
+  type        = list(object({rolearn = string, username = string, groups = list(string)}))
+  description = "blah"
+  default     = []
+}

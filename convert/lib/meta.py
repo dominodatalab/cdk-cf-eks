@@ -16,6 +16,43 @@ resource_template = {
             "tf": "module.domino_eks.module.eks.aws_security_group.eks_cluster",
         },
         {
+            "cf_sgr": {
+                 "sg": "EKSSG",
+                 "rule": "_egress_tcp_443_443_",
+                 "rule_sg": "UnmanagedSG",
+            },
+            "tf": 'module.domino_eks.module.eks.aws_security_group_rule.eks_cluster["egress_nodes_443"]',
+        },
+        {
+            "cf_sgr": {
+                 "sg": "EKSSG",
+                 "rule": "_ingress_tcp_443_443_",
+                 "rule_sg": "UnmanagedSG",
+            },
+            "tf": 'module.domino_eks.module.eks.aws_security_group_rule.eks_cluster["ingress_nodes_443"]',
+        },
+        {
+            "cf": "UnmanagedSG",
+            "tf": "module.domino_eks.module.eks.aws_security_group.eks_nodes",
+        },
+        {
+            "cf_sgr": {
+                 "sg": "UnmanagedSG",
+                 "rule": "_ingress_tcp_443_443_",
+                 "rule_sg": "EKSSG",
+            },
+            "tf": 'module.domino_eks.module.eks.aws_security_group_rule.node["ingress_cluster_443"]',
+        },
+        {
+            "cf_sgr": {
+                 "sg": "UnmanagedSG",
+                 "rule": "_ingress_tcp_22_22_",
+                 "rule_sg": "bastionsg",
+                 "rule_sg_stack": "vpc_stack",
+            },
+            "tf": 'module.domino_eks.module.eks.aws_security_group_rule.bastion_eks["eks_nodes_ssh_from_bastion"]',
+        },
+        {
             "cf": "eksRole",
             "tf": "module.domino_eks.module.eks.aws_iam_role.eks_cluster",
         },
@@ -71,7 +108,7 @@ resource_template = {
                  "sg": "bastionsg",
                  "rule": "_egress_all_0_0_0.0.0.0/0",
             },
-            "tf": "module.domino_eks.module.bastion[0].aws_security_group_rule.bastion[\"bastion_outbound_traffic\"]",
+            "tf": "module.domino_eks.module.bastion[0].aws_security_group_rule.bastion_outbound",
         },
         {
             "cf_sgr": {

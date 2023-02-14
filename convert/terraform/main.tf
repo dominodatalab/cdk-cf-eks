@@ -24,7 +24,7 @@ resource "aws_iam_role" "grandfathered_creation_role" {
 }
 
 module "domino_eks" {
-  source                       = "github.com/dominodatalab/terraform-aws-eks.git?ref=main"
+  source                       = "github.com/dominodatalab/terraform-aws-eks.git?ref=smooth-conversion-process"
   deploy_id                    = var.deploy_id
   region                       = var.region
   number_of_azs                = var.number_of_azs
@@ -40,4 +40,5 @@ module "domino_eks" {
   private_subnets              = var.private_subnet_ids
   pod_subnets                  = var.pod_subnet_ids
   update_kubeconfig_extra_args = "--role-arn ${aws_iam_role.grandfathered_creation_role.arn}"
+  eks_custom_role_maps         = var.eks_custom_role_maps
 }

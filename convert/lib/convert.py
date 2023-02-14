@@ -212,7 +212,13 @@ class app:
                     resource_id = t(value)
                 elif cf_sgr := item.get("cf_sgr"):
                     sg = resources[t(cf_sgr["sg"])]
-                    resource_id = f"{sg}{t(cf_sgr['rule'])}"
+                    append_rule_sg = ""
+                    if rule_sg := cf_sgr.get("rule_sg"):
+                        rule_sg_r = resources
+                        if rule_sg_stack := cf_sgr.get("rule_sg_stack"):
+                            rule_sg_r = self.stacks[t(rule_sg_stack)]["resources"]
+                        append_rule_sg = rule_sg_r[t(rule_sg)]
+                    resource_id = f"{sg}{t(cf_sgr['rule'])}{append_rule_sg}"
                 elif cf_igw_attachment := item.get("cf_igw_attachment"):
                     igw_id = resources[t(cf_igw_attachment["igw"])]
                     vpc_id = resources[t(cf_igw_attachment["vpc"])]
@@ -240,6 +246,19 @@ class app:
         def get_subnet_ids(subnet_type: str, prefix: str = "VPC"):
             return [v for k, v in self.stacks["vpc_stack"]["resources"].items() if re.match(f"{prefix}{self.stack_name}{subnet_type}Subnet\d+Subnet", k)]
 
+        ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.stack_name}NG"]
+        client = boto3.client("iam", self.region)
+        ng_role_arn = client.get_role(RoleName=ng_role_name)["Role"]["Arn"]
+        eks_custom_role_maps = [{
+            "rolearn": ng_role_arn,
+            "username": "system:node:{{EC2PrivateDNSName}}",
+            "groups": [
+                "system:masters",
+                "system:bootstrappers",
+                "system:nodes",
+            ]
+        }]
+
         tfvars = {
             "deploy_id": cdkconfig["name"],
             "region": cdkconfig["aws_region"],
@@ -258,6 +277,7 @@ class app:
             "efs_backup_cold_storage_after": cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
             "efs_backup_delete_after": cdkconfig["efs"]["backup"]["delete_after"],
             "efs_backup_force_destroy": cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
+            "eks_custom_role_maps": eks_custom_role_maps,
         }
 
         print(json.dumps(tfvars))
