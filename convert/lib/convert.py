@@ -311,7 +311,7 @@ class app:
                 f"(eksMastersRole|{self.stack_name}NG)$": [cdk_ids.iam_role.value],
                 "eksKubectlReadyBarrier": [cdk_ids.ssm_parameter.value],
                 "(clusterpost(creation|deletion)tasks|LogRetention)": lambda_safe,
-                "Unmanaged": [cdk_ids.security_group.value, cdk_ids.instance_profile.value, cdk_ids.asg.value, cdk_ids.launch_template.value],
+                "Unmanaged": [cdk_ids.instance_profile.value, cdk_ids.asg.value, cdk_ids.launch_template.value],
             },
             "s3_stack": {
                 "CustomS3AutoDeleteObjectsCustomResourceProvider": lambda_safe,
