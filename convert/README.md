@@ -56,7 +56,7 @@ First, we must create the variables going into our Terraform config.
 
 The following command will look at the current CDK stack and autopropagate the Terraform variables:
 
-    ./convert.py create-tfvars --region us-east-1 --stack-name mystack --ssh-key-path /path/to/key.pem > terraform/terraform.tfvars
+    ./convert.py create-tfvars --region us-east-1 --stack-name mystack --ssh-key-path /path/to/key.pem > terraform/terraform.tfvars.json
 
 Note that the ssh key is handled different in the terraform module. With CDK,
 we used an existing keypair, while the terraform module creates a keypair for

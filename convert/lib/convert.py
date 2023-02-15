@@ -540,4 +540,6 @@ class app:
                 print(
                     f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role['value']}\n"
                 )
-                print("\nTo perform this process automatically, add the --delete argument")
+
+        if not self.args.delete:
+            print("\nTo perform this process automatically, add the --delete argument")
