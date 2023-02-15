@@ -268,6 +268,19 @@ class nuke:
                 for p in existing_parameters:
                     self.ssm.delete_parameter(Name=p)
 
+    def security_group_rule_ids(self, rulemap: dict[str, list[str]]):
+        if not rulemap:
+            return
+
+        pprint({"Individual security group rules to delete": rulemap})
+
+        if self.delete:
+            for group_id, rules in rulemap.items():
+                if rules["egress"]:
+                    self.ec2.revoke_security_group_egress(GroupId=group_id, SecurityGroupRuleIds=rules["egress"])
+                if rules["ingress"]:
+                    self.ec2.revoke_security_group_ingress(GroupId=group_id, SecurityGroupRuleIds=rules["ingress"])
+
     def nuke(self, nuke_queue: dict[str, list[str]], remove_security_group_references: bool = False):
         all_referenced_groups = {}
         if security_groups := nuke_queue.get(cdk_ids.security_group.value):
@@ -316,6 +329,7 @@ class nuke:
             cdk_ids.iam_policy,
             cdk_ids.instance_profile,
             cdk_ids.ssm_parameter,
+            cdk_ids.security_group_rule_ids,
         ]
         for x in order:
             if x.value in nuke_queue:
@@ -327,9 +341,11 @@ class nuke:
             exit(1)
         for func, resource_list in local_queue:
             func(resource_list)
-        print(
-            "\nNote: You may still have lambda-associated network interfaces. They should be deleted automatically within 24 hours."
-        )
+
+        if self.delete:
+            print(
+                "\nNote: You may still have lambda-associated network interfaces. They should be deleted automatically within 24 hours."
+            )
 
         if all_referenced_groups:
             print("\nSee security group note at top of output!")

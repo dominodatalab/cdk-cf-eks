@@ -204,3 +204,4 @@ class cdk_ids(Enum):
     stepfunctions_statemachine = "AWS::StepFunctions::StateMachine"
     lambda_layerversion = "AWS::Lambda::LayerVersion"
     ssm_parameter = "AWS::SSM::Parameter"
+    security_group_rule_ids = "security_group_rule_ids" # special

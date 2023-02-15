@@ -438,6 +438,27 @@ class app:
         get_nukes("vpc_stack", self.stacks["vpc_stack"]["resources"])
         get_nukes("core_stack", self.stacks["resources"])
 
+        # I don't like doing this outside of nuke or making aws calls at this stage
+        # but the eks cluster security group isn't gettable from cloudformation...
+        ec2 = boto3.client("ec2", self.region)
+        eks = boto3.client("eks", self.region)
+        eks_cluster_sg = eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+        unmanaged_sg = self.stacks["eks_stack"]["resources"]["UnmanagedSG"]["PhysicalResourceId"]
+        eks_sg = self.stacks["eks_stack"]["resources"]["EKSSG"]["PhysicalResourceId"]
+
+        rule_ids_to_nuke = {
+            eks_cluster_sg: {"egress": [], "ingress": []},
+            unmanaged_sg: {"egress": [], "ingress": []},
+            eks_sg: {"egress": [], "ingress": []},
+        }
+
+        for group in rule_ids_to_nuke.keys():
+            rules = [r for r in ec2.describe_security_group_rules(Filters=[{"Name": "group-id", "Values": [group]}])["SecurityGroupRules"] if re.match(f"(from|to) {self.stack_name}", r.get("Description", ""))]
+            rule_ids_to_nuke[group]["ingress"].extend([r["SecurityGroupRuleId"] for r in rules if not r["IsEgress"]])
+            rule_ids_to_nuke[group]["egress"].extend([r["SecurityGroupRuleId"] for r in rules if r["IsEgress"]])
+
+        nuke_queue[cdk_ids.security_group_rule_ids.value] = rule_ids_to_nuke
+
         if self.args.all_staged_resources:
             pprint(nuke_queue)
             exit(0)
