@@ -24,10 +24,12 @@ class app:
 
     def get_stacks(self, stack: str = None, full: bool = False):
         stacks = {"resources": {}}
-        for s in self.cf.describe_stack_resources(StackName=stack or self.stack_name)["StackResources"]:
-            logical_id = s["LogicalResourceId"]
-            physical_id = s["PhysicalResourceId"]
-            if s["ResourceType"] == cdk_ids.cloudformation_stack.value:
+        p = self.cf.get_paginator("list_stack_resources")
+        resources = [summary for i in p.paginate(StackName=stack or self.stack_name) for summary in i["StackResourceSummaries"]]
+        for r in resources:
+            logical_id = r["LogicalResourceId"]
+            physical_id = r["PhysicalResourceId"]
+            if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
                 for mapped_logical_id, name in stack_map.items():
                     if logical_id.startswith(mapped_logical_id):
                         stacks[name] = self.get_stacks(physical_id, full)
@@ -35,10 +37,8 @@ class app:
                 else:
                     raise Exception(f"Nothing to map stack {s} to!")
             else:
-                if re.match("^[0-9A-F]{8}", logical_id[-8:]):
-                    stacks["resources"][logical_id[:-8]] = s if full else physical_id
-                else:
-                    stacks["resources"][logical_id] = s if full else physical_id
+                parsed_logical_id = logical_id[:-8] if re.match("^[0-9A-F]{8}", logical_id[-8:]) else logical_id
+                stacks["resources"][parsed_logical_id] = r if full else physical_id
         return stacks
 
     def setup(self, full: bool = False, no_stacks: bool = False):
@@ -52,15 +52,8 @@ class app:
             self.stacks = self.get_stacks(full=full)
 
     def sanity(self):
-            extra_args = {}
-            stacks = []
-            while True:
-                list_result = self.cf.list_stacks(StackStatusFilter=[s for s in cf_status if s != "DELETE_COMPLETE"], **extra_args)
-                stacks.extend([s["StackName"] for s in list_result["StackSummaries"] if s["StackName"] == self.stack_name])
-                if next_token := list_result.get("NextToken"):
-                    extra_args = {"NextToken": next_token}
-                else:
-                    break
+            p = self.cf.get_paginator('list_stacks')
+            stacks = [ss for i in p.paginate(StackStatusFilter=[s for s in cf_status if s != "DELETE_COMPLETE"]) for ss in i["StackSummaries"] if ss["StackName"] == self.stack_name]
 
             if len(stacks) > 1:
                 print(f"Multiple stacks named {self.stack_name}, bailing...")

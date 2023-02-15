@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import boto3
 import re
+from functools import cached_property
 from pprint import pprint
 
 from .meta import cdk_ids
@@ -12,75 +13,35 @@ class nuke:
         self.verbose = verbose
         self.delete = delete
 
-    @property
+    @cached_property
     def autoscaling(self):
-        if not getattr(self, "_autoscaling", None):
-            self._autoscaling = boto3.client("autoscaling", self.region)
-        return self._autoscaling
+        return boto3.client("autoscaling", self.region)
 
-    @property
+    @cached_property
     def ec2(self):
-        if not getattr(self, "_ec2", None):
-            self._ec2 = boto3.client("ec2", self.region)
-        return self._ec2
+        return boto3.client("ec2", self.region)
 
-    @property
+    @cached_property
     def iam(self):
-        if not getattr(self, "_iam", None):
-            self._iam = boto3.client("iam", self.region)
-        return self._iam
+        return boto3.client("iam", self.region)
 
-    @property
+    @cached_property
     def awslambda(self):
-        if not getattr(self, "_lambda", None):
-            self._awslambda = boto3.client("lambda", self.region)
-        return self._awslambda
+        return boto3.client("lambda", self.region)
 
-    @property
+    @cached_property
     def ssm(self):
-        if not getattr(self, "_ssm", None):
-            self._ssm = boto3.client("ssm", self.region)
-        return self._ssm
+        return boto3.client("ssm", self.region)
 
-    @property
+    @cached_property
     def stepfunctions(self):
-        if not getattr(self, "_stepfunctions", None):
-            self._stepfunctions = boto3.client("stepfunctions", self.region)
-        return self._stepfunctions
-
-    def _aws_list_all(self, list_func, parser, next_token_name: str = "Marker", next_token_arg: str = None, extra_args: dict = None):
-        next_token_arg = next_token_arg or next_token_name
-        all_things = []
-        list_args = extra_args or {}
-        while True:
-            list_result = list_func(**list_args)
-            all_things.extend(parser(list_result))
-            if next_token := list_result.get(next_token_name):
-                list_args = extra_args or {} | {next_token_arg: next_token}
-            else:
-                return all_things
-
-    def _get_from_paged_list(self, things: list[str], list_func, parser, next_token_name: str = "Marker", next_token_arg: str = None, extra_args: dict = None):
-        all_things = self._aws_list_all(list_func, parser, next_token_name, next_token_arg)
-
-        existing_things = []
-        for thing in things:
-            if thing in all_things:
-                existing_things.append(thing)
-            elif self.verbose:
-                print(f"{thing} doesn't exist")
-
-        return existing_things
+        return boto3.client("stepfunctions", self.region)
 
     def asg(self, group_names: list[str]):
         if not group_names:
             return
-        existing_groups = self._get_from_paged_list(
-            group_names,
-            self.autoscaling.describe_auto_scaling_groups,
-            lambda x: [i["AutoScalingGroupName"] for i in x["AutoScalingGroups"]],
-            "NextToken",
-        )
+        p = self.autoscaling.get_paginator('describe_auto_scaling_groups')
+        existing_groups = [asg["AutoScalingGroupName"] for i in p.paginate() for asg in i["AutoScalingGroups"] if asg["AutoScalingGroupName"] in group_names]
 
         if existing_groups:
             pprint({"Auto scaling groups to delete": existing_groups})
@@ -139,12 +100,8 @@ class nuke:
     def launch_template(self, launch_templates: list[str]):
         if not launch_templates:
             return
-        existing_templates = self._get_from_paged_list(
-            launch_templates,
-            self.ec2.describe_launch_templates,
-            lambda x: [i["LaunchTemplateId"] for i in x["LaunchTemplates"]],
-            "NextToken",
-        )
+        p = self.ec2.get_paginator('describe_launch_templates')
+        existing_templates = [lt["LaunchTemplateId"] for i in p.paginate() for lt in i["LaunchTemplates"] if lt["LaunchTemplateId"] in launch_templates]
 
         if existing_templates:
             pprint({"Launch Template IDs to delete": existing_templates})
@@ -169,11 +126,8 @@ class nuke:
     def instance_profile(self, instance_profiles: list[str]):
         if not instance_profiles:
             return
-        existing_profiles = self._get_from_paged_list(
-            instance_profiles,
-            self.iam.list_instance_profiles,
-            lambda x: [p["InstanceProfileName"] for p in x["InstanceProfiles"]],
-        )
+        p = self.iam.get_paginator('list_instance_profiles')
+        existing_profiles = [p["InstanceProfileName"] for i in p.paginate() for p in i["InstanceProfiles"] if p["InstanceProfileName"] in instance_profiles]
 
         if existing_profiles:
             pprint({"Instance Profile IDs to delete": existing_profiles})
@@ -185,11 +139,8 @@ class nuke:
     def iam_policy(self, policies: list[str]):
         if not policies:
             return
-        existing_policies = self._get_from_paged_list(
-            policies,
-            self.iam.list_policies,
-            lambda x: [p["Arn"] for p in x["Policies"]],
-        )
+        p = self.iam.get_paginator('list_policies')
+        existing_policies = [p["Arn"] for i in p.paginate() for p in i["Policies"] if p["Arn"] in policies]
 
         if existing_policies:
             pprint({"IAM Policies to delete": existing_policies})
@@ -201,11 +152,8 @@ class nuke:
     def iam_role(self, roles: list[str]):
         if not roles:
             return
-        existing_roles = self._get_from_paged_list(
-            roles,
-            self.iam.list_roles,
-            lambda x: [r["RoleName"] for r in x["Roles"]],
-        )
+        role_paginator = self.iam.get_paginator('list_roles')
+        existing_roles = [r["RoleName"] for i in role_paginator.paginate() for r in i["Roles"] if r["RoleName"] in roles]
 
         if not existing_roles:
             return
@@ -215,40 +163,28 @@ class nuke:
         if self.delete:
             for role in existing_roles:
                 # jfc
-                attached_policies = self._aws_list_all(
-                    self.iam.list_attached_role_policies,
-                    lambda x: [rp["PolicyArn"] for rp in x["AttachedPolicies"]],
-                    extra_args={"RoleName": role},
-                )
+                ap_paginator = self.iam.get_paginator('list_attached_role_policies')
+                attached_policies = [ap["PolicyArn"] for i in ap_paginator.paginate(RoleName=role) for ap in i["AttachedPolicies"]]
                 for policy_arn in attached_policies:
                     self.iam.detach_role_policy(RoleName=role, PolicyArn=policy_arn)
 
-                inline_policies = self._aws_list_all(
-                    self.iam.list_role_policies,
-                    lambda x: [ip for ip in x["PolicyNames"]],
-                    extra_args={"RoleName": role},
-                )
+                ipo_paginator = self.iam.get_paginator('list_role_policies')
+                inline_policies = [ipo for i in ipo_paginator.paginate(RoleName=role) for ipo in i["PolicyNames"]]
                 for policy_name in inline_policies:
                     self.iam.delete_role_policy(RoleName=role, PolicyName=policy_name)
 
-                instance_profiles = self._aws_list_all(
-                    self.iam.list_instance_profiles_for_role,
-                    lambda x: [ip["InstanceProfileName"] for ip in x["InstanceProfiles"]],
-                    extra_args={"RoleName": role},
-                )
+                ipr_paginator = self.iam.get_paginator('list_instance_profiles_for_role')
+                instance_profiles = [ipr["InstanceProfileName"] for i in ipr_paginator.paginate(RoleName=role) for ipr in i["InstanceProfiles"]]
                 for ip_name in instance_profiles:
                     self.iam.remove_role_from_instance_profile(RoleName=role, InstanceProfileName=ip_name)
+
                 self.iam.delete_role(RoleName=role)
 
     def stepfunctions_statemachine(self, statemachines: list[str]):
         if not statemachines:
             return
-        existing_sms = self._get_from_paged_list(
-            statemachines,
-            self.stepfunctions.list_state_machines,
-            lambda x: [sm["stateMachineArn"] for sm in x["stateMachines"]],
-            "nextToken"
-        )
+        p = self.stepfunctions.get_paginator('list_state_machines')
+        existing_sms = [sm["stateMachineArn"] for i in p.paginate() for sm in i["stateMachines"] if sm["stateMachineArn"] in statemachines]
 
         if existing_sms:
             pprint({"Stepfunctions Statemachines to delete": existing_sms})
@@ -260,13 +196,8 @@ class nuke:
     def lambda_function(self, funcs: list[str]):
         if not funcs:
             return
-        existing_funcs = self._get_from_paged_list(
-            funcs,
-            self.awslambda.list_functions,
-            lambda x: [f["FunctionName"] for f in x["Functions"]],
-            "NextMarker",
-            next_token_arg="Marker",
-        )
+        p = self.awslambda.get_paginator('list_functions')
+        existing_funcs = [f["FunctionName"] for i in p.paginate() for f in i["Functions"] if f["FunctionName"] in funcs]
 
         if existing_funcs:
             pprint({"Lambda Functions to delete": existing_funcs})
@@ -287,7 +218,7 @@ class nuke:
                     layer_result = self.awslambda.get_layer_version(LayerName=layer, VersionNumber=version)
                     if layer_result["LayerVersionArn"] == layerversion_arn:
                         layerversion_results[layerversion_arn] = {"LayerName": layer, "VersionNumber": version}
-                except:
+                except self.awslambda.exceptions.ResourceNotFoundException:
                     pass
 
         if layerversion_results:
@@ -301,12 +232,8 @@ class nuke:
     def ssm_parameter(self, parameters: list[str]):
         if not parameters:
             return
-        existing_parameters = self._get_from_paged_list(
-            parameters,
-            self.ssm.describe_parameters,
-            lambda x: [p["Name"] for p in x["Parameters"]],
-            "NextToken",
-        )
+        p = self.ssm.get_paginator('describe_parameters')
+        existing_parameters = [p["Name"] for i in p.paginate() for p in i["Parameters"] if p["Name"] in parameters]
 
         if existing_parameters:
             pprint({"SSM Parameters to delete": existing_parameters})
