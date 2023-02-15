@@ -391,7 +391,7 @@ class app:
                 "(Handler|KubectlLayer|ProviderframeworkonEvent).*": lambda_safe,
             },
             "eks_stack": {
-                f"(snapshot|chibipug7501ebscsi|{self.stack_name}DominoEcrRestricted|autoscaler)": [
+                f"(snapshot|{self.stack_name}ebscsi|{self.stack_name}DominoEcrRestricted|autoscaler)": [
                     cdk_ids.iam_policy.value
                 ],
                 f"(eksMastersRole|{self.stack_name}NG)$": [cdk_ids.iam_role.value],
