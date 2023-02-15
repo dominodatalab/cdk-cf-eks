@@ -58,27 +58,27 @@ resource_template = {
         },
         {
             "tf": "module.domino_eks.module.eks.aws_cloudwatch_log_group.eks_cluster",
-            "value": "/aws/eks/{{stack_name}}/cluster",
+            "value": "/aws/eks/%stack_name%/cluster",
         },
         {"cf": "S3", "tf": "module.domino_eks.module.storage.aws_iam_policy.s3"},
         {
             "tf": 'module.domino_eks.module.eks.aws_eks_addon.this["coredns"]',
-            "value": "{{stack_name}}:coredns",
+            "value": "%stack_name%:coredns",
         },
         {
             "tf": 'module.domino_eks.module.eks.aws_eks_addon.vpc_cni',
-            "value": "{{stack_name}}:vpc-cni",
+            "value": "%stack_name%:vpc-cni",
         },
         {
             "tf": 'module.domino_eks.module.eks.aws_eks_addon.this["kube-proxy"]',
-            "value": "{{stack_name}}:kube-proxy",
+            "value": "%stack_name%:kube-proxy",
         },
         {
             "cf": "eksCreationRole",
             "tf": "aws_iam_role.grandfathered_creation_role",
         },
         {
-            "cf": "{{stack_name}}kubernetessecretsenvelopekey",
+            "cf": "%stack_name%kubernetessecretsenvelopekey",
             "tf": "module.domino_eks.module.eks.aws_kms_key.eks_cluster",
         }
     ],

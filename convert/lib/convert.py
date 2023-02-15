@@ -133,7 +133,7 @@ class app:
             })
             for s_type in ["Public", "Private", "Pod"]:
                 vpc_prefix = "" if s_type == "Pod" else "VPC"
-                prefix = f"{vpc_prefix}{{{{stack_name}}}}{s_type}Subnet{count+1}"
+                prefix = f"{vpc_prefix}%stack_name%{s_type}Subnet{count+1}"
                 template["vpc_stack"].extend([
                     {
                         "cf": f"{prefix}Subnet",
@@ -153,11 +153,11 @@ class app:
                 ])
             template["vpc_stack"].extend([
                 {
-                    "cf": f"VPC{{{{stack_name}}}}PublicSubnet{count+1}EIP",
+                    "cf": f"VPC%stack_name%PublicSubnet{count+1}EIP",
                     "tf": f"aws_eip.nat_gateway[{count}]",
                 },
                 {
-                    "cf": f"VPC{{{{stack_name}}}}PublicSubnet{count+1}NATGateway",
+                    "cf": f"VPC%stack_name%PublicSubnet{count+1}NATGateway",
                     "tf": f"aws_nat_gateway.public[{count}]"
                 },
             ])
@@ -190,8 +190,7 @@ class app:
 
 
         def t(val: str) -> str:
-            val = re.sub(r"{{region}}", self.region, val)
-            val = re.sub(r"{{stack_name}}", self.stack_name, val)
+            val = re.sub(r"%stack_name%", self.stack_name, val)
             return val
 
 
