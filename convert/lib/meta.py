@@ -17,17 +17,17 @@ resource_template = {
         },
         {
             "cf_sgr": {
-                 "sg": "EKSSG",
-                 "rule": "_egress_tcp_443_443_",
-                 "rule_sg": "UnmanagedSG",
+                "sg": "EKSSG",
+                "rule": "_egress_tcp_443_443_",
+                "rule_sg": "UnmanagedSG",
             },
             "tf": 'module.domino_eks.module.eks.aws_security_group_rule.eks_cluster["egress_nodes_443"]',
         },
         {
             "cf_sgr": {
-                 "sg": "EKSSG",
-                 "rule": "_ingress_tcp_443_443_",
-                 "rule_sg": "UnmanagedSG",
+                "sg": "EKSSG",
+                "rule": "_ingress_tcp_443_443_",
+                "rule_sg": "UnmanagedSG",
             },
             "tf": 'module.domino_eks.module.eks.aws_security_group_rule.eks_cluster["ingress_nodes_443"]',
         },
@@ -37,18 +37,18 @@ resource_template = {
         },
         {
             "cf_sgr": {
-                 "sg": "UnmanagedSG",
-                 "rule": "_ingress_tcp_443_443_",
-                 "rule_sg": "EKSSG",
+                "sg": "UnmanagedSG",
+                "rule": "_ingress_tcp_443_443_",
+                "rule_sg": "EKSSG",
             },
             "tf": 'module.domino_eks.module.eks.aws_security_group_rule.node["ingress_cluster_443"]',
         },
         {
             "cf_sgr": {
-                 "sg": "UnmanagedSG",
-                 "rule": "_ingress_tcp_22_22_",
-                 "rule_sg": "bastionsg",
-                 "rule_sg_stack": "vpc_stack",
+                "sg": "UnmanagedSG",
+                "rule": "_ingress_tcp_22_22_",
+                "rule_sg": "bastionsg",
+                "rule_sg_stack": "vpc_stack",
             },
             "tf": 'module.domino_eks.module.eks.aws_security_group_rule.bastion_eks["eks_nodes_ssh_from_bastion"]',
         },
@@ -66,7 +66,7 @@ resource_template = {
             "value": "%stack_name%:coredns",
         },
         {
-            "tf": 'module.domino_eks.module.eks.aws_eks_addon.vpc_cni',
+            "tf": "module.domino_eks.module.eks.aws_eks_addon.vpc_cni",
             "value": "%stack_name%:vpc-cni",
         },
         {
@@ -80,7 +80,7 @@ resource_template = {
         {
             "cf": "%stack_name%kubernetessecretsenvelopekey",
             "tf": "module.domino_eks.module.eks.aws_kms_key.eks_cluster",
-        }
+        },
     ],
     "s3_stack": [
         {
@@ -105,17 +105,17 @@ resource_template = {
         },
         {
             "cf_sgr": {
-                 "sg": "bastionsg",
-                 "rule": "_egress_all_0_0_0.0.0.0/0",
+                "sg": "bastionsg",
+                "rule": "_egress_all_0_0_0.0.0.0/0",
             },
             "tf": "module.domino_eks.module.bastion[0].aws_security_group_rule.bastion_outbound",
         },
         {
             "cf_sgr": {
-                 "sg": "bastionsg",
-                 "rule": "_ingress_tcp_22_22_0.0.0.0/0",
+                "sg": "bastionsg",
+                "rule": "_ingress_tcp_22_22_0.0.0.0/0",
             },
-            "tf": "module.domino_eks.module.bastion[0].aws_security_group_rule.bastion[\"bastion_inbound_ssh\"]",
+            "tf": 'module.domino_eks.module.bastion[0].aws_security_group_rule.bastion["bastion_inbound_ssh"]',
         },
         {
             "cf": "VPC",
@@ -130,7 +130,7 @@ resource_template = {
                 "igw": "VPCIGW",
                 "vpc": "VPC",
             },
-            "tf": "aws_internet_gateway_attachment.cdk_vpc"
+            "tf": "aws_internet_gateway_attachment.cdk_vpc",
         },
     ],
 }
@@ -148,10 +148,7 @@ efs_backup_resources = [
         "cf": "efsbackuprole",
         "tf": "module.domino_eks.module.storage.aws_iam_role.efs_backup_role[0]",
     },
-    {
-        "cf_backupselection": "efsbackupselection",
-        "tf": "module.domino_eks.module.storage.aws_backup_selection.efs[0]"
-    },
+    {"cf_backupselection": "efsbackupselection", "tf": "module.domino_eks.module.storage.aws_backup_selection.efs[0]"},
 ]
 
 route53_resource = {"cf": "route53", "tf": "module.domino_eks.aws_iam_policy.route53[0]"}
@@ -165,7 +162,32 @@ stack_map = {
     "awscdkawseksClusterResourceProviderNestedStackawscdkawseksClusterResourceProviderNestedStackResource": "cluster_stack",
 }
 
-cf_status = ['CREATE_IN_PROGRESS', 'CREATE_FAILED', 'CREATE_COMPLETE', 'ROLLBACK_IN_PROGRESS', 'ROLLBACK_FAILED', 'ROLLBACK_COMPLETE', 'DELETE_IN_PROGRESS', 'DELETE_FAILED', 'UPDATE_IN_PROGRESS', 'UPDATE_COMPLETE_CLEANUP_IN_PROGRESS', 'UPDATE_COMPLETE', 'UPDATE_FAILED', 'UPDATE_ROLLBACK_IN_PROGRESS', 'UPDATE_ROLLBACK_FAILED', 'UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS', 'UPDATE_ROLLBACK_COMPLETE', 'REVIEW_IN_PROGRESS', 'IMPORT_IN_PROGRESS', 'IMPORT_COMPLETE', 'IMPORT_ROLLBACK_IN_PROGRESS', 'IMPORT_ROLLBACK_FAILED', 'IMPORT_ROLLBACK_COMPLETE', 'DELETE_COMPLETE']
+cf_status = [
+    "CREATE_IN_PROGRESS",
+    "CREATE_FAILED",
+    "CREATE_COMPLETE",
+    "ROLLBACK_IN_PROGRESS",
+    "ROLLBACK_FAILED",
+    "ROLLBACK_COMPLETE",
+    "DELETE_IN_PROGRESS",
+    "DELETE_FAILED",
+    "UPDATE_IN_PROGRESS",
+    "UPDATE_COMPLETE_CLEANUP_IN_PROGRESS",
+    "UPDATE_COMPLETE",
+    "UPDATE_FAILED",
+    "UPDATE_ROLLBACK_IN_PROGRESS",
+    "UPDATE_ROLLBACK_FAILED",
+    "UPDATE_ROLLBACK_COMPLETE_CLEANUP_IN_PROGRESS",
+    "UPDATE_ROLLBACK_COMPLETE",
+    "REVIEW_IN_PROGRESS",
+    "IMPORT_IN_PROGRESS",
+    "IMPORT_COMPLETE",
+    "IMPORT_ROLLBACK_IN_PROGRESS",
+    "IMPORT_ROLLBACK_FAILED",
+    "IMPORT_ROLLBACK_COMPLETE",
+    "DELETE_COMPLETE",
+]
+
 
 class cdk_ids(Enum):
     asg = "AWS::AutoScaling::AutoScalingGroup"

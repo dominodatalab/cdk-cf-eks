@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-import boto3
 import re
 from functools import cached_property
 from pprint import pprint
+
+import boto3
 
 from .meta import cdk_ids
 
@@ -40,25 +41,28 @@ class nuke:
     def asg(self, group_names: list[str]):
         if not group_names:
             return
-        p = self.autoscaling.get_paginator('describe_auto_scaling_groups')
-        existing_groups = [asg["AutoScalingGroupName"] for i in p.paginate() for asg in i["AutoScalingGroups"] if asg["AutoScalingGroupName"] in group_names]
+        p = self.autoscaling.get_paginator("describe_auto_scaling_groups")
+        existing_groups = [
+            asg["AutoScalingGroupName"]
+            for i in p.paginate()
+            for asg in i["AutoScalingGroups"]
+            if asg["AutoScalingGroupName"] in group_names
+        ]
 
         if existing_groups:
             pprint({"Auto scaling groups to delete": existing_groups})
 
             if self.delete:
                 for group in existing_groups:
-                    print(
-                        self.autoscaling.delete_auto_scaling_group(
-                            AutoScalingGroupName=group
-                        )
-                    )
+                    print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
 
     def eip(self, eip_addresses: list[str]):
         if not eip_addresses:
             return
         result = self.ec2.describe_addresses()
-        existing_allocations = [[i["AllocationId"], i.get("AssociationId")] for i in result["Addresses"] if i["PublicIp"] in eip_addresses]
+        existing_allocations = [
+            [i["AllocationId"], i.get("AssociationId")] for i in result["Addresses"] if i["PublicIp"] in eip_addresses
+        ]
 
         if existing_allocations:
             pprint({"Elastic IP allocation IDs to delete": existing_allocations})
@@ -100,8 +104,13 @@ class nuke:
     def launch_template(self, launch_templates: list[str]):
         if not launch_templates:
             return
-        p = self.ec2.get_paginator('describe_launch_templates')
-        existing_templates = [lt["LaunchTemplateId"] for i in p.paginate() for lt in i["LaunchTemplates"] if lt["LaunchTemplateId"] in launch_templates]
+        p = self.ec2.get_paginator("describe_launch_templates")
+        existing_templates = [
+            lt["LaunchTemplateId"]
+            for i in p.paginate()
+            for lt in i["LaunchTemplates"]
+            if lt["LaunchTemplateId"] in launch_templates
+        ]
 
         if existing_templates:
             pprint({"Launch Template IDs to delete": existing_templates})
@@ -126,8 +135,13 @@ class nuke:
     def instance_profile(self, instance_profiles: list[str]):
         if not instance_profiles:
             return
-        p = self.iam.get_paginator('list_instance_profiles')
-        existing_profiles = [p["InstanceProfileName"] for i in p.paginate() for p in i["InstanceProfiles"] if p["InstanceProfileName"] in instance_profiles]
+        p = self.iam.get_paginator("list_instance_profiles")
+        existing_profiles = [
+            p["InstanceProfileName"]
+            for i in p.paginate()
+            for p in i["InstanceProfiles"]
+            if p["InstanceProfileName"] in instance_profiles
+        ]
 
         if existing_profiles:
             pprint({"Instance Profile IDs to delete": existing_profiles})
@@ -139,7 +153,7 @@ class nuke:
     def iam_policy(self, policies: list[str]):
         if not policies:
             return
-        p = self.iam.get_paginator('list_policies')
+        p = self.iam.get_paginator("list_policies")
         existing_policies = [p["Arn"] for i in p.paginate() for p in i["Policies"] if p["Arn"] in policies]
 
         if existing_policies:
@@ -152,8 +166,10 @@ class nuke:
     def iam_role(self, roles: list[str]):
         if not roles:
             return
-        role_paginator = self.iam.get_paginator('list_roles')
-        existing_roles = [r["RoleName"] for i in role_paginator.paginate() for r in i["Roles"] if r["RoleName"] in roles]
+        role_paginator = self.iam.get_paginator("list_roles")
+        existing_roles = [
+            r["RoleName"] for i in role_paginator.paginate() for r in i["Roles"] if r["RoleName"] in roles
+        ]
 
         if not existing_roles:
             return
@@ -163,18 +179,24 @@ class nuke:
         if self.delete:
             for role in existing_roles:
                 # jfc
-                ap_paginator = self.iam.get_paginator('list_attached_role_policies')
-                attached_policies = [ap["PolicyArn"] for i in ap_paginator.paginate(RoleName=role) for ap in i["AttachedPolicies"]]
+                ap_paginator = self.iam.get_paginator("list_attached_role_policies")
+                attached_policies = [
+                    ap["PolicyArn"] for i in ap_paginator.paginate(RoleName=role) for ap in i["AttachedPolicies"]
+                ]
                 for policy_arn in attached_policies:
                     self.iam.detach_role_policy(RoleName=role, PolicyArn=policy_arn)
 
-                ipo_paginator = self.iam.get_paginator('list_role_policies')
+                ipo_paginator = self.iam.get_paginator("list_role_policies")
                 inline_policies = [ipo for i in ipo_paginator.paginate(RoleName=role) for ipo in i["PolicyNames"]]
                 for policy_name in inline_policies:
                     self.iam.delete_role_policy(RoleName=role, PolicyName=policy_name)
 
-                ipr_paginator = self.iam.get_paginator('list_instance_profiles_for_role')
-                instance_profiles = [ipr["InstanceProfileName"] for i in ipr_paginator.paginate(RoleName=role) for ipr in i["InstanceProfiles"]]
+                ipr_paginator = self.iam.get_paginator("list_instance_profiles_for_role")
+                instance_profiles = [
+                    ipr["InstanceProfileName"]
+                    for i in ipr_paginator.paginate(RoleName=role)
+                    for ipr in i["InstanceProfiles"]
+                ]
                 for ip_name in instance_profiles:
                     self.iam.remove_role_from_instance_profile(RoleName=role, InstanceProfileName=ip_name)
 
@@ -183,8 +205,13 @@ class nuke:
     def stepfunctions_statemachine(self, statemachines: list[str]):
         if not statemachines:
             return
-        p = self.stepfunctions.get_paginator('list_state_machines')
-        existing_sms = [sm["stateMachineArn"] for i in p.paginate() for sm in i["stateMachines"] if sm["stateMachineArn"] in statemachines]
+        p = self.stepfunctions.get_paginator("list_state_machines")
+        existing_sms = [
+            sm["stateMachineArn"]
+            for i in p.paginate()
+            for sm in i["stateMachines"]
+            if sm["stateMachineArn"] in statemachines
+        ]
 
         if existing_sms:
             pprint({"Stepfunctions Statemachines to delete": existing_sms})
@@ -196,7 +223,7 @@ class nuke:
     def lambda_function(self, funcs: list[str]):
         if not funcs:
             return
-        p = self.awslambda.get_paginator('list_functions')
+        p = self.awslambda.get_paginator("list_functions")
         existing_funcs = [f["FunctionName"] for i in p.paginate() for f in i["Functions"] if f["FunctionName"] in funcs]
 
         if existing_funcs:
@@ -211,7 +238,7 @@ class nuke:
             return
         layerversion_results = {}
         for layerversion_arn in layerversions:
-            if re_result := re.match("arn:aws(?:-us-gov)?:lambda:[\w\-]+:\d+:layer:(\w*):(\d+)", layerversion_arn):
+            if re_result := re.match(r"arn:aws(?:-us-gov)?:lambda:[\w\-]+:\d+:layer:(\w*):(\d+)", layerversion_arn):
                 layer, version = re_result.groups(1)
                 version = int(version)
                 try:
@@ -228,11 +255,10 @@ class nuke:
                 for lv in layerversion_results.values():
                     self.awslambda.delete_layer_version(**lv)
 
-
     def ssm_parameter(self, parameters: list[str]):
         if not parameters:
             return
-        p = self.ssm.get_paginator('describe_parameters')
+        p = self.ssm.get_paginator("describe_parameters")
         existing_parameters = [p["Name"] for i in p.paginate() for p in i["Parameters"] if p["Name"] in parameters]
 
         if existing_parameters:
@@ -246,15 +272,23 @@ class nuke:
         all_referenced_groups = {}
         if security_groups := nuke_queue.get(cdk_ids.security_group.value):
             for sg in security_groups:
-                if referenced_groups := [r for r in self.ec2.describe_security_group_rules()["SecurityGroupRules"] if r.get("ReferencedGroupInfo", {}).get("GroupId") == sg]:
+                if referenced_groups := [
+                    r
+                    for r in self.ec2.describe_security_group_rules()["SecurityGroupRules"]
+                    if r.get("ReferencedGroupInfo", {}).get("GroupId") == sg
+                ]:
                     if not remove_security_group_references or not self.delete:
                         all_referenced_groups[f"{sg} is referenced by"] = set(r["GroupId"] for r in referenced_groups)
                     else:
                         for rule in referenced_groups:
                             if rule["IsEgress"]:
-                                self.ec2.revoke_security_group_egress(GroupId=rule["GroupId"], SecurityGroupRuleIds=[rule["SecurityGroupRuleId"]])
+                                self.ec2.revoke_security_group_egress(
+                                    GroupId=rule["GroupId"], SecurityGroupRuleIds=[rule["SecurityGroupRuleId"]]
+                                )
                             else:
-                                self.ec2.revoke_security_group_ingress(GroupId=rule["GroupId"], SecurityGroupRuleIds=[rule["SecurityGroupRuleId"]])
+                                self.ec2.revoke_security_group_ingress(
+                                    GroupId=rule["GroupId"], SecurityGroupRuleIds=[rule["SecurityGroupRuleId"]]
+                                )
 
         if all_referenced_groups:
             pprint({"Security groups to be deleted": security_groups})
@@ -262,11 +296,27 @@ class nuke:
             pprint(all_referenced_groups)
 
             if self.delete:
-                print("\nRemove all references before running this command, or re-run with --remove-security-group-references.")
+                print(
+                    "\nRemove all references before running this command, or re-run with --remove-security-group-references."
+                )
                 exit(1)
 
         local_queue = []
-        order = [cdk_ids.asg, cdk_ids.instance, cdk_ids.eip, cdk_ids.flowlog, cdk_ids.launch_template, cdk_ids.security_group, cdk_ids.stepfunctions_statemachine, cdk_ids.lambda_function, cdk_ids.lambda_layerversion, cdk_ids.iam_role, cdk_ids.iam_policy, cdk_ids.instance_profile, cdk_ids.ssm_parameter]
+        order = [
+            cdk_ids.asg,
+            cdk_ids.instance,
+            cdk_ids.eip,
+            cdk_ids.flowlog,
+            cdk_ids.launch_template,
+            cdk_ids.security_group,
+            cdk_ids.stepfunctions_statemachine,
+            cdk_ids.lambda_function,
+            cdk_ids.lambda_layerversion,
+            cdk_ids.iam_role,
+            cdk_ids.iam_policy,
+            cdk_ids.instance_profile,
+            cdk_ids.ssm_parameter,
+        ]
         for x in order:
             if x.value in nuke_queue:
                 resource_list = nuke_queue.pop(x.value)
@@ -277,7 +327,9 @@ class nuke:
             exit(1)
         for func, resource_list in local_queue:
             func(resource_list)
-        print("\nNote: You may still have lambda-associated network interfaces. They should be deleted automatically within 24 hours.")
+        print(
+            "\nNote: You may still have lambda-associated network interfaces. They should be deleted automatically within 24 hours."
+        )
 
         if all_referenced_groups:
             print("\nSee security group note at top of output!")
