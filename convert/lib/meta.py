@@ -44,15 +44,6 @@ resource_template = {
             "tf": 'module.domino_eks.module.eks.aws_security_group_rule.node["ingress_cluster_443"]',
         },
         {
-            "cf_sgr": {
-                "sg": "UnmanagedSG",
-                "rule": "_ingress_tcp_22_22_",
-                "rule_sg": "bastionsg",
-                "rule_sg_stack": "vpc_stack",
-            },
-            "tf": 'module.domino_eks.module.eks.aws_security_group_rule.bastion_eks["eks_nodes_ssh_from_bastion"]',
-        },
-        {
             "cf": "eksRole",
             "tf": "module.domino_eks.module.eks.aws_iam_role.eks_cluster",
         },
@@ -93,30 +84,8 @@ resource_template = {
             "cf": "registry",
             "tf": "module.domino_eks.module.storage.aws_s3_bucket.registry",
         },
-        {
-            "cf": "monitoring",
-            "tf": "module.domino_eks.module.storage.aws_s3_bucket.monitoring",
-        },
     ],
     "vpc_stack": [
-        {
-            "cf": "bastionsg",
-            "tf": "module.domino_eks.module.bastion[0].aws_security_group.bastion",
-        },
-        {
-            "cf_sgr": {
-                "sg": "bastionsg",
-                "rule": "_egress_all_0_0_0.0.0.0/0",
-            },
-            "tf": "module.domino_eks.module.bastion[0].aws_security_group_rule.bastion_outbound",
-        },
-        {
-            "cf_sgr": {
-                "sg": "bastionsg",
-                "rule": "_ingress_tcp_22_22_0.0.0.0/0",
-            },
-            "tf": 'module.domino_eks.module.bastion[0].aws_security_group_rule.bastion["bastion_inbound_ssh"]',
-        },
         {
             "cf": "VPC",
             "tf": "aws_vpc.cdk_vpc",
@@ -152,6 +121,46 @@ efs_backup_resources = [
 ]
 
 route53_resource = {"cf": "route53", "tf": "module.domino_eks.aws_iam_policy.route53[0]"}
+
+monitoring_bucket_resource = {
+    "cf": "monitoring",
+    "tf": "module.domino_eks.module.storage.aws_s3_bucket.monitoring",
+}
+
+
+bastion_resources = {
+    "eks_stack": [
+        {
+            "cf_sgr": {
+                "sg": "UnmanagedSG",
+                "rule": "_ingress_tcp_22_22_",
+                "rule_sg": "bastionsg",
+                "rule_sg_stack": "vpc_stack",
+            },
+            "tf": 'module.domino_eks.module.eks.aws_security_group_rule.bastion_eks["eks_nodes_ssh_from_bastion"]',
+        },
+    ],
+    "vpc_stack": [
+        {
+            "cf": "bastionsg",
+            "tf": "module.domino_eks.module.bastion[0].aws_security_group.bastion",
+        },
+        {
+            "cf_sgr": {
+                "sg": "bastionsg",
+                "rule": "_egress_all_0_0_0.0.0.0/0",
+            },
+            "tf": "module.domino_eks.module.bastion[0].aws_security_group_rule.bastion_outbound",
+        },
+        {
+            "cf_sgr": {
+                "sg": "bastionsg",
+                "rule": "_ingress_tcp_22_22_0.0.0.0/0",
+            },
+            "tf": 'module.domino_eks.module.bastion[0].aws_security_group_rule.bastion["bastion_inbound_ssh"]',
+        },
+    ],
+}
 
 stack_map = {
     "EfsStackNestedStackEfsStackNestedStackResource": "efs_stack",

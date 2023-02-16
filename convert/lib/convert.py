@@ -12,9 +12,11 @@ import boto3
 import yaml
 
 from .meta import (
+    bastion_resources,
     cdk_ids,
     cf_status,
     efs_backup_resources,
+    monitoring_bucket_resource,
     resource_template,
     route53_resource,
     stack_map,
@@ -53,6 +55,7 @@ class app:
     def setup(self, full: bool = False, no_stacks: bool = False):
         self.region = self.args.region
         self.stack_name = self.args.stack_name
+        self.cf_stack_key = re.sub(r"\W", "", self.stack_name)
 
         self.cf = boto3.client("cloudformation", self.region)
 
@@ -111,6 +114,12 @@ class app:
         resource_map_parser.add_argument("--availability-zones", help="Availability zone count", default=3, type=int)
         resource_map_parser.add_argument(
             "--route53", help="Whether or not to import route53 zones", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
+            "--bastion", help="Whether or not to import bastion security group", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
+            "--monitoring", help="Whether or not to import monitoring bucket", default=False, action="store_true"
         )
         resource_map_parser.add_argument(
             "--efs-backups",
@@ -198,7 +207,7 @@ class app:
         else:
             pprint(out)
 
-    def generate_resource_map(self, availability_zones: int, efs_backups: bool, route53: bool) -> dict:
+    def generate_resource_map(self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool) -> dict:
         template = deepcopy(resource_template)
         for count in range(availability_zones):
             template["efs_stack"].append(
@@ -245,11 +254,18 @@ class app:
         if route53:
             template["eks_stack"].append(route53_resource)
 
+        if monitoring:
+            template["s3_stack"].append(monitoring_bucket_resource)
+
+        if bastion:
+            template["eks_stack"].extend(bastion_resources["eks_stack"])
+            template["vpc_stack"].extend(bastion_resources["vpc_stack"])
+
         return template
 
     def resource_map(self):
         resource_map = self.generate_resource_map(
-            self.args.availability_zones, self.args.efs_backups, self.args.route53
+            self.args.availability_zones, self.args.efs_backups, self.args.route53, self.args.bastion, self.args.monitoring,
         )
         print(yaml.safe_dump(resource_map))
 
@@ -264,10 +280,12 @@ class app:
                 availability_zones=self.args.availability_zones or self.cdkconfig["vpc"]["max_azs"],
                 efs_backups=self.cdkconfig["efs"]["backup"]["enable"],
                 route53=bool(self.cdkconfig["route53"]["zone_ids"]),
+                bastion=self.cdkconfig["vpc"]["bastion"]["enabled"],
+                monitoring=self.cdkconfig["s3"]["buckets"].get("monitoring"),
             )
 
         def t(val: str) -> str:
-            val = re.sub(r"%stack_name%", self.stack_name, val)
+            val = re.sub(r"%stack_name%", self.cf_stack_key, val)
             return val
 
         imports = []
@@ -310,10 +328,10 @@ class app:
             return [
                 v
                 for k, v in self.stacks["vpc_stack"]["resources"].items()
-                if re.match(f"{prefix}{self.stack_name}{subnet_type}Subnet\\d+Subnet", k)
+                if re.match(f"{prefix}{self.cf_stack_key}{subnet_type}Subnet\\d+Subnet", k)
             ]
 
-        ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.stack_name}NG"]
+        ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.cf_stack_key}NG"]
         client = boto3.client("iam", self.region)
         ng_role_arn = client.get_role(RoleName=ng_role_name)["Role"]["Arn"]
         eks_custom_role_maps = [
@@ -387,10 +405,10 @@ class app:
                 "(Handler|KubectlLayer|ProviderframeworkonEvent).*": lambda_safe,
             },
             "eks_stack": {
-                f"(snapshot|{self.stack_name}ebscsi|{self.stack_name}DominoEcrRestricted|autoscaler)": [
+                f"(snapshot|{self.cf_stack_key}ebscsi|{self.cf_stack_key}DominoEcrRestricted|autoscaler)": [
                     cdk_ids.iam_policy.value
                 ],
-                f"(eksMastersRole|{self.stack_name}NG)$": [cdk_ids.iam_role.value],
+                f"(eksMastersRole|{self.cf_stack_key}NG)$": [cdk_ids.iam_role.value],
                 "eksKubectlReadyBarrier": [cdk_ids.ssm_parameter.value],
                 "(clusterpost(creation|deletion)tasks|LogRetention)": lambda_safe,
                 "Unmanaged": [cdk_ids.instance_profile.value, cdk_ids.asg.value, cdk_ids.launch_template.value],
@@ -456,7 +474,7 @@ class app:
                 for r in ec2.describe_security_group_rules(Filters=[{"Name": "group-id", "Values": [group]}])[
                     "SecurityGroupRules"
                 ]
-                if re.match(f"(from|to) {self.stack_name}", r.get("Description", ""))
+                if re.match(f"(from|to) {self.cf_stack_key}", r.get("Description", ""))
             ]
             rule_ids_to_nuke[group]["ingress"].extend([r["SecurityGroupRuleId"] for r in rules if not r["IsEgress"]])
             rule_ids_to_nuke[group]["egress"].extend([r["SecurityGroupRuleId"] for r in rules if r["IsEgress"]])
