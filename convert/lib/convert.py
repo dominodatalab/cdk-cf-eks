@@ -4,6 +4,7 @@ import json
 import re
 from copy import deepcopy
 from functools import cached_property, reduce
+from os.path import abspath
 from pprint import pprint
 from subprocess import run
 from time import sleep
@@ -218,7 +219,7 @@ class app:
             )
             for s_type in ["Public", "Private", "Pod"]:
                 vpc_prefix = "" if s_type == "Pod" else "VPC"
-                prefix = f"{vpc_prefix}%stack_name%{s_type}Subnet{count+1}"
+                prefix = f"{vpc_prefix}%cf_stack_key%{s_type}Subnet{count+1}"
                 template["vpc_stack"].extend(
                     [
                         {
@@ -241,10 +242,10 @@ class app:
             template["vpc_stack"].extend(
                 [
                     {
-                        "cf": f"VPC%stack_name%PublicSubnet{count+1}EIP",
+                        "cf": f"VPC%cf_stack_key%PublicSubnet{count+1}EIP",
                         "tf": f"aws_eip.nat_gateway[{count}]",
                     },
-                    {"cf": f"VPC%stack_name%PublicSubnet{count+1}NATGateway", "tf": f"aws_nat_gateway.public[{count}]"},
+                    {"cf": f"VPC%cf_stack_key%PublicSubnet{count+1}NATGateway", "tf": f"aws_nat_gateway.public[{count}]"},
                 ]
             )
 
@@ -285,7 +286,8 @@ class app:
             )
 
         def t(val: str) -> str:
-            val = re.sub(r"%stack_name%", self.cf_stack_key, val)
+            val = re.sub(r"%stack_name%", self.stack_name, val)
+            val = re.sub(r"%cf_stack_key%", self.cf_stack_key, val)
             return val
 
         imports = []
@@ -358,7 +360,7 @@ class app:
             "private_subnet_ids": get_subnet_ids("Private"),
             "pod_subnet_ids": get_subnet_ids("Pod", ""),
             "k8s_version": self.cdkconfig["eks"]["version"],  # We're trusting this is accurate
-            "ssh_key_path": self.args.ssh_key_path,
+            "ssh_key_path": abspath(self.args.ssh_key_path),
             "number_of_azs": self.cdkconfig["vpc"]["max_azs"],
             "route53_hosted_zone_name": reduce(
                 lambda cfg, k: cfg[k] if k in cfg else [""],

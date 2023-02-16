@@ -69,7 +69,7 @@ resource_template = {
             "tf": "aws_iam_role.grandfathered_creation_role",
         },
         {
-            "cf": "%stack_name%kubernetessecretsenvelopekey",
+            "cf": "%cf_stack_key%kubernetessecretsenvelopekey",
             "tf": "module.domino_eks.module.eks.aws_kms_key.eks_cluster",
         },
     ],
