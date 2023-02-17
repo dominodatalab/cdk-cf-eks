@@ -356,6 +356,9 @@ class app:
                 ],
             }
         ]
+        # CDK force destroy is individually configurable
+        # If any of them at all are not set to force destroy, turn the feature off
+        s3_force_destroy = not [b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]]
 
         tfvars = {
             "deploy_id": self.cdkconfig["name"],
@@ -382,6 +385,7 @@ class app:
             "efs_backup_delete_after": self.cdkconfig["efs"]["backup"]["delete_after"],
             "efs_backup_force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
             "eks_custom_role_maps": eks_custom_role_maps,
+            "s3_force_destroy_on_deletion": s3_force_destroy,
         }
 
         print(json.dumps(tfvars))

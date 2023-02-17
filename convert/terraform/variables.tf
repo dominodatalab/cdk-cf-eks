@@ -103,3 +103,10 @@ variable "eks_custom_role_maps" {
   description = "blah"
   default     = []
 }
+
+variable "s3_force_destroy_on_deletion" {
+  description = "Toogle to allow recursive deletion of all objects in the s3 buckets. if 'false' terraform will NOT be able to delete
+non-empty buckets"
+  type        = bool
+  default     = false
+}
