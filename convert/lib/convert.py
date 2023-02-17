@@ -3,7 +3,7 @@ import argparse
 import json
 import re
 from copy import deepcopy
-from functools import cached_property, reduce
+from functools import cached_property
 from os.path import abspath
 from pprint import pprint
 from subprocess import run
@@ -361,7 +361,9 @@ class app:
         ]
         # CDK force destroy is individually configurable
         # If any of them at all are not set to force destroy, turn the feature off
-        s3_force_destroy = not [b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]]
+        s3_force_destroy = not [
+            b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]
+        ]
 
         eks_k8s_version = eks.describe_cluster(name=self.cdkconfig["name"])["cluster"]["version"]
 
@@ -403,6 +405,7 @@ class app:
             notes += f"\n* You have multiple hosted zones, only the first ({zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
 
         from sys import stderr
+
         if notes:
             print(f"*** IMPORTANT ***: {notes}", file=stderr)
 
