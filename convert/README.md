@@ -102,7 +102,7 @@ Once Terraform is finished, the most critical work is done.
 
 ### Scale down the old autoscaling groups
 
-The Domino UI will not be immediately accessible, as the old auto-scaling groups will no longer have all the required permissions for proper functionality. You will have two sets of autoscaling groups at this point, so you will want to scale down the old ones.
+You will have two sets of autoscaling groups at this point, so you will want to scale down the old ones.
 
 Set min/max/desired to 0 on all CDK-provisioned auto-scaling groups.
 
@@ -152,10 +152,11 @@ By default, this command does *not* actually make changes. To run the clean proc
 
 Enter the `cloudformation-only/` subdirectory, and provision that terraform:
 
-    cat EOF >> terraform.tfvars
+    cat <<EOF >> terraform.tfvars
     region="us-east-1"
     tags={}
     EOF
+    terraform init
     terraform plan -out=terraform.plan
     terraform apply terraform.plan
 

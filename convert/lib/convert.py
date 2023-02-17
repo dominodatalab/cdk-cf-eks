@@ -3,7 +3,7 @@ import argparse
 import json
 import re
 from copy import deepcopy
-from functools import reduce
+from functools import cached_property, reduce
 from pprint import pprint
 from subprocess import run
 from time import sleep
@@ -59,6 +59,16 @@ class app:
         if not no_stacks:
             self.sanity()
             self.stacks = self.get_stacks(full=full)
+
+    @cached_property
+    def cdkconfig(self):
+        return yaml.safe_load(
+            [
+                o["OutputValue"]
+                for o in self.cf.describe_stacks(StackName=self.stack_name)["Stacks"][0]["Outputs"]
+                if o["OutputKey"] == "cdkconfig"
+            ][0]
+        )
 
     def sanity(self):
         p = self.cf.get_paginator("list_stacks")
@@ -245,22 +255,15 @@ class app:
 
     def get_imports(self):
         self.setup()
-        cdkconfig = yaml.safe_load(
-            [
-                o["OutputValue"]
-                for o in self.cf.describe_stacks(StackName=self.stack_name)["Stacks"][0]["Outputs"]
-                if o["OutputKey"] == "cdkconfig"
-            ][0]
-        )
 
         if self.args.resource_map:
             with open(self.args.resource_map) as f:
                 resource_map = yaml.safe_load(f)
         else:
             resource_map = self.generate_resource_map(
-                availability_zones=self.args.availability_zones or cdkconfig["vpc"]["max_azs"],
-                efs_backups=cdkconfig["efs"]["backup"]["enable"],
-                route53=bool(cdkconfig["route53"]["zone_ids"]),
+                availability_zones=self.args.availability_zones or self.cdkconfig["vpc"]["max_azs"],
+                efs_backups=self.cdkconfig["efs"]["backup"]["enable"],
+                route53=bool(self.cdkconfig["route53"]["zone_ids"]),
             )
 
         def t(val: str) -> str:
@@ -302,13 +305,6 @@ class app:
 
     def create_tfvars(self):
         self.setup()
-        cdkconfig = yaml.safe_load(
-            [
-                o["OutputValue"]
-                for o in self.cf.describe_stacks(StackName=self.stack_name)["Stacks"][0]["Outputs"]
-                if o["OutputKey"] == "cdkconfig"
-            ][0]
-        )
 
         def get_subnet_ids(subnet_type: str, prefix: str = "VPC"):
             return [
@@ -333,29 +329,29 @@ class app:
         ]
 
         tfvars = {
-            "deploy_id": cdkconfig["name"],
-            "region": cdkconfig["aws_region"],
+            "deploy_id": self.cdkconfig["name"],
+            "region": self.cdkconfig["aws_region"],
             "grandfathered_creation_role": self.stacks["eks_stack"]["resources"]["eksCreationRole"],
-            "tags": {**cdkconfig["tags"], "domino-deploy-id": cdkconfig["name"]},
-            "vpc_id": cdkconfig["vpc"]["id"]
-            if not cdkconfig["vpc"]["create"]
+            "tags": {**self.cdkconfig["tags"], "domino-deploy-id": self.cdkconfig["name"]},
+            "vpc_id": self.cdkconfig["vpc"]["id"]
+            if not self.cdkconfig["vpc"]["create"]
             else self.stacks["vpc_stack"]["resources"]["VPC"],
             "public_subnet_ids": get_subnet_ids("Public"),
             "private_subnet_ids": get_subnet_ids("Private"),
             "pod_subnet_ids": get_subnet_ids("Pod", ""),
-            "k8s_version": cdkconfig["eks"]["version"],  # We're trusting this is accurate
+            "k8s_version": self.cdkconfig["eks"]["version"],  # We're trusting this is accurate
             "ssh_key_path": self.args.ssh_key_path,
-            "number_of_azs": cdkconfig["vpc"]["max_azs"],
+            "number_of_azs": self.cdkconfig["vpc"]["max_azs"],
             "route53_hosted_zone_name": reduce(
                 lambda cfg, k: cfg[k] if k in cfg else [""],
                 ["install", "overrides", "external_dns", "domain_filters"],
-                cdkconfig,
+                self.cdkconfig,
             )[0],
-            "efs_backups": cdkconfig["efs"]["backup"]["enable"],
-            "efs_backup_schedule": cdkconfig["efs"]["backup"]["schedule"],
-            "efs_backup_cold_storage_after": cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
-            "efs_backup_delete_after": cdkconfig["efs"]["backup"]["delete_after"],
-            "efs_backup_force_destroy": cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
+            "efs_backups": self.cdkconfig["efs"]["backup"]["enable"],
+            "efs_backup_schedule": self.cdkconfig["efs"]["backup"]["schedule"],
+            "efs_backup_cold_storage_after": self.cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
+            "efs_backup_delete_after": self.cdkconfig["efs"]["backup"]["delete_after"],
+            "efs_backup_force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
             "eks_custom_role_maps": eks_custom_role_maps,
         }
 
