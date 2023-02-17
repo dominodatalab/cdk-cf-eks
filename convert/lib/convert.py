@@ -377,6 +377,11 @@ class app:
 
         print(json.dumps(tfvars))
 
+        if not self.cdkconfig["eks"]["private_api"]:
+            print("*** IMPORTANT ***: Your CDK EKS is configured for public API access.\n"
+            "Your cluster's setting will be changed to *PRIVATE*, as the terraform\n"
+            "module does not support public EKS endpoints.")
+
     def clean_stack(self):
         self.setup(full=True, no_stacks=self.args.resource_file)
 
