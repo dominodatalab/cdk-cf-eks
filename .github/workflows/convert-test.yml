@@ -4,8 +4,8 @@
 name: Conversion test
 
 on:
-  schedule:
-  - cron: "0 10 * * 1"
+#  schedule:
+#  - cron: "0 10 * * 1"
   push:
     branches: [ master ]
   pull_request:
@@ -47,11 +47,6 @@ jobs:
         pip install awscli==1.25.57 build
     - name: Install aws-cdk
       run: npm install -g aws-cdk@$(pip freeze | grep aws-cdk.core | sed -e 's/.*==//')
-    - name: Install terraform
-      run: |
-        curl -L https://raw.githubusercontent.com/warrensbox/terraform-switcher/release/install.sh | bash
-        tfswitch 1.3.9
-        terraform version | egrep "Terraform v1.3.9"
     - name: Lint with flake8/black/isort
       run: |
         set -x
@@ -81,7 +76,7 @@ jobs:
         BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
       run: |
         export NAME=cdk-${GITHUB_SHA:0:6}-$(date +%s)
-        echo $NAME >> $GITHUB_ENV
+        echo "NAME=$NAME" >> $GITHUB_ENV
         ./util.py generate_config_template --name $NAME --aws-region=$AWS_REGION --aws-account-id=$AWS_ACCOUNT_ID --dev --platform-nodegroups 2 --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
@@ -108,6 +103,7 @@ jobs:
       run: |
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
         cdk deploy --require-approval never --outputs-file outputs.json
+        $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
     - name: Collect diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
@@ -131,7 +127,6 @@ jobs:
         kubectl describe no > $LOG_DIR/nodes-described.txt
     - name: Convert to Terraform
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-        env:
       run: |
         pip3 install pyyaml
         cd ../convert
