@@ -24,7 +24,7 @@ resource "aws_iam_role" "grandfathered_creation_role" {
 }
 
 module "domino_eks" {
-  source                       = "github.com/dominodatalab/terraform-aws-eks.git?ref=smooth-conversion-process"
+  source                       = "github.com/dominodatalab/terraform-aws-eks.git?ref=v1.2.2"
   deploy_id                    = var.deploy_id
   region                       = var.region
   number_of_azs                = var.number_of_azs
