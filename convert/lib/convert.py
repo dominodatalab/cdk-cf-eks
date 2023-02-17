@@ -342,9 +342,12 @@ class app:
                 if re.match(f"{prefix}{self.cf_stack_key}{subnet_type}Subnet\\d+Subnet", k)
             ]
 
+        eks = boto3.client("eks", self.region)
+        iam = boto3.client("iam", self.region)
+        r53 = boto3.client("route53", self.region)
+
         ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.cf_stack_key}NG"]
-        client = boto3.client("iam", self.region)
-        ng_role_arn = client.get_role(RoleName=ng_role_name)["Role"]["Arn"]
+        ng_role_arn = iam.get_role(RoleName=ng_role_name)["Role"]["Arn"]
         eks_custom_role_maps = [
             {
                 "rolearn": ng_role_arn,
@@ -360,6 +363,12 @@ class app:
         # If any of them at all are not set to force destroy, turn the feature off
         s3_force_destroy = not [b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]]
 
+        eks_k8s_version = eks.describe_cluster(name=self.cdkconfig["name"])["cluster"]["version"]
+
+        route53_hosted_zone_name = ""
+        if zone_ids := self.cdkconfig["route53"]["zone_ids"]:
+            route53_hosted_zone_name = r53.get_hosted_zone(Id=zone_ids[0])["HostedZone"]["Name"]
+
         tfvars = {
             "deploy_id": self.cdkconfig["name"],
             "region": self.cdkconfig["aws_region"],
@@ -371,14 +380,10 @@ class app:
             "public_subnet_ids": get_subnet_ids("Public"),
             "private_subnet_ids": get_subnet_ids("Private"),
             "pod_subnet_ids": get_subnet_ids("Pod", ""),
-            "k8s_version": self.cdkconfig["eks"]["version"],  # We're trusting this is accurate
+            "k8s_version": eks_k8s_version,
             "ssh_key_path": abspath(self.args.ssh_key_path),
             "number_of_azs": self.cdkconfig["vpc"]["max_azs"],
-            "route53_hosted_zone_name": reduce(
-                lambda cfg, k: cfg[k] if k in cfg else [""],
-                ["install", "overrides", "external_dns", "domain_filters"],
-                self.cdkconfig,
-            )[0],
+            "route53_hosted_zone_name": route53_hosted_zone_name,
             "efs_backups": self.cdkconfig["efs"]["backup"]["enable"],
             "efs_backup_schedule": self.cdkconfig["efs"]["backup"]["schedule"],
             "efs_backup_cold_storage_after": self.cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
@@ -390,12 +395,16 @@ class app:
 
         print(json.dumps(tfvars))
 
+        notes = ""
         if not self.cdkconfig["eks"]["private_api"]:
-            print(
-                "*** IMPORTANT ***: Your CDK EKS is configured for public API access.\n"
-                "Your cluster's setting will be changed to *PRIVATE*, as the terraform\n"
-                "module does not support public EKS endpoints."
-            )
+            notes += "\n* Your CDK EKS is configured for public API access.\n  Your cluster's setting will be changed to *PRIVATE*, as the terraform module does not support public EKS endpoints."
+
+        if len(zone_ids) > 1:
+            notes += f"\n* You have multiple hosted zones, only the first ({zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
+
+        from sys import stderr
+        if notes:
+            print(f"*** IMPORTANT ***: {notes}", file=stderr)
 
     def clean_stack(self):
         self.setup(full=True, no_stacks=self.args.resource_file)
