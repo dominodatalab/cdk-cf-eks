@@ -208,7 +208,9 @@ class app:
         else:
             pprint(out)
 
-    def generate_resource_map(self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool) -> dict:
+    def generate_resource_map(
+        self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool
+    ) -> dict:
         template = deepcopy(resource_template)
         for count in range(availability_zones):
             template["efs_stack"].append(
@@ -245,7 +247,10 @@ class app:
                         "cf": f"VPC%cf_stack_key%PublicSubnet{count+1}EIP",
                         "tf": f"aws_eip.nat_gateway[{count}]",
                     },
-                    {"cf": f"VPC%cf_stack_key%PublicSubnet{count+1}NATGateway", "tf": f"aws_nat_gateway.public[{count}]"},
+                    {
+                        "cf": f"VPC%cf_stack_key%PublicSubnet{count+1}NATGateway",
+                        "tf": f"aws_nat_gateway.public[{count}]",
+                    },
                 ]
             )
 
@@ -266,7 +271,11 @@ class app:
 
     def resource_map(self):
         resource_map = self.generate_resource_map(
-            self.args.availability_zones, self.args.efs_backups, self.args.route53, self.args.bastion, self.args.monitoring,
+            self.args.availability_zones,
+            self.args.efs_backups,
+            self.args.route53,
+            self.args.bastion,
+            self.args.monitoring,
         )
         print(yaml.safe_dump(resource_map))
 
@@ -378,9 +387,11 @@ class app:
         print(json.dumps(tfvars))
 
         if not self.cdkconfig["eks"]["private_api"]:
-            print("*** IMPORTANT ***: Your CDK EKS is configured for public API access.\n"
-            "Your cluster's setting will be changed to *PRIVATE*, as the terraform\n"
-            "module does not support public EKS endpoints.")
+            print(
+                "*** IMPORTANT ***: Your CDK EKS is configured for public API access.\n"
+                "Your cluster's setting will be changed to *PRIVATE*, as the terraform\n"
+                "module does not support public EKS endpoints."
+            )
 
     def clean_stack(self):
         self.setup(full=True, no_stacks=self.args.resource_file)

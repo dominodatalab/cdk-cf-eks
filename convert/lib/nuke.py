@@ -56,15 +56,30 @@ class nuke:
             if self.delete:
                 changed_groups = []
                 for group in existing_groups:
-                    if self.autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[group])["AutoScalingGroups"][0]["DesiredCapacity"] != 0:
-                        print(self.autoscaling.update_auto_scaling_group(AutoScalingGroupName=group, DesiredCapacity=0, MinSize=0, MaxSize=0))
+                    if (
+                        self.autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[group])[
+                            "AutoScalingGroups"
+                        ][0]["DesiredCapacity"]
+                        != 0
+                    ):
+                        print(
+                            self.autoscaling.update_auto_scaling_group(
+                                AutoScalingGroupName=group, DesiredCapacity=0, MinSize=0, MaxSize=0
+                            )
+                        )
                         changed_groups.append(group)
 
                 for group in existing_groups:
                     if group in changed_groups:
                         print("Waiting for ASG scaling activity to end on group {group}...")
                     while True:
-                        if not [i for i in self.autoscaling.describe_scaling_activities(AutoScalingGroupName=group)["Activities"] if i["StatusCode"] == "InProgress"]:
+                        if not [
+                            i
+                            for i in self.autoscaling.describe_scaling_activities(AutoScalingGroupName=group)[
+                                "Activities"
+                            ]
+                            if i["StatusCode"] == "InProgress"
+                        ]:
                             break
                         sleep(5)
                     print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
