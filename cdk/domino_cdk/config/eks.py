@@ -45,6 +45,7 @@ class EKS:
         instance_types: ["m5.2xlarge", "m5.4xlarge"] - Instance types available to nodegroup
         labels: some-label: "true" - Labels to apply to all nodes in nodegroup
         tags: some-tag: "true" - Tags to apply to all nodes in nodegroup
+        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         ...
         Managed nodegroup-specific options:
         spot: true/false - Use spot instances, may affect reliability/availability of nodegroup
@@ -52,7 +53,6 @@ class EKS:
         ...
         Unmanaged nodegroup-specific options:
         gpu: true/false - Setup GPU instance support
-        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)
         """
