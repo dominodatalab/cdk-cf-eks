@@ -218,6 +218,7 @@ class app:
         self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool, unmanaged_nodegroups: bool,
     ) -> dict:
         template = resources["resource_template"]["resources"]
+
         def nested_az_replace(d: dict, count: int):
             for k, v in d.items():
                 if isinstance(v, str):
@@ -235,12 +236,11 @@ class app:
                     raise Exception(f"Unexpected resource map entry {k}: {v}")
             return d
 
-        for count in range(availability_zones):
-            az_template = nested_az_replace(deepcopy(resources["per_az"]["resources"]), count)
-            template["efs_stack"].extend(az_template["efs_stack"])
-            template["vpc_stack"].extend(az_template["vpc_stack"])
-
         optional_resources = []
+        for count in range(availability_zones):
+            az_template = nested_az_replace(deepcopy(resources["per_az"]), count)
+            optional_resources.append(az_template)
+
         if efs_backups:
             optional_resources.append(resources["efs_backup"])
         if route53:
