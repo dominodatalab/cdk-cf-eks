@@ -484,14 +484,15 @@ class app:
         eks_cluster_sg = eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
             "clusterSecurityGroupId"
         ]
-        unmanaged_sg = self.stacks["eks_stack"]["resources"]["UnmanagedSG"]["PhysicalResourceId"]
+        unmanaged_sg = self.stacks["eks_stack"]["resources"].get("UnmanagedSG")
         eks_sg = self.stacks["eks_stack"]["resources"]["EKSSG"]["PhysicalResourceId"]
 
         rule_ids_to_nuke = {
             eks_cluster_sg: {"egress": [], "ingress": []},
-            unmanaged_sg: {"egress": [], "ingress": []},
             eks_sg: {"egress": [], "ingress": []},
         }
+        if unmanaged_sg:
+            rule_ids_to_nuke[unmanaged_sg["PhysicalResourceId"]] = {"egress": [], "ingress": []},
 
         for group in rule_ids_to_nuke.keys():
             rules = [
