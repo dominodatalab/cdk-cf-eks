@@ -217,48 +217,28 @@ class app:
     def generate_resource_map(
         self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool, unmanaged_nodegroups: bool,
     ) -> dict:
-        template = resources["resource_template"]
+        template = resources["resource_template"]["resources"]
+        def nested_az_replace(d: dict, count: int):
+            for k, v in d.items():
+                if isinstance(v, str):
+                    d[k] = re.sub("%az_count%", str(count), d[k])
+                    d[k] = re.sub("%az_count_plus%", str(count+1), d[k])
+                elif isinstance(v, list):
+                    for i, entry in enumerate(v):
+                        if isinstance(entry, dict):
+                            v[i] = nested_az_replace(entry, count)
+                        else:
+                            raise Exception(f"Unexpected resource map entry {k}: {v}")
+                elif isinstance(v, dict):
+                    d[k] = nested_az_replace(v, count)
+                else:
+                    raise Exception(f"Unexpected resource map entry {k}: {v}")
+            return d
+
         for count in range(availability_zones):
-            template["efs_stack"].append(
-                {
-                    "cf": f"EfsEfsMountTarget{count+1}",
-                    "tf": f"module.domino_eks.module.storage.aws_efs_mount_target.eks[{count}]",
-                }
-            )
-            for s_type in ["Public", "Private", "Pod"]:
-                vpc_prefix = "" if s_type == "Pod" else "VPC"
-                prefix = f"{vpc_prefix}%cf_stack_key%{s_type}Subnet{count+1}"
-                template["vpc_stack"].extend(
-                    [
-                        {
-                            "cf": f"{prefix}Subnet",
-                            "tf": f"aws_subnet.{s_type.lower()}[{count}]",
-                        },
-                        {
-                            "cf": f"{prefix}RouteTable",
-                            "tf": f"aws_route_table.{s_type.lower()}[{count}]",
-                        },
-                        {
-                            "cf_rtassoc": {
-                                "subnet": f"{prefix}Subnet",
-                                "route_table": f"{prefix}RouteTable",
-                            },
-                            "tf": f"aws_route_table_association.{s_type.lower()}[{count}]",
-                        },
-                    ]
-                )
-            template["vpc_stack"].extend(
-                [
-                    {
-                        "cf": f"VPC%cf_stack_key%PublicSubnet{count+1}EIP",
-                        "tf": f"aws_eip.nat_gateway[{count}]",
-                    },
-                    {
-                        "cf": f"VPC%cf_stack_key%PublicSubnet{count+1}NATGateway",
-                        "tf": f"aws_nat_gateway.public[{count}]",
-                    },
-                ]
-            )
+            az_template = nested_az_replace(deepcopy(resources["per_az"]["resources"]), count)
+            template["efs_stack"].extend(az_template["efs_stack"])
+            template["vpc_stack"].extend(az_template["vpc_stack"])
 
         optional_resources = []
         if efs_backups:
@@ -273,8 +253,8 @@ class app:
             optional_resources.append(resources["unmanaged_nodegroup"])
 
         for resource in optional_resources:
-            for key in resource.keys():
-                template[key].extend(resource[key])
+            for key in resource["resources"].keys():
+                template[key].extend(resource["resources"][key])
 
         return template
 

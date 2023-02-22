@@ -1,19 +1,21 @@
 name: bastion
-eks_stack:
-- cf_sgr:
-    rule: _ingress_tcp_22_22_
-    rule_sg: bastionsg
-    rule_sg_stack: vpc_stack
-    sg: UnmanagedSG
-  tf: module.domino_eks.module.eks.aws_security_group_rule.bastion_eks["eks_nodes_ssh_from_bastion"]
-vpc_stack:
-- cf: bastionsg
-  tf: module.domino_eks.module.bastion[0].aws_security_group.bastion
-- cf_sgr:
-    rule: _egress_all_0_0_0.0.0.0/0
-    sg: bastionsg
-  tf: module.domino_eks.module.bastion[0].aws_security_group_rule.bastion_outbound
-- cf_sgr:
-    rule: _ingress_tcp_22_22_0.0.0.0/0
-    sg: bastionsg
-  tf: module.domino_eks.module.bastion[0].aws_security_group_rule.bastion["bastion_inbound_ssh"]
+type: optional
+resources:
+  eks_stack:
+  - cf_sgr:
+      rule: _ingress_tcp_22_22_
+      rule_sg: bastionsg
+      rule_sg_stack: vpc_stack
+      sg: UnmanagedSG
+    tf: module.domino_eks.module.eks.aws_security_group_rule.bastion_eks["eks_nodes_ssh_from_bastion"]
+  vpc_stack:
+  - cf: bastionsg
+    tf: module.domino_eks.module.bastion[0].aws_security_group.bastion
+  - cf_sgr:
+      rule: _egress_all_0_0_0.0.0.0/0
+      sg: bastionsg
+    tf: module.domino_eks.module.bastion[0].aws_security_group_rule.bastion_outbound
+  - cf_sgr:
+      rule: _ingress_tcp_22_22_0.0.0.0/0
+      sg: bastionsg
+    tf: module.domino_eks.module.bastion[0].aws_security_group_rule.bastion["bastion_inbound_ssh"]
