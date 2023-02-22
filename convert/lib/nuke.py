@@ -24,6 +24,10 @@ class nuke:
         return boto3.client("ec2", self.region)
 
     @cached_property
+    def eks(self):
+        return boto3.client("eks", self.region)
+
+    @cached_property
     def iam(self):
         return boto3.client("iam", self.region)
 
@@ -38,6 +42,30 @@ class nuke:
     @cached_property
     def stepfunctions(self):
         return boto3.client("stepfunctions", self.region)
+
+    def eks_nodegroup(self, group_names: list[str]):
+        if not group_names:
+            return
+
+        eks_ng_regex = r"([0-9A-Za-z][A-Za-z0-9\-_]+)\/([0-9A-Za-z][A-Za-z0-9\-_]+)"
+
+        cluster_name = re.match(eks_ng_regex, group_names[0]).group(1)
+        group_names = [re.match(eks_ng_regex, g).group(2) for g in group_names]
+
+        p = self.eks.get_paginator("list_nodegroups")
+        existing_groups = [
+            ng
+            for i in p.paginate(clusterName=cluster_name)
+            for ng in i["nodegroups"]
+            if ng in group_names
+        ]
+
+        if existing_groups:
+            pprint(existing_groups)
+
+            if self.delete:
+                for group in group_names:
+                    print(self.eks.delete_nodegroup(clusterName=cluster_name, nodegroupName=group))
 
     def asg(self, group_names: list[str]):
         if not group_names:
@@ -71,7 +99,7 @@ class nuke:
 
                 for group in existing_groups:
                     if group in changed_groups:
-                        print("Waiting for ASG scaling activity to end on group {group}...")
+                        print(f"Waiting for ASG scaling activity to end on group {group}...")
                     while True:
                         if not [
                             i
@@ -344,6 +372,7 @@ class nuke:
 
         local_queue = []
         order = [
+            cdk_ids.eks_nodegroup,
             cdk_ids.asg,
             cdk_ids.instance,
             cdk_ids.eip,

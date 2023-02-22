@@ -437,6 +437,7 @@ class app:
                 "eksKubectlReadyBarrier": [cdk_ids.ssm_parameter.value],
                 "(clusterpost(creation|deletion)tasks|LogRetention)": lambda_safe,
                 "Unmanaged": [cdk_ids.instance_profile.value, cdk_ids.asg.value, cdk_ids.launch_template.value],
+                "eksNodegroup": [cdk_ids.eks_nodegroup.value],
             },
             "s3_stack": {
                 "CustomS3AutoDeleteObjectsCustomResourceProvider": lambda_safe,
