@@ -4,7 +4,8 @@ import json
 import re
 from copy import deepcopy
 from functools import cached_property
-from os.path import abspath
+from os import listdir
+from os.path import abspath, join
 from pprint import pprint
 from subprocess import run
 from time import sleep
@@ -13,16 +14,18 @@ import boto3
 import yaml
 
 from .meta import (
-    bastion_resources,
     cdk_ids,
     cf_status,
-    efs_backup_resources,
-    monitoring_bucket_resource,
-    resource_template,
-    route53_resource,
     stack_map,
 )
 from .nuke import nuke
+
+resources = {}
+
+for filename in listdir("data"):
+    with open(join("data", filename)) as f:
+        r = yaml.safe_load(f.read())
+    resources[r.pop("name")] = r
 
 clean_categories = [x.name for x in cdk_ids if x.name != "cloudformation_stack"]
 
@@ -123,6 +126,9 @@ class app:
             "--monitoring", help="Whether or not to import monitoring bucket", default=False, action="store_true"
         )
         resource_map_parser.add_argument(
+            "--unmanaged-nodegroups", help="Whether or not unmanaged nodegroups are in use", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
             "--efs-backups",
             help="Whether or not to import efs backup vault",
             default=True,
@@ -209,9 +215,9 @@ class app:
             pprint(out)
 
     def generate_resource_map(
-        self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool
+        self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool, unmanaged_nodegroups: bool,
     ) -> dict:
-        template = deepcopy(resource_template)
+        template = resources["resource_template"]
         for count in range(availability_zones):
             template["efs_stack"].append(
                 {
@@ -254,18 +260,21 @@ class app:
                 ]
             )
 
+        optional_resources = []
         if efs_backups:
-            template["efs_stack"].extend(efs_backup_resources)
-
+            optional_resources.append(resources["efs_backup"])
         if route53:
-            template["eks_stack"].append(route53_resource)
-
+            optional_resources.append(resources["route53"])
         if monitoring:
-            template["s3_stack"].append(monitoring_bucket_resource)
-
+            optional_resources.append(resources["monitoring_bucket"])
         if bastion:
-            template["eks_stack"].extend(bastion_resources["eks_stack"])
-            template["vpc_stack"].extend(bastion_resources["vpc_stack"])
+            optional_resources.append(resources["bastion"])
+        if unmanaged_nodegroups:
+            optional_resources.append(resources["unmanaged_nodegroup"])
+
+        for resource in optional_resources:
+            for key in resource.keys():
+                template[key].extend(resource[key])
 
         return template
 
@@ -276,6 +285,7 @@ class app:
             self.args.route53,
             self.args.bastion,
             self.args.monitoring,
+            self.args.unmanaged_nodegroups,
         )
         print(yaml.safe_dump(resource_map))
 
@@ -292,6 +302,7 @@ class app:
                 route53=bool(self.cdkconfig["route53"]["zone_ids"]),
                 bastion=self.cdkconfig["vpc"]["bastion"]["enabled"],
                 monitoring=self.cdkconfig["s3"]["buckets"].get("monitoring"),
+                unmanaged_nodegroups=self.cdkconfig["eks"]["unmanaged_nodegroups"],
             )
 
         def t(val: str) -> str:
