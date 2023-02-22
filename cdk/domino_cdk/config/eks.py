@@ -146,6 +146,10 @@ class EKS:
                 errors.append(
                     f"Error: {error_name} has min_size of 0. Only unmanaged nodegroups support min_size of 0."
                 )
+            if ng.min_size > ng.desired_size:
+                errors.append(
+                    f"Error: {error_name} has a desired_size of {ng.desired_size}, which can't be less than the min_size (currently: {ng.min_size})."
+                )
         for name, ng in self.unmanaged_nodegroups.items():
             error_name = f"Unmanaged nodegroup [{name}]"
             check_ami_exceptions(error_name, ng.ami_id, ng.user_data, ["ssm_agent", "labels", "taints", "disk_size"])
