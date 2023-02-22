@@ -20,7 +20,7 @@ variable "name" {
 
 variable "output_dir" {
   type        = string
-  description = "Output directory for agent_template.yaml and kubeconfig"
+  description = "Output directory for kubeconfig"
 }
 
 variable "parameters" {

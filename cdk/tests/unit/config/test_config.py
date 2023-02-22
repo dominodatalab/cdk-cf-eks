@@ -130,22 +130,3 @@ class TestConfig(unittest.TestCase):
         for b in vars(c.s3.buckets).values():
             self.assertTrue(b.auto_delete_objects)
             self.assertTrue(b.removal_policy_destroy)
-
-        self.assertEqual(
-            c.install.overrides,
-            {
-                "release_overrides": {
-                    "nucleus": {
-                        "chart_values": {
-                            "replicaCount": {
-                                "dispatcher": 1,
-                                "frontend": 1,
-                            },
-                            "keycloak": {
-                                "createIntegrationTestUser": True,
-                            },
-                        },
-                    }
-                },
-            },
-        )

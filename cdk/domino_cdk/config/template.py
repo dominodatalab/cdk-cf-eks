@@ -1,16 +1,7 @@
 from typing import Any, Dict, List, Optional
 
 from domino_cdk import __version__
-from domino_cdk.config import (
-    EFS,
-    EKS,
-    S3,
-    VPC,
-    DominoCDKConfig,
-    IngressRule,
-    Install,
-    Route53,
-)
+from domino_cdk.config import EFS, EKS, S3, VPC, DominoCDKConfig, IngressRule, Route53
 from domino_cdk.util import DominoCdkUtil
 
 
@@ -188,23 +179,12 @@ def config_template(
             },
         )
 
-    install = Install(
-        access_list=["0.0.0.0/0"],
-        acm_cert_arn=acm_cert_arn,
-        hostname=hostname,
-        registry_username=registry_username,
-        registry_password=registry_password,
-        istio_compatible=istio_compatible,
-        overrides=overrides,
-    )
-
     return DominoCDKConfig(
         name=name,
         aws_region=aws_region or fill,
         aws_account_id=aws_account_id or fill,
         tags={"domino-infrastructure": "true"},
         create_iam_roles_for_service_accounts=False,
-        install=install,
         vpc=vpc,
         efs=efs,
         route53=route53,

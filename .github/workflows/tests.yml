@@ -94,7 +94,8 @@ jobs:
         for suffix in "" "-terraform"; do
         filename="domino-cdk$suffix-$DOMINO_CDK_VERSION.tar.gz"
         aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
-        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
+        urlfile=$(python -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))' <<< "$filename")
+        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$urlfile"
         done
     - name: Deploy CDK
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
@@ -106,47 +107,6 @@ jobs:
       run: |
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
         cdk deploy --require-approval never --outputs-file outputs.json
-    - name: Prepare Domino install
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
-      run: |
-        $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
-        jq -r ".[].agentconfig" outputs.json > agent_template.yaml
-        docker run --rm -v $(pwd):/cdk $DEPLOYER_IMAGE python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
-    - name: Install Domino
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
-        KUBECONFIG: ./kubeconfig
-        LOG_DIR: k8s-cluster-state
-      run: |
-        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent run -f /cdk/domino.yml
-    - name: Collect diagnostic data
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
-        KUBECONFIG: ./kubeconfig
-        LOG_DIR: k8s-cluster-state
-      run: |
-        set +e
-        curl -Lo /usr/local/bin/kubectl  "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl"
-        for ns in domino-platform domino-compute domino-system kube-system; do
-          mkdir -p $LOG_DIR/$ns
-          kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
-          kubectl -n $ns get po -o yaml > $LOG_DIR/$ns/pods.txt
-          kubectl -n $ns describe po > $LOG_DIR/$ns/pods-described.txt
-          kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns/pvcs.txt
-          kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns/svcs.txt
-          kubectl -n $ns describe svc > $LOG_DIR/$ns/svcs-described.txt
-          kubectl -n $ns get events > $LOG_DIR/$ns/events.txt
-        done
-        kubectl get pv -o yaml > $LOG_DIR/pvs.txt
-        kubectl get no -o yaml > $LOG_DIR/nodes.txt
-        kubectl describe no > $LOG_DIR/nodes-described.txt
     - name: Upload diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       uses: actions/upload-artifact@v2
@@ -154,13 +114,6 @@ jobs:
         name: Diagnostic Data
         path: ./
         retention-days: 14
-    - name: Uninstall Domino
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
-      run: |
-        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent destroy -f /cdk/domino.yml
     - name: Destroy CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
