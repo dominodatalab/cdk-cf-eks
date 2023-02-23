@@ -56,9 +56,7 @@ class DominoEksNodegroupProvisioner:
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({region: ng.ami_id}) if ng.ami_id else None
         )
-        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(
-            name, ng.ami_id, False, ng.ssm_agent, [ng.user_data]
-        )
+        mime_user_data: Optional[ec2.UserData] = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data])
 
         lt = self._launch_template(
             self.cluster,
@@ -169,9 +167,7 @@ class DominoEksNodegroupProvisioner:
             ).items():
                 cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
-            mime_user_data = self._handle_user_data(
-                name, ng.ami_id, ng.gpu, ng.ssm_agent, [ng.user_data, asg.user_data]
-            )
+            mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data, asg.user_data])
 
             if not cfn_lt:
                 lt = self._launch_template(
@@ -243,7 +239,7 @@ class DominoEksNodegroupProvisioner:
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
     def _handle_user_data(
-        self, name: str, custom_ami: bool, gpu: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]
+        self, name: str, custom_ami: bool, ssm_agent: bool, user_data_list: List[Union[ec2.UserData, str]]
     ) -> Optional[ec2.UserData]:
         mime_user_data = ec2.MultipartUserData()
 
@@ -257,20 +253,6 @@ class DominoEksNodegroupProvisioner:
                     )
                 ),
             )
-
-            if gpu:
-                mime_user_data.add_part(
-                    ec2.MultipartBody.from_user_data(
-                        ec2.UserData.custom(
-                            'EKS_CONTAINERD_CFG="/etc/eks/containerd/containerd-config.toml"\n'
-                            'if [ -z "$(egrep \'certs\.d\' $EKS_CONTAINERD_CFG)" ]; then\n'
-                            '    if [ -n "$(egrep \'plugins\.cri\.containerd\.runtimes\.nvidia\' $EKS_CONTAINERD_CFG)" ]; then\n'
-                            '        printf \'\n\n[plugins.cri.registry]\nconfig_path = "/etc/containerd/certs.d:/etc/docker/certs.d"\n\' >> $EKS_CONTAINERD_CFG\n'
-                            '    fi\n'
-                            'fi\n'
-                        )
-                    )
-                )
 
             # if not custom AMI, we can install ssm agent. If requested.
             if ssm_agent:
