@@ -43,6 +43,7 @@ class nuke:
     def stepfunctions(self):
         return boto3.client("stepfunctions", self.region)
 
+    # TODO: Possibly need to nuke 0.0.0.0/0 SG rule on cluster SG when using eks nodegroup?
     def eks_nodegroup(self, group_names: list[str]):
         if not group_names:
             return
