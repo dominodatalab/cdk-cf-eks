@@ -130,6 +130,9 @@ class app:
             "--unmanaged-nodegroups", help="Whether or not unmanaged nodegroups are in use", default=False, action="store_true"
         )
         resource_map_parser.add_argument(
+            "--flow-logging", help="Whether or not flow logging is configured", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
             "--efs-backups",
             help="Whether or not to import efs backup vault",
             default=True,
@@ -216,7 +219,7 @@ class app:
             pprint(out)
 
     def generate_resource_map(
-        self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool, unmanaged_nodegroups: bool,
+        self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool, unmanaged_nodegroups: bool, flow_logging: bool,
     ) -> dict:
         template = resources["resource_template"]["resources"]
 
@@ -246,6 +249,8 @@ class app:
             optional_resources.append(resources["efs_backup"])
         if route53:
             optional_resources.append(resources["route53"])
+        if flow_logging:
+            optional_resources.append(resources["flow_logging"])
         if monitoring:
             optional_resources.append(resources["monitoring_bucket"])
         if bastion:
@@ -267,6 +272,7 @@ class app:
             self.args.bastion,
             self.args.monitoring,
             self.args.unmanaged_nodegroups,
+            self.args.flow_logging,
         )
         print(yaml.safe_dump(resource_map))
 
@@ -284,6 +290,7 @@ class app:
                 bastion=self.cdkconfig["vpc"]["bastion"]["enabled"],
                 monitoring=self.cdkconfig["s3"]["buckets"].get("monitoring"),
                 unmanaged_nodegroups=self.cdkconfig["eks"]["unmanaged_nodegroups"],
+                flow_logging=self.cdkconfig["vpc"]["flow_logging"],
             )
 
         def t(val: str) -> str:
@@ -393,6 +400,7 @@ class app:
             "efs_backup_force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
             "eks_custom_role_maps": eks_custom_role_maps,
             "s3_force_destroy_on_deletion": s3_force_destroy,
+            "flow_logging": self.cdkconfig["vpc"]["flow_logging"]
         }
 
         print(json.dumps(tfvars))
@@ -459,7 +467,6 @@ class app:
                     cdk_ids.iam_role.value,
                     cdk_ids.eip.value,
                 ],
-                "VPCrejectFlowLogsFlowLog": [cdk_ids.flowlog.value],  # TODO: should this be in the module?
                 "(LogRetention|AWS)": lambda_safe,
             },
             "core_stack": {

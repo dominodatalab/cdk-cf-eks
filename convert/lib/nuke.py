@@ -130,18 +130,6 @@ class nuke:
                         print(self.ec2.disassociate_address(AssociationId=association_id))
                     print(self.ec2.release_address(AllocationId=allocation_id))
 
-    def flowlog(self, flow_logs: list[str]):
-        if not flow_logs:
-            return
-        result = self.ec2.describe_flow_logs(FlowLogIds=flow_logs)
-        existing_flow_logs = [i["FlowLogId"] for i in result["FlowLogs"]]
-
-        if existing_flow_logs:
-            pprint({"Flow Log IDs to delete": existing_flow_logs})
-
-            if self.delete:
-                self.ec2.delete_flow_logs(FlowLogIds=existing_flow_logs)
-
     def instance(self, instance_ids: list[str]):
         if not instance_ids:
             return
@@ -377,7 +365,6 @@ class nuke:
             cdk_ids.asg,
             cdk_ids.instance,
             cdk_ids.eip,
-            cdk_ids.flowlog,
             cdk_ids.launch_template,
             cdk_ids.security_group,
             cdk_ids.stepfunctions_statemachine,

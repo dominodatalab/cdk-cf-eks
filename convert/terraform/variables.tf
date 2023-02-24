@@ -41,6 +41,11 @@ variable "pod_subnet_ids" {
   description = "Pre-existing private subnets ids used with deployment"
 }
 
+variable "flow_logging" {
+  type        = bool
+  description = "Enable flow logging"
+}
+
 variable "k8s_version" {
   type        = string
   description = "EKS cluster k8s version (should match existing)"
