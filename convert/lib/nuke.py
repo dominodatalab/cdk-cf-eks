@@ -98,6 +98,9 @@ class nuke:
                         )
                         changed_groups.append(group)
 
+                if changed_groups:
+                    sleep(5)
+
                 for group in existing_groups:
                     if group in changed_groups:
                         print(f"Waiting for ASG scaling activity to end on group {group}...")
@@ -313,6 +316,33 @@ class nuke:
                 for p in existing_parameters:
                     self.ssm.delete_parameter(Name=p)
 
+    def endpoint(self, endpoints: list[str]):
+        if not endpoints:
+            return
+
+        p = self.ec2.get_paginator("describe_vpc_endpoints")
+        existing_endpoints = [e["VpcEndpointId"] for i in p.paginate() for e in i["VpcEndpoints"] if e["VpcEndpointId"] in endpoints]
+
+        if existing_endpoints:
+            pprint({"VPC Endpoints to delete": existing_endpoints})
+
+            if self.delete:
+                self.ec2.delete_vpc_endpoints(VpcEndpointIds=existing_endpoints)
+                print("Waiting for endpoints to finish deleting...")
+                while True:
+                    sleep(5)
+                    deleted_endpoints = 0
+                    for e in existing_endpoints:
+                        try:
+                            r = self.ec2.describe_vpc_endpoints(VpcEndpointIds=[e])
+                            if (state := r["VpcEndpoints"][0]["State"]) and state in ["available", "pending"]:
+                                raise Exception(f"VPC Endpoint {e} in unexpected state {state} after delete_endpoint call")
+                        except self.ec2.exceptions.ClientError as e:
+                            if e.response["Error"]["Code"] == "InvalidVpcEndpointId.NotFound":
+                                deleted_endpoints += 1
+                    if deleted_endpoints == len(existing_endpoints):
+                        break
+
     def security_group_rule_ids(self, rulemap: dict[str, list[str]]):
         if not rulemap:
             return
@@ -366,6 +396,7 @@ class nuke:
             cdk_ids.instance,
             cdk_ids.eip,
             cdk_ids.launch_template,
+            cdk_ids.endpoint,
             cdk_ids.security_group,
             cdk_ids.stepfunctions_statemachine,
             cdk_ids.lambda_function,

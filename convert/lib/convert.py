@@ -461,6 +461,7 @@ class app:
             },
             "vpc_stack": {
                 "endpointssg": [cdk_ids.security_group.value],
+                "(.*ENDPOINT|VPCS3)": [cdk_ids.endpoint.value],
                 "bastion": [
                     cdk_ids.instance.value,
                     cdk_ids.instance_profile.value,

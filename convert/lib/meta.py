@@ -42,6 +42,7 @@ class cdk_ids(Enum):
     cloudformation_stack = "AWS::CloudFormation::Stack"
     eip = "AWS::EC2::EIP"
     eks_nodegroup = "AWS::EKS::Nodegroup"
+    endpoint = "AWS::EC2::VPCEndpoint"
     iam_policy = "AWS::IAM::ManagedPolicy"
     iam_role = "AWS::IAM::Role"
     instance = "AWS::EC2::Instance"
