@@ -509,7 +509,7 @@ class app:
             eks_sg: {"egress": [], "ingress": []},
         }
         if unmanaged_sg:
-            rule_ids_to_nuke[unmanaged_sg["PhysicalResourceId"]] = {"egress": [], "ingress": []},
+            rule_ids_to_nuke[unmanaged_sg["PhysicalResourceId"]] = {"egress": [], "ingress": []}
 
         for group in rule_ids_to_nuke.keys():
             rules = [
