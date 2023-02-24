@@ -8,6 +8,7 @@ from os import listdir
 from os.path import abspath, join
 from pprint import pprint
 from subprocess import run
+from textwrap import dedent
 from time import sleep
 
 import boto3
@@ -318,9 +319,17 @@ class app:
                     resource_id = f"{plan_id}|{selection_id}"
                 else:
                     resource_id = resources[t(item["cf"])]
-                imports.append(f"terraform import '{tf_import_path}' '{resource_id}'")
+                imports.append(f"tf_import '{tf_import_path}' '{resource_id}'")
 
-        print("#!/bin/bash\nset -ex")
+        print(dedent("""\
+            #!/bin/bash
+            set -ex
+
+            tf_import() {
+                terraform import "$1" "$2"
+                terraform state show "$1" || (echo "$1 not in terraform state, import may have failed" && exit 1)
+            }
+        """))
         print("\n".join(imports))
 
     def create_tfvars(self):
