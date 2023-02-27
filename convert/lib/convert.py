@@ -499,14 +499,23 @@ class app:
         # but the eks cluster security group isn't gettable from cloudformation...
         ec2 = boto3.client("ec2", self.region)
         eks = boto3.client("eks", self.region)
-        eks_cluster_sg = eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
-            "clusterSecurityGroupId"
-        ]
+
+        empty_sg_rules = {"egress": [], "ingress": []}
+        try:
+            eks_cluster_sg = {
+                eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
+                    "clusterSecurityGroupId"
+                ]: empty_sg_rules
+            }
+        except eks.exceptions.ResourceNotFoundException:
+            eks_cluster_sg = {}
+
         unmanaged_sg = self.stacks["eks_stack"]["resources"].get("UnmanagedSG")
+
         eks_sg = self.stacks["eks_stack"]["resources"]["EKSSG"]["PhysicalResourceId"]
 
         rule_ids_to_nuke = {
-            eks_cluster_sg: {"egress": [], "ingress": []},
+            **eks_cluster_sg,
             eks_sg: {"egress": [], "ingress": []},
         }
         if unmanaged_sg:

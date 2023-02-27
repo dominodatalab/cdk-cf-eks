@@ -2,6 +2,7 @@
 import re
 from functools import cached_property
 from pprint import pprint
+from retry import retry
 from time import sleep
 
 import boto3
@@ -83,7 +84,6 @@ class nuke:
             pprint({"Auto scaling groups to delete": existing_groups})
 
             if self.delete:
-                changed_groups = []
                 for group in existing_groups:
                     if (
                         self.autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[group])[
@@ -96,25 +96,14 @@ class nuke:
                                 AutoScalingGroupName=group, DesiredCapacity=0, MinSize=0, MaxSize=0
                             )
                         )
-                        changed_groups.append(group)
+                        print(f"Auto scaling group {group} scaled to 0, must wait for scaling to finish to delete")
 
-                if changed_groups:
-                    sleep(5)
+                @retry((self.autoscaling.exceptions.ResourceInUseFault, self.autoscaling.exceptions.ScalingActivityInProgressFault), delay=5, tries=60)
+                def delete_asg(group: str):
+                    print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
 
                 for group in existing_groups:
-                    if group in changed_groups:
-                        print(f"Waiting for ASG scaling activity to end on group {group}...")
-                    while True:
-                        if not [
-                            i
-                            for i in self.autoscaling.describe_scaling_activities(AutoScalingGroupName=group)[
-                                "Activities"
-                            ]
-                            if i["StatusCode"] == "InProgress"
-                        ]:
-                            break
-                        sleep(5)
-                    print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
+                    delete_asg(group)
 
     def eip(self, eip_addresses: list[str]):
         if not eip_addresses:
@@ -351,10 +340,15 @@ class nuke:
 
         if self.delete:
             for group_id, rules in rulemap.items():
-                if rules["egress"]:
-                    self.ec2.revoke_security_group_egress(GroupId=group_id, SecurityGroupRuleIds=rules["egress"])
-                if rules["ingress"]:
-                    self.ec2.revoke_security_group_ingress(GroupId=group_id, SecurityGroupRuleIds=rules["ingress"])
+                try:
+                    if rules["egress"]:
+                        self.ec2.revoke_security_group_egress(GroupId=group_id, SecurityGroupRuleIds=rules["egress"])
+                    if rules["ingress"]:
+                        self.ec2.revoke_security_group_ingress(GroupId=group_id, SecurityGroupRuleIds=rules["ingress"])
+                except self.ec2.exceptions.ClientError as e:
+                    if e.response["Error"]["Code"] != "InvalidSecurityGroupRuleId.NotFound":
+                        raise
+                    print(e)
 
     def nuke(self, nuke_queue: dict[str, list[str]], remove_security_group_references: bool = False):
         all_referenced_groups = {}
@@ -391,12 +385,12 @@ class nuke:
 
         local_queue = []
         order = [
+            cdk_ids.endpoint,
             cdk_ids.eks_nodegroup,
             cdk_ids.asg,
             cdk_ids.instance,
             cdk_ids.eip,
             cdk_ids.launch_template,
-            cdk_ids.endpoint,
             cdk_ids.security_group,
             cdk_ids.stepfunctions_statemachine,
             cdk_ids.lambda_function,
