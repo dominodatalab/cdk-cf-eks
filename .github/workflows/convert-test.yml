@@ -128,8 +128,8 @@ jobs:
     - name: Convert to Terraform
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       run: |
-        pip3 install pyyaml
         cd ../convert
+        pip install -r requirements.txt
         ssh-keygen -t rsa -f dummy.pem -N ''
         ./convert.py print-stack --stack-name $NAME --region $AWS_REGION --verbose --yaml > stack-data.yaml
         ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem > terraform/terraform.tfvars.json
