@@ -14,11 +14,7 @@ from time import sleep
 import boto3
 import yaml
 
-from .meta import (
-    cdk_ids,
-    cf_status,
-    stack_map,
-)
+from .meta import cdk_ids, cf_status, stack_map
 from .nuke import nuke
 
 resources = {}
@@ -127,7 +123,10 @@ class app:
             "--monitoring", help="Whether or not to import monitoring bucket", default=False, action="store_true"
         )
         resource_map_parser.add_argument(
-            "--unmanaged-nodegroups", help="Whether or not unmanaged nodegroups are in use", default=False, action="store_true"
+            "--unmanaged-nodegroups",
+            help="Whether or not unmanaged nodegroups are in use",
+            default=False,
+            action="store_true",
         )
         resource_map_parser.add_argument(
             "--flow-logging", help="Whether or not flow logging is configured", default=False, action="store_true"
@@ -219,7 +218,14 @@ class app:
             pprint(out)
 
     def generate_resource_map(
-        self, availability_zones: int, efs_backups: bool, route53: bool, bastion: bool, monitoring: bool, unmanaged_nodegroups: bool, flow_logging: bool,
+        self,
+        availability_zones: int,
+        efs_backups: bool,
+        route53: bool,
+        bastion: bool,
+        monitoring: bool,
+        unmanaged_nodegroups: bool,
+        flow_logging: bool,
     ) -> dict:
         template = resources["resource_template"]["resources"]
 
@@ -227,7 +233,7 @@ class app:
             for k, v in d.items():
                 if isinstance(v, str):
                     d[k] = re.sub("%az_count%", str(count), d[k])
-                    d[k] = re.sub("%az_count_plus%", str(count+1), d[k])
+                    d[k] = re.sub("%az_count_plus%", str(count + 1), d[k])
                 elif isinstance(v, list):
                     for i, entry in enumerate(v):
                         if isinstance(entry, dict):
@@ -328,7 +334,9 @@ class app:
                     resource_id = resources[t(item["cf"])]
                 imports.append(f"tf_import '{tf_import_path}' '{resource_id}'")
 
-        print(dedent("""\
+        print(
+            dedent(
+                """\
             #!/bin/bash
             set -ex
 
@@ -336,7 +344,9 @@ class app:
                 terraform import "$1" "$2"
                 terraform state show "$1" || (echo "$1 not in terraform state, import may have failed" && exit 1)
             }
-        """))
+        """
+            )
+        )
         print("\n".join(imports))
 
     def create_tfvars(self):
@@ -400,7 +410,7 @@ class app:
             "efs_backup_force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
             "eks_custom_role_maps": eks_custom_role_maps,
             "s3_force_destroy_on_deletion": s3_force_destroy,
-            "flow_logging": self.cdkconfig["vpc"]["flow_logging"]
+            "flow_logging": self.cdkconfig["vpc"]["flow_logging"],
         }
 
         print(json.dumps(tfvars))

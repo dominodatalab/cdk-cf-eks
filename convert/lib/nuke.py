@@ -2,10 +2,10 @@
 import re
 from functools import cached_property
 from pprint import pprint
-from retry import retry
 from time import sleep
 
 import boto3
+from retry import retry
 
 from .meta import cdk_ids
 
@@ -56,10 +56,7 @@ class nuke:
 
         p = self.eks.get_paginator("list_nodegroups")
         existing_groups = [
-            ng
-            for i in p.paginate(clusterName=cluster_name)
-            for ng in i["nodegroups"]
-            if ng in group_names
+            ng for i in p.paginate(clusterName=cluster_name) for ng in i["nodegroups"] if ng in group_names
         ]
 
         if existing_groups:
@@ -98,7 +95,14 @@ class nuke:
                         )
                         print(f"Auto scaling group {group} scaled to 0, must wait for scaling to finish to delete")
 
-                @retry((self.autoscaling.exceptions.ResourceInUseFault, self.autoscaling.exceptions.ScalingActivityInProgressFault), delay=5, tries=60)
+                @retry(
+                    (
+                        self.autoscaling.exceptions.ResourceInUseFault,
+                        self.autoscaling.exceptions.ScalingActivityInProgressFault,
+                    ),
+                    delay=5,
+                    tries=60,
+                )
                 def delete_asg(group: str):
                     print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
 
@@ -310,7 +314,9 @@ class nuke:
             return
 
         p = self.ec2.get_paginator("describe_vpc_endpoints")
-        existing_endpoints = [e["VpcEndpointId"] for i in p.paginate() for e in i["VpcEndpoints"] if e["VpcEndpointId"] in endpoints]
+        existing_endpoints = [
+            e["VpcEndpointId"] for i in p.paginate() for e in i["VpcEndpoints"] if e["VpcEndpointId"] in endpoints
+        ]
 
         if existing_endpoints:
             pprint({"VPC Endpoints to delete": existing_endpoints})
@@ -325,7 +331,9 @@ class nuke:
                         try:
                             r = self.ec2.describe_vpc_endpoints(VpcEndpointIds=[e])
                             if (state := r["VpcEndpoints"][0]["State"]) and state in ["available", "pending"]:
-                                raise Exception(f"VPC Endpoint {e} in unexpected state {state} after delete_endpoint call")
+                                raise Exception(
+                                    f"VPC Endpoint {e} in unexpected state {state} after delete_endpoint call"
+                                )
                         except self.ec2.exceptions.ClientError as e:
                             if e.response["Error"]["Code"] == "InvalidVpcEndpointId.NotFound":
                                 deleted_endpoints += 1
