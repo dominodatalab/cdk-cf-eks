@@ -44,7 +44,13 @@ class app:
             if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
                 for mapped_logical_id, name in stack_map.items():
                     if logical_id.startswith(mapped_logical_id):
-                        stacks[name] = self.get_stacks(physical_id, full)
+                        try:
+                            stacks[name] = self.get_stacks(physical_id, full)
+                        except self.cf.exceptions.ClientError as e:
+                            if "does not exist" in e.response["Error"]["Message"]:
+                                stacks[name] = None
+                            else:
+                                raise
                         break
                 else:
                     raise Exception(f"Nothing to map stack {r} to!")
@@ -603,8 +609,14 @@ class app:
         def get_stack_resources(s) -> dict:
             child_id = s["PhysicalResourceId"]
             child_name = re.search(r":stack/(.*)/", child_id).group(1)
-            if self.cf.describe_stacks(StackName=child_id)["Stacks"][0]["StackStatus"] == "DELETE_COMPLETE":
-                return
+            try:
+                if self.cf.describe_stacks(StackName=child_id)["Stacks"][0]["StackStatus"] == "DELETE_COMPLETE":
+                    return
+            except self.cf.exceptions.ClientError as e:
+                if "does not exist" in e.response["Error"]["Message"]:
+                    return
+                raise
+
             child_resources = self.cf.describe_stack_resources(StackName=child_name)["StackResources"]
             stacks[child_name] = [
                 r["LogicalResourceId"] for r in child_resources if r["ResourceStatus"] != "DELETE_COMPLETE"
