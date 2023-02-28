@@ -130,6 +130,7 @@ jobs:
       run: |
         cd ../convert/cloudformation-only
         echo "{\"region\":\"us-west-2\",\"tags\":{},\"suffix\":\"$NAME\"}" > terraform.tfvars.json
+        terraform init
         terraform plan -out=terraform.plan
         terraform apply -auto-approve terraform.plan
         cd ..
