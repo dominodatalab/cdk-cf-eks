@@ -62,6 +62,11 @@ variable "number_of_azs" {
   default     = 3
 }
 
+variable "default_node_groups" {
+  type        = map
+  description = "Default node groups"
+}
+
 variable "route53_hosted_zone_name" {
   type        = string
   description = "Name of route53 hosted zone (optional, for internal use)"

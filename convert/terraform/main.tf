@@ -24,10 +24,10 @@ resource "aws_iam_role" "grandfathered_creation_role" {
 }
 
 module "domino_eks" {
-  source                       = "github.com/dominodatalab/terraform-aws-eks.git?ref=v1.2.2"
+  source                       = "github.com/dominodatalab/terraform-aws-eks.git?ref=main"
   deploy_id                    = var.deploy_id
   region                       = var.region
-  number_of_azs                = var.number_of_azs
+  default_node_groups          = var.default_node_groups
   k8s_version                  = var.k8s_version
   route53_hosted_zone_name     = var.route53_hosted_zone_name
   eks_master_role_names        = var.eks_master_role_names

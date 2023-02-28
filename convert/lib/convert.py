@@ -359,6 +359,7 @@ class app:
                 if re.match(f"{prefix}{self.cf_stack_key}{subnet_type}Subnet\\d+Subnet", k)
             ]
 
+        ec2 = boto3.client("ec2", self.region)
         eks = boto3.client("eks", self.region)
         iam = boto3.client("iam", self.region)
         r53 = boto3.client("route53", self.region)
@@ -385,8 +386,11 @@ class app:
         eks_k8s_version = eks.describe_cluster(name=self.cdkconfig["name"])["cluster"]["version"]
 
         route53_hosted_zone_name = ""
-        if zone_ids := self.cdkconfig["route53"]["zone_ids"]:
-            route53_hosted_zone_name = r53.get_hosted_zone(Id=zone_ids[0])["HostedZone"]["Name"]
+        if r53_zone_ids := self.cdkconfig["route53"]["zone_ids"]:
+            route53_hosted_zone_name = r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]["Name"]
+
+        subnet_result = ec2.describe_subnets(SubnetIds=get_subnet_ids("Private"))
+        az_zone_ids = [s["AvailabilityZoneId"] for s in subnet_result["Subnets"]]
 
         tfvars = {
             "deploy_id": self.cdkconfig["name"],
@@ -398,6 +402,17 @@ class app:
             else self.stacks["vpc_stack"]["resources"]["VPC"],
             "public_subnet_ids": get_subnet_ids("Public"),
             "private_subnet_ids": get_subnet_ids("Private"),
+            "default_node_groups": {
+                "platform": {
+                    "availability_zone_ids": az_zone_ids,
+                },
+                "compute": {
+                    "availability_zone_ids": az_zone_ids,
+                },
+                "gpu": {
+                    "availability_zone_ids": az_zone_ids,
+                },
+            },
             "pod_subnet_ids": get_subnet_ids("Pod", ""),
             "k8s_version": eks_k8s_version,
             "ssh_key_path": abspath(self.args.ssh_key_path),
@@ -413,14 +428,16 @@ class app:
             "flow_logging": self.cdkconfig["vpc"]["flow_logging"],
         }
 
-        print(json.dumps(tfvars))
+        print(json.dumps(tfvars, indent=4))
 
         notes = ""
         if not self.cdkconfig["eks"]["private_api"]:
             notes += "\n* Your CDK EKS is configured for public API access.\n  Your cluster's setting will be changed to *PRIVATE*, as the terraform module does not support public EKS endpoints."
 
-        if len(zone_ids) > 1:
-            notes += f"\n* You have multiple hosted zones, only the first ({zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
+        if len(r53_zone_ids) > 1:
+            notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
+
+        notes += "\n* Nodegroup settings do not carry over. Please examine tfvars if you want to make any customizations."
 
         from sys import stderr
 
