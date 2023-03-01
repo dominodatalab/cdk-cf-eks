@@ -125,24 +125,6 @@ variable "eks_cluster_auto_sg" {
   description = "Atomatically generated security group with name in the form of eks-cluster-sg-<clustername>"
 }
 
-variable "eks_cluster_auto_sg_egress" {
-  type        = object({
-      protocol          = string
-      from_port         = number
-      to_port           = number
-      type              = string
-      cidr_blocks       = list(string)
-    })
-  description = "Egress rule for the automatically generated security group. Rule is managed for reliable destroys."
-  default = {
-      protocol          = "all"
-      from_port         = 0
-      to_port           = 0
-      type              = "egress"
-      cidr_blocks       = ["0.0.0.0/0"]
-  }
-}
-
 variable "s3_force_destroy_on_deletion" {
   description = "Toogle to allow recursive deletion of all objects in the s3 buckets. if 'false' terraform will NOT be able to delete non-empty buckets"
   type        = bool

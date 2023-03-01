@@ -345,8 +345,6 @@ class app:
         eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
         import_path = "aws_security_group.eks_cluster_auto"
         imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}'")
-        import_path = "aws_security_group_rule.eks_cluster_auto_egress"
-        imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}_egress_all_0_0_0.0.0.0/0'")
 
         print(
             dedent(
