@@ -4,13 +4,14 @@
 name: Conversion test
 
 on:
-#  schedule:
-#  - cron: "0 10 * * 1"
-  push:
-    branches: [ master ]
-  pull_request:
-    types: [opened, synchronize, reopened, labeled, ready_for_review]
-    branches: [ master ]
+  schedule:
+  - cron: "0 10 * * 1"
+# Enable for testing
+#  push:
+#    branches: [ master ]
+#  pull_request:
+#    types: [opened, synchronize, reopened, labeled, ready_for_review]
+#    branches: [ master ]
 
 jobs:
   test-build-deploy-convert:
@@ -149,28 +150,6 @@ jobs:
         ./convert.py delete-stack --stack-name $NAME --region $AWS_REGION --delete
         cd ../cdk
         cdk destroy --force
-# with private endpoints, we can't do this anymore
-#    - name: Collect diagnostic data
-#      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-#      env:
-#        KUBECONFIG: ./kubeconfig
-#        LOG_DIR: /tmp/k8s-cluster-state/terraform
-#      run: |
-#        set +e
-#        curl -Lo /usr/local/bin/kubectl  "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl"
-#        for ns in domino-platform domino-compute domino-system kube-system; do
-#          mkdir -p $LOG_DIR/$ns
-#          kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
-#          kubectl -n $ns get po -o yaml > $LOG_DIR/$ns/pods.txt
-#          kubectl -n $ns describe po > $LOG_DIR/$ns/pods-described.txt
-#          kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns/pvcs.txt
-#          kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns/svcs.txt
-#          kubectl -n $ns describe svc > $LOG_DIR/$ns/svcs-described.txt
-#          kubectl -n $ns get events > $LOG_DIR/$ns/events.txt
-#        done
-#        kubectl get pv -o yaml > $LOG_DIR/pvs.txt
-#        kubectl get no -o yaml > $LOG_DIR/nodes.txt
-#        kubectl describe no > $LOG_DIR/nodes-described.txt
     - name: Upload diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       uses: actions/upload-artifact@v2
