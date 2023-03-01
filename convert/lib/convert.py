@@ -343,6 +343,8 @@ class app:
         eks = boto3.client("eks", self.region)
         eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
         eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+        import_path = "aws_security_group.eks_cluster_auto"
+        imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}'")
         import_path = "aws_security_group_rule.eks_cluster_auto_egress"
         imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}_egress_all_0_0_0.0.0.0/0'")
 
@@ -440,7 +442,7 @@ class app:
             "eks_custom_role_maps": eks_custom_role_maps,
             "s3_force_destroy_on_deletion": s3_force_destroy,
             "flow_logging": self.cdkconfig["vpc"]["flow_logging"],
-            "eks_cluster_auto_sg_egress": {"security_group_id": eks_cluster_auto_sg},
+            "eks_cluster_auto_sg": eks_cluster_auto_sg,
         }
 
         print(json.dumps(tfvars, indent=4))
@@ -452,7 +454,9 @@ class app:
         if len(r53_zone_ids) > 1:
             notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
 
-        notes += "\n* Nodegroup settings do not carry over. Please examine tfvars if you want to make any customizations."
+        notes += (
+            "\n* Nodegroup settings do not carry over. Please examine tfvars if you want to make any customizations."
+        )
 
         from sys import stderr
 

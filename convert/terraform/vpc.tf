@@ -144,8 +144,17 @@ resource "aws_route_table_association" "pod" {
     route_table_id = aws_route_table.pod[count.index].id
 }
 
+resource "aws_security_group" "eks_cluster_auto" {
+    name                   = "eks-cluster-sg-${var.deploy_id}"
+    revoke_rules_on_delete = true
+
+    lifecycle {
+        ignore_changes = [name, description, ingress, egress, tags, tags_all, vpc_id, timeouts]
+    }
+}
+
 resource "aws_security_group_rule" "eks_cluster_auto_egress" {
-    security_group_id = var.eks_cluster_auto_sg_egress.security_group_id
+    security_group_id = var.eks_cluster_auto_sg
     protocol          = var.eks_cluster_auto_sg_egress.protocol
     from_port         = var.eks_cluster_auto_sg_egress.from_port
     to_port           = var.eks_cluster_auto_sg_egress.to_port

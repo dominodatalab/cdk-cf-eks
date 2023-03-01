@@ -67,6 +67,12 @@ variable "default_node_groups" {
   description = "Default node groups"
 }
 
+variable "additional_node_groups" {
+  type        = map
+  description = "Additional EKS managed nodegroups"
+  default     = {}
+}
+
 variable "route53_hosted_zone_name" {
   type        = string
   description = "Name of route53 hosted zone (optional, for internal use)"
@@ -114,16 +120,27 @@ variable "eks_custom_role_maps" {
   default     = []
 }
 
+variable "eks_cluster_auto_sg" {
+  type        = string
+  description = "Atomatically generated security group with name in the form of eks-cluster-sg-<clustername>"
+}
+
 variable "eks_cluster_auto_sg_egress" {
   type        = object({
-      security_group_id = string
-      protocol          = optional(string, "all")
-      from_port         = optional(number, 0)
-      to_port           = optional(number, 0)
-      type              = optional(string, "egress")
-      cidr_blocks       = optional(list(string), ["0.0.0.0/0"])
+      protocol          = string
+      from_port         = number
+      to_port           = number
+      type              = string
+      cidr_blocks       = list(string)
     })
-  description = "Egress rule for the automatically generated security group with name in the form of eks-cluster-sg-<clustername>. Rule is managed for reliable destroys."
+  description = "Egress rule for the automatically generated security group. Rule is managed for reliable destroys."
+  default = {
+      protocol          = "all"
+      from_port         = 0
+      to_port           = 0
+      type              = "egress"
+      cidr_blocks       = ["0.0.0.0/0"]
+  }
 }
 
 variable "s3_force_destroy_on_deletion" {
