@@ -126,30 +126,37 @@ jobs:
         kubectl get pv -o yaml > $LOG_DIR/pvs.txt
         kubectl get no -o yaml > $LOG_DIR/nodes.txt
         kubectl describe no > $LOG_DIR/nodes-described.txt
-    - name: Convert to Terraform
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+    - name: Setup cloudformation-only user for safe stack deletion
+      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./convert/cloudformation-only
       run: |
-        cd ../convert/cloudformation-only
         echo "{\"region\":\"us-west-2\",\"tags\":{},\"suffix\":\"$NAME\"}" > terraform.tfvars.json
         terraform init
         terraform plan -out=terraform.plan
         terraform apply -auto-approve terraform.plan
-        cd ..
+    - name: Setup terraform-aws-eks conversion process
+      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./convert
+      run: |
         pip install -r requirements.txt
         ssh-keygen -t rsa -f dummy.pem -N ''
         ./convert.py print-stack --stack-name $NAME --region $AWS_REGION --verbose --yaml > stack-data.yaml
         ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem > terraform/terraform.tfvars.json
         ./convert.py get-imports --stack-name $NAME --region $AWS_REGION > terraform/imports.sh
-        cd terraform
+    - name: Run terraform
+      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./convert/terraform
+      run: |
         terraform init
         bash imports.sh
         terraform plan -out=terraform.plan
         terraform apply -auto-approve terraform.plan
-        cd ..
+    - name: Clean and delete stack
+      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./convert
+      run: |
         ./convert.py clean-stack --stack-name $NAME --region $AWS_REGION --remove-security-group-references --delete
         ./convert.py delete-stack --stack-name $NAME --region $AWS_REGION --delete
-        cd ../cdk
-        cdk destroy --force
     - name: Upload diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       uses: actions/upload-artifact@v2
@@ -157,12 +164,20 @@ jobs:
         name: Diagnostic Data
         path: ./
         retention-days: 14
+    - name: Delete stack w/CDK
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./cdk
+      run: |
+        cdk destroy --force
     - name: Destroy Infrastructure
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./convert/terraform
       run: |
-        cd ../convert/terraform
         terraform destroy -auto-approve
-        cd ../cloudformation-only
+    - name: Destroy Infrastructure
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      working-directory: ./convert/cloudformation-only
+      run: |
         terraform destroy -auto-approve
     - name: Fail without deploy
       if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/master') }}
