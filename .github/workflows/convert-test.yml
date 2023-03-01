@@ -6,12 +6,11 @@ name: Conversion test
 on:
   schedule:
   - cron: "0 10 * * 1"
-# Enable for testing
-#  push:
-#    branches: [ master ]
-#  pull_request:
-#    types: [opened, synchronize, reopened, labeled, ready_for_review]
-#    branches: [ master ]
+  push:
+    branches: [ master ]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, ready_for_review]
+    branches: [ master ]
 
 jobs:
   test-build-deploy-convert:
