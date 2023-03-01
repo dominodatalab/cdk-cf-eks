@@ -143,3 +143,12 @@ resource "aws_route_table_association" "pod" {
     subnet_id      = aws_subnet.pod[count.index].id
     route_table_id = aws_route_table.pod[count.index].id
 }
+
+resource "aws_security_group_rule" "eks_cluster_auto_egress" {
+    security_group_id = var.eks_cluster_auto_sg_egress.security_group_id
+    protocol          = var.eks_cluster_auto_sg_egress.protocol
+    from_port         = var.eks_cluster_auto_sg_egress.from_port
+    to_port           = var.eks_cluster_auto_sg_egress.to_port
+    type              = var.eks_cluster_auto_sg_egress.type
+    cidr_blocks       = var.eks_cluster_auto_sg_egress.cidr_blocks
+}

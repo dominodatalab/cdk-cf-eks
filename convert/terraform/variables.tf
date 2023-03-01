@@ -114,6 +114,18 @@ variable "eks_custom_role_maps" {
   default     = []
 }
 
+variable "eks_cluster_auto_sg_egress" {
+  type        = object({
+      security_group_id = string
+      protocol          = optional(string, "all")
+      from_port         = optional(number, 0)
+      to_port           = optional(number, 0)
+      type              = optional(string, "egress")
+      cidr_blocks       = optional(list(string), ["0.0.0.0/0"])
+    })
+  description = "Egress rule for the automatically generated security group with name in the form of eks-cluster-sg-<clustername>. Rule is managed for reliable destroys."
+}
+
 variable "s3_force_destroy_on_deletion" {
   description = "Toogle to allow recursive deletion of all objects in the s3 buckets. if 'false' terraform will NOT be able to delete non-empty buckets"
   type        = bool

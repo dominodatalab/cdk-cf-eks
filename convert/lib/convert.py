@@ -340,6 +340,12 @@ class app:
                     resource_id = resources[t(item["cf"])]
                 imports.append(f"tf_import '{tf_import_path}' '{resource_id}'")
 
+        eks = boto3.client("eks", self.region)
+        eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
+        eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+        import_path = "aws_security_group_rule.eks_cluster_auto_egress"
+        imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}_egress_all_0_0_0.0.0.0/0'")
+
         print(
             dedent(
                 """\
@@ -389,7 +395,9 @@ class app:
             b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]
         ]
 
-        eks_k8s_version = eks.describe_cluster(name=self.cdkconfig["name"])["cluster"]["version"]
+        eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
+        eks_k8s_version = eks_cluster_result["cluster"]["version"]
+        eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
 
         route53_hosted_zone_name = ""
         if r53_zone_ids := self.cdkconfig["route53"]["zone_ids"]:
@@ -432,6 +440,7 @@ class app:
             "eks_custom_role_maps": eks_custom_role_maps,
             "s3_force_destroy_on_deletion": s3_force_destroy,
             "flow_logging": self.cdkconfig["vpc"]["flow_logging"],
+            "eks_cluster_auto_sg_egress": {"security_group_id": eks_cluster_auto_sg},
         }
 
         print(json.dumps(tfvars, indent=4))
