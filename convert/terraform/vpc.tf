@@ -4,6 +4,15 @@ resource "aws_vpc" "cdk_vpc" {
     }
 }
 
+resource "aws_flow_log" "flowlog" {
+    count = var.flow_logging ? 1 : 0
+    log_destination          = module.domino_eks.s3_buckets["monitoring"].arn
+    vpc_id                   = aws_vpc.cdk_vpc.id
+    max_aggregation_interval = 600
+    log_destination_type     = "s3"
+    traffic_type             = "REJECT"
+}
+
 resource "aws_eip" "nat_gateway" {
     count = var.number_of_azs
 
@@ -133,4 +142,13 @@ resource "aws_route_table_association" "pod" {
 
     subnet_id      = aws_subnet.pod[count.index].id
     route_table_id = aws_route_table.pod[count.index].id
+}
+
+resource "aws_security_group" "eks_cluster_auto" {
+    name                   = "eks-cluster-sg-${var.deploy_id}"
+    revoke_rules_on_delete = true
+
+    lifecycle {
+        ignore_changes = [name, description, ingress, egress, tags, tags_all, vpc_id, timeouts]
+    }
 }

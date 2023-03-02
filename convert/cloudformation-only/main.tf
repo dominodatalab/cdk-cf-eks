@@ -1,5 +1,5 @@
 resource "aws_iam_policy" "cloudformation_only" {
-  name = "cloudformation-only"
+  name = "cloudformation-only${var.suffix}"
 
   policy = jsonencode({
       Version = "2012-10-17"
@@ -14,7 +14,7 @@ resource "aws_iam_policy" "cloudformation_only" {
 }
 
 resource "aws_iam_role" "cloudformation_only" {
-  name = "cloudformation-only"
+  name = "cloudformation-only${var.suffix}"
   description = "Allows CloudFormation to create and manage AWS stacks and resources on your behalf, but nothing else"
 
   assume_role_policy = jsonencode({

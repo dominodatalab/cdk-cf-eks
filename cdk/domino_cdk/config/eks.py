@@ -45,6 +45,7 @@ class EKS:
         instance_types: ["m5.2xlarge", "m5.4xlarge"] - Instance types available to nodegroup
         labels: some-label: "true" - Labels to apply to all nodes in nodegroup
         tags: some-tag: "true" - Tags to apply to all nodes in nodegroup
+        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         ...
         Managed nodegroup-specific options:
         spot: true/false - Use spot instances, may affect reliability/availability of nodegroup
@@ -52,7 +53,6 @@ class EKS:
         ...
         Unmanaged nodegroup-specific options:
         gpu: true/false - Setup GPU instance support
-        ssm_agent: true/false - Install SSM agent (ie for console access via aws web ui)
         taints: some-taint: "true" - Taints to apply to all nodes in nodegroup
                                      ie to taint gpu nodes, etc.)
         """
@@ -145,6 +145,10 @@ class EKS:
             if ng.min_size == 0:
                 errors.append(
                     f"Error: {error_name} has min_size of 0. Only unmanaged nodegroups support min_size of 0."
+                )
+            if ng.min_size > ng.desired_size:
+                errors.append(
+                    f"Error: {error_name} has a desired_size of {ng.desired_size}, which can't be less than the min_size (currently: {ng.min_size})."
                 )
         for name, ng in self.unmanaged_nodegroups.items():
             error_name = f"Unmanaged nodegroup [{name}]"

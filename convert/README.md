@@ -78,6 +78,10 @@ Change to the `terraform/` directory, and run the following two commands:
 
 `imports.sh` will run *several* `terraform import` commands in a row. This is normal.
 
+### Review and Configure Node Groups
+
+This conversion process will create a tvfars file with the default nodegroups for the terraform-aws-eks module. Please review the instructions for that module, and configure the nodegroups as desired. Your old nodegroups will remain functional after running the conversion (until the "clean-stack" step).
+
 ### Evaluate the Terraform plan
 
 Once everything has been imported, you can run `terraform plan` and evaluate what terraform will do:

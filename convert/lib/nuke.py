@@ -2,8 +2,10 @@
 import re
 from functools import cached_property
 from pprint import pprint
+from time import sleep
 
 import boto3
+from retry import retry
 
 from .meta import cdk_ids
 
@@ -23,6 +25,10 @@ class nuke:
         return boto3.client("ec2", self.region)
 
     @cached_property
+    def eks(self):
+        return boto3.client("eks", self.region)
+
+    @cached_property
     def iam(self):
         return boto3.client("iam", self.region)
 
@@ -37,6 +43,28 @@ class nuke:
     @cached_property
     def stepfunctions(self):
         return boto3.client("stepfunctions", self.region)
+
+    # TODO: Possibly need to nuke 0.0.0.0/0 SG rule on cluster SG when using eks nodegroup?
+    def eks_nodegroup(self, group_names: list[str]):
+        if not group_names:
+            return
+
+        eks_ng_regex = r"([0-9A-Za-z][A-Za-z0-9\-_]+)\/([0-9A-Za-z][A-Za-z0-9\-_]+)"
+
+        cluster_name = re.match(eks_ng_regex, group_names[0]).group(1)
+        group_names = [re.match(eks_ng_regex, g).group(2) for g in group_names]
+
+        p = self.eks.get_paginator("list_nodegroups")
+        existing_groups = [
+            ng for i in p.paginate(clusterName=cluster_name) for ng in i["nodegroups"] if ng in group_names
+        ]
+
+        if existing_groups:
+            pprint(existing_groups)
+
+            if self.delete:
+                for group in group_names:
+                    print(self.eks.delete_nodegroup(clusterName=cluster_name, nodegroupName=group))
 
     def asg(self, group_names: list[str]):
         if not group_names:
@@ -54,7 +82,32 @@ class nuke:
 
             if self.delete:
                 for group in existing_groups:
+                    if (
+                        self.autoscaling.describe_auto_scaling_groups(AutoScalingGroupNames=[group])[
+                            "AutoScalingGroups"
+                        ][0]["DesiredCapacity"]
+                        != 0
+                    ):
+                        print(
+                            self.autoscaling.update_auto_scaling_group(
+                                AutoScalingGroupName=group, DesiredCapacity=0, MinSize=0, MaxSize=0
+                            )
+                        )
+                        print(f"Auto scaling group {group} scaled to 0, must wait for scaling to finish to delete")
+
+                @retry(
+                    (
+                        self.autoscaling.exceptions.ResourceInUseFault,
+                        self.autoscaling.exceptions.ScalingActivityInProgressFault,
+                    ),
+                    delay=5,
+                    tries=60,
+                )
+                def delete_asg(group: str):
                     print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
+
+                for group in existing_groups:
+                    delete_asg(group)
 
     def eip(self, eip_addresses: list[str]):
         if not eip_addresses:
@@ -72,18 +125,6 @@ class nuke:
                     if association_id:
                         print(self.ec2.disassociate_address(AssociationId=association_id))
                     print(self.ec2.release_address(AllocationId=allocation_id))
-
-    def flowlog(self, flow_logs: list[str]):
-        if not flow_logs:
-            return
-        result = self.ec2.describe_flow_logs(FlowLogIds=flow_logs)
-        existing_flow_logs = [i["FlowLogId"] for i in result["FlowLogs"]]
-
-        if existing_flow_logs:
-            pprint({"Flow Log IDs to delete": existing_flow_logs})
-
-            if self.delete:
-                self.ec2.delete_flow_logs(FlowLogIds=existing_flow_logs)
 
     def instance(self, instance_ids: list[str]):
         if not instance_ids:
@@ -268,6 +309,37 @@ class nuke:
                 for p in existing_parameters:
                     self.ssm.delete_parameter(Name=p)
 
+    def endpoint(self, endpoints: list[str]):
+        if not endpoints:
+            return
+
+        p = self.ec2.get_paginator("describe_vpc_endpoints")
+        existing_endpoints = [
+            e["VpcEndpointId"] for i in p.paginate() for e in i["VpcEndpoints"] if e["VpcEndpointId"] in endpoints
+        ]
+
+        if existing_endpoints:
+            pprint({"VPC Endpoints to delete": existing_endpoints})
+
+            if self.delete:
+                self.ec2.delete_vpc_endpoints(VpcEndpointIds=existing_endpoints)
+                print("Waiting for endpoints to finish deleting...")
+                while True:
+                    sleep(5)
+                    deleted_endpoints = 0
+                    for e in existing_endpoints:
+                        try:
+                            r = self.ec2.describe_vpc_endpoints(VpcEndpointIds=[e])
+                            if (state := r["VpcEndpoints"][0]["State"]) and state in ["available", "pending"]:
+                                raise Exception(
+                                    f"VPC Endpoint {e} in unexpected state {state} after delete_endpoint call"
+                                )
+                        except self.ec2.exceptions.ClientError as e:
+                            if e.response["Error"]["Code"] == "InvalidVpcEndpointId.NotFound":
+                                deleted_endpoints += 1
+                    if deleted_endpoints == len(existing_endpoints):
+                        break
+
     def security_group_rule_ids(self, rulemap: dict[str, list[str]]):
         if not rulemap:
             return
@@ -276,10 +348,15 @@ class nuke:
 
         if self.delete:
             for group_id, rules in rulemap.items():
-                if rules["egress"]:
-                    self.ec2.revoke_security_group_egress(GroupId=group_id, SecurityGroupRuleIds=rules["egress"])
-                if rules["ingress"]:
-                    self.ec2.revoke_security_group_ingress(GroupId=group_id, SecurityGroupRuleIds=rules["ingress"])
+                try:
+                    if rules["egress"]:
+                        self.ec2.revoke_security_group_egress(GroupId=group_id, SecurityGroupRuleIds=rules["egress"])
+                    if rules["ingress"]:
+                        self.ec2.revoke_security_group_ingress(GroupId=group_id, SecurityGroupRuleIds=rules["ingress"])
+                except self.ec2.exceptions.ClientError as e:
+                    if e.response["Error"]["Code"] != "InvalidSecurityGroupRuleId.NotFound":
+                        raise
+                    print(e)
 
     def nuke(self, nuke_queue: dict[str, list[str]], remove_security_group_references: bool = False):
         all_referenced_groups = {}
@@ -316,10 +393,11 @@ class nuke:
 
         local_queue = []
         order = [
+            cdk_ids.endpoint,
+            cdk_ids.eks_nodegroup,
             cdk_ids.asg,
             cdk_ids.instance,
             cdk_ids.eip,
-            cdk_ids.flowlog,
             cdk_ids.launch_template,
             cdk_ids.security_group,
             cdk_ids.stepfunctions_statemachine,

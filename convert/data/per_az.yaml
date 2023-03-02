@@ -1,0 +1,35 @@
+name: per_az
+type: availability_zone
+resources:
+  efs_stack:
+  - cf: EfsEfsMountTarget%az_count_plus%
+    tf: module.domino_eks.module.storage.aws_efs_mount_target.eks[%az_count%]
+  vpc_stack:
+  - cf: VPC%cf_stack_key%PublicSubnet%az_count_plus%Subnet
+    tf: aws_subnet.public[%az_count%]
+  - cf: VPC%cf_stack_key%PublicSubnet%az_count_plus%RouteTable
+    tf: aws_route_table.public[%az_count%]
+  - cf_rtassoc:
+      route_table: VPC%cf_stack_key%PublicSubnet%az_count_plus%RouteTable
+      subnet: VPC%cf_stack_key%PublicSubnet%az_count_plus%Subnet
+    tf: aws_route_table_association.public[%az_count%]
+  - cf: VPC%cf_stack_key%PrivateSubnet%az_count_plus%Subnet
+    tf: aws_subnet.private[%az_count%]
+  - cf: VPC%cf_stack_key%PrivateSubnet%az_count_plus%RouteTable
+    tf: aws_route_table.private[%az_count%]
+  - cf_rtassoc:
+      route_table: VPC%cf_stack_key%PrivateSubnet%az_count_plus%RouteTable
+      subnet: VPC%cf_stack_key%PrivateSubnet%az_count_plus%Subnet
+    tf: aws_route_table_association.private[%az_count%]
+  - cf: '%cf_stack_key%PodSubnet%az_count_plus%Subnet'
+    tf: aws_subnet.pod[%az_count%]
+  - cf: '%cf_stack_key%PodSubnet%az_count_plus%RouteTable'
+    tf: aws_route_table.pod[%az_count%]
+  - cf_rtassoc:
+      route_table: '%cf_stack_key%PodSubnet%az_count_plus%RouteTable'
+      subnet: '%cf_stack_key%PodSubnet%az_count_plus%Subnet'
+    tf: aws_route_table_association.pod[%az_count%]
+  - cf: VPC%cf_stack_key%PublicSubnet%az_count_plus%EIP
+    tf: aws_eip.nat_gateway[%az_count%]
+  - cf: VPC%cf_stack_key%PublicSubnet%az_count_plus%NATGateway
+    tf: aws_nat_gateway.public[%az_count%]

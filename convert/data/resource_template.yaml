@@ -1,0 +1,46 @@
+name: resource_template
+resources:
+  efs_stack:
+  - cf: Efs
+    tf: module.domino_eks.module.storage.aws_efs_file_system.eks
+  - cf: Efsaccesspoint
+    tf: module.domino_eks.module.storage.aws_efs_access_point.eks
+  eks_stack:
+  - cf: eks
+    tf: module.domino_eks.module.eks.aws_eks_cluster.this
+  - cf: EKSSG
+    tf: module.domino_eks.module.eks.aws_security_group.eks_cluster
+  - cf: eksRole
+    tf: module.domino_eks.module.eks.aws_iam_role.eks_cluster
+  - tf: module.domino_eks.module.eks.aws_cloudwatch_log_group.eks_cluster
+    value: /aws/eks/%stack_name%/cluster
+  - cf: S3
+    tf: module.domino_eks.module.storage.aws_iam_policy.s3
+  - tf: module.domino_eks.module.eks.aws_eks_addon.this["coredns"]
+    value: '%stack_name%:coredns'
+  - tf: module.domino_eks.module.eks.aws_eks_addon.vpc_cni
+    value: '%stack_name%:vpc-cni'
+  - tf: module.domino_eks.module.eks.aws_eks_addon.this["kube-proxy"]
+    value: '%stack_name%:kube-proxy'
+  - cf: eksCreationRole
+    tf: aws_iam_role.grandfathered_creation_role
+  - cf: '%cf_stack_key%kubernetessecretsenvelopekey'
+    tf: module.domino_eks.module.eks.aws_kms_key.eks_cluster
+  s3_stack:
+  - cf: backups
+    tf: module.domino_eks.module.storage.aws_s3_bucket.backups
+  - cf: blobs
+    tf: module.domino_eks.module.storage.aws_s3_bucket.blobs
+  - cf: logs
+    tf: module.domino_eks.module.storage.aws_s3_bucket.logs
+  - cf: registry
+    tf: module.domino_eks.module.storage.aws_s3_bucket.registry
+  vpc_stack:
+  - cf: VPC
+    tf: aws_vpc.cdk_vpc
+  - cf: VPCIGW
+    tf: aws_internet_gateway.cdk_vpc
+  - cf_igw_attachment:
+      igw: VPCIGW
+      vpc: VPC
+    tf: aws_internet_gateway_attachment.cdk_vpc

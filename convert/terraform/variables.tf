@@ -41,6 +41,11 @@ variable "pod_subnet_ids" {
   description = "Pre-existing private subnets ids used with deployment"
 }
 
+variable "flow_logging" {
+  type        = bool
+  description = "Enable flow logging"
+}
+
 variable "k8s_version" {
   type        = string
   description = "EKS cluster k8s version (should match existing)"
@@ -55,6 +60,17 @@ variable "number_of_azs" {
   type        = number
   description = "Number of AZs used in deployment (usually 3)"
   default     = 3
+}
+
+variable "default_node_groups" {
+  type        = map
+  description = "Default node groups"
+}
+
+variable "additional_node_groups" {
+  type        = map
+  description = "Additional EKS managed nodegroups"
+  default     = {}
 }
 
 variable "route53_hosted_zone_name" {
@@ -102,4 +118,15 @@ variable "eks_custom_role_maps" {
   type        = list(object({rolearn = string, username = string, groups = list(string)}))
   description = "blah"
   default     = []
+}
+
+variable "eks_cluster_auto_sg" {
+  type        = string
+  description = "Atomatically generated security group with name in the form of eks-cluster-sg-<clustername>"
+}
+
+variable "s3_force_destroy_on_deletion" {
+  description = "Toogle to allow recursive deletion of all objects in the s3 buckets. if 'false' terraform will NOT be able to delete non-empty buckets"
+  type        = bool
+  default     = false
 }

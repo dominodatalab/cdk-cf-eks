@@ -3,23 +3,26 @@ import argparse
 import json
 import re
 from copy import deepcopy
-from functools import cached_property, reduce
+from functools import cached_property
+from os import listdir
+from os.path import abspath, join
 from pprint import pprint
 from subprocess import run
+from textwrap import dedent
 from time import sleep
 
 import boto3
 import yaml
 
-from .meta import (
-    cdk_ids,
-    cf_status,
-    efs_backup_resources,
-    resource_template,
-    route53_resource,
-    stack_map,
-)
+from .meta import cdk_ids, cf_status, stack_map
 from .nuke import nuke
+
+resources = {}
+
+for filename in listdir("data"):
+    with open(join("data", filename)) as f:
+        r = yaml.safe_load(f.read())
+    resources[r.pop("name")] = r
 
 clean_categories = [x.name for x in cdk_ids if x.name != "cloudformation_stack"]
 
@@ -41,7 +44,13 @@ class app:
             if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
                 for mapped_logical_id, name in stack_map.items():
                     if logical_id.startswith(mapped_logical_id):
-                        stacks[name] = self.get_stacks(physical_id, full)
+                        try:
+                            stacks[name] = self.get_stacks(physical_id, full)
+                        except self.cf.exceptions.ClientError as e:
+                            if "does not exist" in e.response["Error"]["Message"]:
+                                stacks[name] = None
+                            else:
+                                raise
                         break
                 else:
                     raise Exception(f"Nothing to map stack {r} to!")
@@ -53,6 +62,7 @@ class app:
     def setup(self, full: bool = False, no_stacks: bool = False):
         self.region = self.args.region
         self.stack_name = self.args.stack_name
+        self.cf_stack_key = re.sub(r"\W", "", self.stack_name)
 
         self.cf = boto3.client("cloudformation", self.region)
 
@@ -111,6 +121,21 @@ class app:
         resource_map_parser.add_argument("--availability-zones", help="Availability zone count", default=3, type=int)
         resource_map_parser.add_argument(
             "--route53", help="Whether or not to import route53 zones", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
+            "--bastion", help="Whether or not to import bastion security group", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
+            "--monitoring", help="Whether or not to import monitoring bucket", default=False, action="store_true"
+        )
+        resource_map_parser.add_argument(
+            "--unmanaged-nodegroups",
+            help="Whether or not unmanaged nodegroups are in use",
+            default=False,
+            action="store_true",
+        )
+        resource_map_parser.add_argument(
+            "--flow-logging", help="Whether or not flow logging is configured", default=False, action="store_true"
         )
         resource_map_parser.add_argument(
             "--efs-backups",
@@ -198,58 +223,68 @@ class app:
         else:
             pprint(out)
 
-    def generate_resource_map(self, availability_zones: int, efs_backups: bool, route53: bool) -> dict:
-        template = deepcopy(resource_template)
+    def generate_resource_map(
+        self,
+        availability_zones: int,
+        efs_backups: bool,
+        route53: bool,
+        bastion: bool,
+        monitoring: bool,
+        unmanaged_nodegroups: bool,
+        flow_logging: bool,
+    ) -> dict:
+        template = resources["resource_template"]["resources"]
+
+        def nested_az_replace(d: dict, count: int):
+            for k, v in d.items():
+                if isinstance(v, str):
+                    d[k] = re.sub("%az_count%", str(count), d[k])
+                    d[k] = re.sub("%az_count_plus%", str(count + 1), d[k])
+                elif isinstance(v, list):
+                    for i, entry in enumerate(v):
+                        if isinstance(entry, dict):
+                            v[i] = nested_az_replace(entry, count)
+                        else:
+                            raise Exception(f"Unexpected resource map entry {k}: {v}")
+                elif isinstance(v, dict):
+                    d[k] = nested_az_replace(v, count)
+                else:
+                    raise Exception(f"Unexpected resource map entry {k}: {v}")
+            return d
+
+        optional_resources = []
         for count in range(availability_zones):
-            template["efs_stack"].append(
-                {
-                    "cf": f"EfsEfsMountTarget{count+1}",
-                    "tf": f"module.domino_eks.module.storage.aws_efs_mount_target.eks[{count}]",
-                }
-            )
-            for s_type in ["Public", "Private", "Pod"]:
-                vpc_prefix = "" if s_type == "Pod" else "VPC"
-                prefix = f"{vpc_prefix}%stack_name%{s_type}Subnet{count+1}"
-                template["vpc_stack"].extend(
-                    [
-                        {
-                            "cf": f"{prefix}Subnet",
-                            "tf": f"aws_subnet.{s_type.lower()}[{count}]",
-                        },
-                        {
-                            "cf": f"{prefix}RouteTable",
-                            "tf": f"aws_route_table.{s_type.lower()}[{count}]",
-                        },
-                        {
-                            "cf_rtassoc": {
-                                "subnet": f"{prefix}Subnet",
-                                "route_table": f"{prefix}RouteTable",
-                            },
-                            "tf": f"aws_route_table_association.{s_type.lower()}[{count}]",
-                        },
-                    ]
-                )
-            template["vpc_stack"].extend(
-                [
-                    {
-                        "cf": f"VPC%stack_name%PublicSubnet{count+1}EIP",
-                        "tf": f"aws_eip.nat_gateway[{count}]",
-                    },
-                    {"cf": f"VPC%stack_name%PublicSubnet{count+1}NATGateway", "tf": f"aws_nat_gateway.public[{count}]"},
-                ]
-            )
+            az_template = nested_az_replace(deepcopy(resources["per_az"]), count)
+            optional_resources.append(az_template)
 
         if efs_backups:
-            template["efs_stack"].extend(efs_backup_resources)
-
+            optional_resources.append(resources["efs_backup"])
         if route53:
-            template["eks_stack"].append(route53_resource)
+            optional_resources.append(resources["route53"])
+        if flow_logging:
+            optional_resources.append(resources["flow_logging"])
+        if monitoring:
+            optional_resources.append(resources["monitoring_bucket"])
+        if bastion:
+            optional_resources.append(resources["bastion"])
+        if unmanaged_nodegroups:
+            optional_resources.append(resources["unmanaged_nodegroup"])
+
+        for resource in optional_resources:
+            for key in resource["resources"].keys():
+                template[key].extend(resource["resources"][key])
 
         return template
 
     def resource_map(self):
         resource_map = self.generate_resource_map(
-            self.args.availability_zones, self.args.efs_backups, self.args.route53
+            self.args.availability_zones,
+            self.args.efs_backups,
+            self.args.route53,
+            self.args.bastion,
+            self.args.monitoring,
+            self.args.unmanaged_nodegroups,
+            self.args.flow_logging,
         )
         print(yaml.safe_dump(resource_map))
 
@@ -264,10 +299,15 @@ class app:
                 availability_zones=self.args.availability_zones or self.cdkconfig["vpc"]["max_azs"],
                 efs_backups=self.cdkconfig["efs"]["backup"]["enable"],
                 route53=bool(self.cdkconfig["route53"]["zone_ids"]),
+                bastion=self.cdkconfig["vpc"]["bastion"]["enabled"],
+                monitoring=self.cdkconfig["s3"]["buckets"].get("monitoring"),
+                unmanaged_nodegroups=self.cdkconfig["eks"]["unmanaged_nodegroups"],
+                flow_logging=self.cdkconfig["vpc"]["flow_logging"],
             )
 
         def t(val: str) -> str:
             val = re.sub(r"%stack_name%", self.stack_name, val)
+            val = re.sub(r"%cf_stack_key%", self.cf_stack_key, val)
             return val
 
         imports = []
@@ -298,9 +338,27 @@ class app:
                     resource_id = f"{plan_id}|{selection_id}"
                 else:
                     resource_id = resources[t(item["cf"])]
-                imports.append(f"terraform import '{tf_import_path}' '{resource_id}'")
+                imports.append(f"tf_import '{tf_import_path}' '{resource_id}'")
 
-        print("#!/bin/bash\nset -ex")
+        eks = boto3.client("eks", self.region)
+        eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
+        eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+        import_path = "aws_security_group.eks_cluster_auto"
+        imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}'")
+
+        print(
+            dedent(
+                """\
+            #!/bin/bash
+            set -ex
+
+            tf_import() {
+                terraform import "$1" "$2"
+                terraform state show "$1" || (echo "$1 not in terraform state, import may have failed" && exit 1)
+            }
+        """
+            )
+        )
         print("\n".join(imports))
 
     def create_tfvars(self):
@@ -310,12 +368,16 @@ class app:
             return [
                 v
                 for k, v in self.stacks["vpc_stack"]["resources"].items()
-                if re.match(f"{prefix}{self.stack_name}{subnet_type}Subnet\\d+Subnet", k)
+                if re.match(f"{prefix}{self.cf_stack_key}{subnet_type}Subnet\\d+Subnet", k)
             ]
 
-        ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.stack_name}NG"]
-        client = boto3.client("iam", self.region)
-        ng_role_arn = client.get_role(RoleName=ng_role_name)["Role"]["Arn"]
+        ec2 = boto3.client("ec2", self.region)
+        eks = boto3.client("eks", self.region)
+        iam = boto3.client("iam", self.region)
+        r53 = boto3.client("route53", self.region)
+
+        ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.cf_stack_key}NG"]
+        ng_role_arn = iam.get_role(RoleName=ng_role_name)["Role"]["Arn"]
         eks_custom_role_maps = [
             {
                 "rolearn": ng_role_arn,
@@ -327,6 +389,22 @@ class app:
                 ],
             }
         ]
+        # CDK force destroy is individually configurable
+        # If any of them at all are not set to force destroy, turn the feature off
+        s3_force_destroy = not [
+            b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]
+        ]
+
+        eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
+        eks_k8s_version = eks_cluster_result["cluster"]["version"]
+        eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+
+        route53_hosted_zone_name = ""
+        if r53_zone_ids := self.cdkconfig["route53"]["zone_ids"]:
+            route53_hosted_zone_name = r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]["Name"]
+
+        subnet_result = ec2.describe_subnets(SubnetIds=get_subnet_ids("Private"))
+        az_zone_ids = [s["AvailabilityZoneId"] for s in subnet_result["Subnets"]]
 
         tfvars = {
             "deploy_id": self.cdkconfig["name"],
@@ -338,24 +416,50 @@ class app:
             else self.stacks["vpc_stack"]["resources"]["VPC"],
             "public_subnet_ids": get_subnet_ids("Public"),
             "private_subnet_ids": get_subnet_ids("Private"),
+            "default_node_groups": {
+                "platform": {
+                    "availability_zone_ids": az_zone_ids,
+                },
+                "compute": {
+                    "availability_zone_ids": az_zone_ids,
+                },
+                "gpu": {
+                    "availability_zone_ids": az_zone_ids,
+                },
+            },
             "pod_subnet_ids": get_subnet_ids("Pod", ""),
-            "k8s_version": self.cdkconfig["eks"]["version"],  # We're trusting this is accurate
-            "ssh_key_path": self.args.ssh_key_path,
+            "k8s_version": eks_k8s_version,
+            "ssh_key_path": abspath(self.args.ssh_key_path),
             "number_of_azs": self.cdkconfig["vpc"]["max_azs"],
-            "route53_hosted_zone_name": reduce(
-                lambda cfg, k: cfg[k] if k in cfg else [""],
-                ["install", "overrides", "external_dns", "domain_filters"],
-                self.cdkconfig,
-            )[0],
+            "route53_hosted_zone_name": route53_hosted_zone_name,
             "efs_backups": self.cdkconfig["efs"]["backup"]["enable"],
             "efs_backup_schedule": self.cdkconfig["efs"]["backup"]["schedule"],
             "efs_backup_cold_storage_after": self.cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
             "efs_backup_delete_after": self.cdkconfig["efs"]["backup"]["delete_after"],
             "efs_backup_force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
             "eks_custom_role_maps": eks_custom_role_maps,
+            "s3_force_destroy_on_deletion": s3_force_destroy,
+            "flow_logging": self.cdkconfig["vpc"]["flow_logging"],
+            "eks_cluster_auto_sg": eks_cluster_auto_sg,
         }
 
-        print(json.dumps(tfvars))
+        print(json.dumps(tfvars, indent=4))
+
+        notes = ""
+        if not self.cdkconfig["eks"]["private_api"]:
+            notes += "\n* Your CDK EKS is configured for public API access.\n  Your cluster's setting will be changed to *PRIVATE*, as the terraform module does not support public EKS endpoints."
+
+        if len(r53_zone_ids) > 1:
+            notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
+
+        notes += (
+            "\n* Nodegroup settings do not carry over. Please examine tfvars if you want to make any customizations."
+        )
+
+        from sys import stderr
+
+        if notes:
+            print(f"*** IMPORTANT ***: {notes}", file=stderr)
 
     def clean_stack(self):
         self.setup(full=True, no_stacks=self.args.resource_file)
@@ -387,26 +491,27 @@ class app:
                 "(Handler|KubectlLayer|ProviderframeworkonEvent).*": lambda_safe,
             },
             "eks_stack": {
-                f"(snapshot|{self.stack_name}ebscsi|{self.stack_name}DominoEcrRestricted|autoscaler)": [
+                f"(snapshot|{self.cf_stack_key}ebscsi|{self.cf_stack_key}DominoEcrRestricted|autoscaler)": [
                     cdk_ids.iam_policy.value
                 ],
-                f"(eksMastersRole|{self.stack_name}NG)$": [cdk_ids.iam_role.value],
+                f"(eksMastersRole|{self.cf_stack_key}NG)$": [cdk_ids.iam_role.value],
                 "eksKubectlReadyBarrier": [cdk_ids.ssm_parameter.value],
                 "(clusterpost(creation|deletion)tasks|LogRetention)": lambda_safe,
                 "Unmanaged": [cdk_ids.instance_profile.value, cdk_ids.asg.value, cdk_ids.launch_template.value],
+                "eksNodegroup": [cdk_ids.eks_nodegroup.value],
             },
             "s3_stack": {
                 "CustomS3AutoDeleteObjectsCustomResourceProvider": lambda_safe,
             },
             "vpc_stack": {
                 "endpointssg": [cdk_ids.security_group.value],
+                "(.*ENDPOINT|VPCS3)": [cdk_ids.endpoint.value],
                 "bastion": [
                     cdk_ids.instance.value,
                     cdk_ids.instance_profile.value,
                     cdk_ids.iam_role.value,
                     cdk_ids.eip.value,
                 ],
-                "VPCrejectFlowLogsFlowLog": [cdk_ids.flowlog.value],  # TODO: should this be in the module?
                 "(LogRetention|AWS)": lambda_safe,
             },
             "core_stack": {
@@ -438,17 +543,27 @@ class app:
         # but the eks cluster security group isn't gettable from cloudformation...
         ec2 = boto3.client("ec2", self.region)
         eks = boto3.client("eks", self.region)
-        eks_cluster_sg = eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
-            "clusterSecurityGroupId"
-        ]
-        unmanaged_sg = self.stacks["eks_stack"]["resources"]["UnmanagedSG"]["PhysicalResourceId"]
+
+        empty_sg_rules = {"egress": [], "ingress": []}
+        try:
+            eks_cluster_sg = {
+                eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
+                    "clusterSecurityGroupId"
+                ]: empty_sg_rules
+            }
+        except eks.exceptions.ResourceNotFoundException:
+            eks_cluster_sg = {}
+
+        unmanaged_sg = self.stacks["eks_stack"]["resources"].get("UnmanagedSG")
+
         eks_sg = self.stacks["eks_stack"]["resources"]["EKSSG"]["PhysicalResourceId"]
 
         rule_ids_to_nuke = {
-            eks_cluster_sg: {"egress": [], "ingress": []},
-            unmanaged_sg: {"egress": [], "ingress": []},
+            **eks_cluster_sg,
             eks_sg: {"egress": [], "ingress": []},
         }
+        if unmanaged_sg:
+            rule_ids_to_nuke[unmanaged_sg["PhysicalResourceId"]] = {"egress": [], "ingress": []}
 
         for group in rule_ids_to_nuke.keys():
             rules = [
@@ -456,7 +571,7 @@ class app:
                 for r in ec2.describe_security_group_rules(Filters=[{"Name": "group-id", "Values": [group]}])[
                     "SecurityGroupRules"
                 ]
-                if re.match(f"(from|to) {self.stack_name}", r.get("Description", ""))
+                if re.match(f"(from|to) {self.cf_stack_key}", r.get("Description", ""))
             ]
             rule_ids_to_nuke[group]["ingress"].extend([r["SecurityGroupRuleId"] for r in rules if not r["IsEgress"]])
             rule_ids_to_nuke[group]["egress"].extend([r["SecurityGroupRuleId"] for r in rules if r["IsEgress"]])
@@ -505,8 +620,14 @@ class app:
         def get_stack_resources(s) -> dict:
             child_id = s["PhysicalResourceId"]
             child_name = re.search(r":stack/(.*)/", child_id).group(1)
-            if self.cf.describe_stacks(StackName=child_id)["Stacks"][0]["StackStatus"] == "DELETE_COMPLETE":
-                return
+            try:
+                if self.cf.describe_stacks(StackName=child_id)["Stacks"][0]["StackStatus"] == "DELETE_COMPLETE":
+                    return
+            except self.cf.exceptions.ClientError as e:
+                if "does not exist" in e.response["Error"]["Message"]:
+                    return
+                raise
+
             child_resources = self.cf.describe_stack_resources(StackName=child_name)["StackResources"]
             stacks[child_name] = [
                 r["LogicalResourceId"] for r in child_resources if r["ResourceStatus"] != "DELETE_COMPLETE"
