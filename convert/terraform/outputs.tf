@@ -47,3 +47,18 @@ output "BASTION_IP" {
   description = "Bastion instance IP address"
   value       = module.domino_eks.bastion_ip
 }
+
+output "KMS_KEY_ID" {
+  description = "KMS key ID, if enabled"
+  value       = module.domino_eks.kms_key_id
+}
+
+output "KMS_KEY_ARN" {
+  description = "KMS key ARN, if enabled"
+  value       = module.domino_eks.kms_key_arn
+}
+
+output "CONTAINER_REGISTRY" {
+  description = "ECR base registry URL"
+  value       = module.domino_eks.container_registry
+}
