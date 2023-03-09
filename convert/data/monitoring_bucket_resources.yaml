@@ -3,4 +3,4 @@ type: optional
 resources:
   s3_stack:
   - cf: monitoring
-    tf: module.domino_eks.module.storage.aws_s3_bucket.monitoring
+    tf: module.eks.module.storage.aws_s3_bucket.monitoring

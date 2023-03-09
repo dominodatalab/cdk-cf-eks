@@ -3,7 +3,7 @@ type: availability_zone
 resources:
   efs_stack:
   - cf: EfsEfsMountTarget%az_count_plus%
-    tf: module.domino_eks.module.storage.aws_efs_mount_target.eks[%az_count%]
+    tf: module.eks.module.storage.aws_efs_mount_target.eks[%az_count%]
   vpc_stack:
   - cf: VPC%cf_stack_key%PublicSubnet%az_count_plus%Subnet
     tf: aws_subnet.public[%az_count%]

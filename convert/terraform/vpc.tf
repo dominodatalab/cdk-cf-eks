@@ -6,7 +6,7 @@ resource "aws_vpc" "cdk_vpc" {
 
 resource "aws_flow_log" "flowlog" {
     count = var.flow_logging ? 1 : 0
-    log_destination          = module.domino_eks.s3_buckets["monitoring"].arn
+    log_destination          = var.flow_log_bucket_arn
     vpc_id                   = aws_vpc.cdk_vpc.id
     max_aggregation_interval = 600
     log_destination_type     = "s3"
