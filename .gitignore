@@ -19,3 +19,4 @@ terraform/.terraform
 
 .idea/
 .coverage
+.vscode/
