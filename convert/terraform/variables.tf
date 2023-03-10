@@ -157,6 +157,6 @@ variable "kubeconfig_path" {
 
 variable "flow_log_bucket_arn" {
   type        = string
-  description = ""
+  description = "Bucket for vpc flow logging"
   default     = ""
 }
