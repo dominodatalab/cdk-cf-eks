@@ -3,10 +3,10 @@ type: optional
 resources:
   efs_stack:
   - cf: efsbackup
-    tf: module.domino_eks.module.storage.aws_backup_vault.efs[0]
+    tf: module.eks.module.storage.aws_backup_vault.efs[0]
   - cf: efsbackupplan
-    tf: module.domino_eks.module.storage.aws_backup_plan.efs[0]
+    tf: module.eks.module.storage.aws_backup_plan.efs[0]
   - cf: efsbackuprole
-    tf: module.domino_eks.module.storage.aws_iam_role.efs_backup_role[0]
+    tf: module.eks.module.storage.aws_iam_role.efs_backup_role[0]
   - cf_backupselection: efsbackupselection
-    tf: module.domino_eks.module.storage.aws_backup_selection.efs[0]
+    tf: module.eks.module.storage.aws_backup_selection.efs[0]

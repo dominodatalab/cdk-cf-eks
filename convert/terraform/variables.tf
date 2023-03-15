@@ -116,17 +116,47 @@ variable "eks_master_role_names" {
 
 variable "eks_custom_role_maps" {
   type        = list(object({rolearn = string, username = string, groups = list(string)}))
-  description = "blah"
+  description = "Custom role maps for aws auth configmap"
   default     = []
 }
 
 variable "eks_cluster_auto_sg" {
-  type        = string
   description = "Atomatically generated security group with name in the form of eks-cluster-sg-<clustername>"
+  type        = string
 }
 
 variable "s3_force_destroy_on_deletion" {
-  description = "Toogle to allow recursive deletion of all objects in the s3 buckets. if 'false' terraform will NOT be able to delete non-empty buckets"
   type        = bool
+  description = "Toogle to allow recursive deletion of all objects in the s3 buckets. if 'false' terraform will NOT be able to delete non-empty buckets"
   default     = false
+}
+
+variable "use_kms" {
+  type        = bool
+  description = "If set, use either the specified KMS key or a Domino-generated one"
+  default     = false
+}
+
+variable "kms_key_id" {
+  type        = string
+  description = "If use_kms is set, use the specified KMS key"
+  default     = null
+}
+
+variable "ecr_force_destroy_on_deletion" {
+  type        = bool
+  description = "Toogle to allow recursive deletion of all objects in the ECR repositories. if 'false' terraform will NOT be able to delete non-empty repositories"
+  default     = false
+}
+
+variable "kubeconfig_path" {
+  type        = string
+  description = "fully qualified path name to write the kubeconfig file"
+  default     = ""
+}
+
+variable "flow_log_bucket_arn" {
+  type        = string
+  description = "Bucket for vpc flow logging"
+  default     = ""
 }
