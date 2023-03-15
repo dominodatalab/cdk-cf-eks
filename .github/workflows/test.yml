@@ -12,14 +12,19 @@ on:
 
 jobs:
   test-build-deploy:
+    permissions:
+      id-token: write
+      contents: read
+
     runs-on: ubuntu-latest
+
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       AWS_REGION: us-west-2
+
     defaults:
       run:
         working-directory: ./cdk
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.9
@@ -51,10 +56,14 @@ jobs:
     - name: Test with pytest
       run: |
         coverage run -m pytest tests
-
     - name: Coverage report
       run: |
         coverage report
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Create/lint default config
       env:
         AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
