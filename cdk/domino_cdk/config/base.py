@@ -66,7 +66,10 @@ class DominoCDKConfig:
             efs = EFS.from_0_0_0(efs)
 
         # Install is no longer supported
-        c.pop("install", None)
+        if c.pop("install", None):
+            raise ValueError(
+                "\"install\" is no longer a supported configurable, please directly modify the install configuration post-provision"
+            )
 
         acm = c.pop("acm", None)
         if acm is not None:
@@ -106,7 +109,10 @@ class DominoCDKConfig:
             efs = EFS.from_0_0_0(efs)
 
         # Install is no longer supported
-        c.pop("install", None)
+        if c.pop("install", None):
+            raise ValueError(
+                "\"install\" is no longer a supported configurable, please directly modify the install configuration post-provision"
+            )
 
         acm = c.pop("acm", None)
         if acm is not None:
