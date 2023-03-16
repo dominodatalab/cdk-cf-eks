@@ -2,7 +2,7 @@
   "//": "This file is JSON for compatibility with Domino tooling",
   "module": {
     "eks": {
-      "source": "github.com/dominodatalab/terraform-aws-eks.git?ref=miguelhar.PLAT-6387.calico-helm-install",
+      "source": "github.com/dominodatalab/terraform-aws-eks.git?ref=main",
       "deploy_id": "${var.deploy_id}",
       "region": "${var.region}",
       "tags": "${var.tags}",

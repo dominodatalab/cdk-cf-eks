@@ -20,35 +20,29 @@ class DominoAwsConfigurator:
         # the `HelmChart` produces an error since the helm-chart is applied before the k8s objects are deleted and helm tries to create resources
         # that already exist.
         # Since we need to replace them with `something`(manifest can not be []) to replace the CRDs and installation we are using a
-        # namespace(`delete-this-empty-namespace`). As well as adding the creation as a dependency to the `HelmChart`.
-        # As a result the k8s objects get deleted and replaced with a namespace then the `HelmChart` can install successfully.
-
-        replace_calico_crds = []
-        ## This will recreate a namespace 20 times to replace the previous calico crds
-        for i in range(20):
-            manifest = eks.KubernetesManifest(
-                self.scope,
-                "calico-crds" + ("" if i == 0 else str(i)),
-                cluster=self.eks_cluster,
-                manifest=[
-                    {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": "delete-this-empty-namespace"}}
-                ],
-                overwrite=True,
-            )
-            if i > 0:
-                ## Ensure serial execution
-                manifest.node.add_dependency(replace_calico_crds[i - 1])
-            replace_calico_crds.append(manifest)
+        # configmap(`not-used`). As well as adding the creation as a dependency to the `HelmChart`.
+        # As a result the k8s objects get deleted and replaced with a configmap then the `HelmChart` can install successfully.
 
         replace_calico_install = eks.KubernetesManifest(
             self.scope,
             "calico",
             cluster=self.eks_cluster,
-            manifest=[{"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": "delete-this-empty-namespace"}}],
+            manifest=[{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "not-used"}}],
             overwrite=True,
         )
 
-        replace_calico_install.node.add_dependency(replace_calico_crds[-1])
+        replace_calico_crds = []
+        # This will recreate a configmap 20 times to replace the previous calico crds
+        for i in range(19):
+            manifest = eks.KubernetesManifest(
+                self.scope,
+                "calico-crds" + ("" if i == 0 else str(i)),
+                cluster=self.eks_cluster,
+                manifest=[{"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "not-used"}}],
+                overwrite=True,
+            )
+            manifest.node.add_dependency(replace_calico_install)
+            replace_calico_crds.append(manifest)
 
         calico_helm_chart = eks.HelmChart(
             scope=self.scope,
@@ -62,6 +56,5 @@ class DominoAwsConfigurator:
             release="calico-tigera-operator",
             version="v3.25.0",
             timeout=cdk.Duration.minutes(10),
-            wait=True,
         )
-        calico_helm_chart.node.add_dependency(replace_calico_install)
+        calico_helm_chart.node.add_dependency(replace_calico_crds[-1])
