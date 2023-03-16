@@ -59,6 +59,7 @@ jobs:
     - name: Coverage report
       run: |
         coverage report
+
     - name: Authenticate with AWS
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -103,6 +104,12 @@ jobs:
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
         cdk deploy --require-approval never --outputs-file outputs.json
         $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Collect diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
@@ -124,6 +131,7 @@ jobs:
         kubectl get pv -o yaml > $LOG_DIR/pvs.txt
         kubectl get no -o yaml > $LOG_DIR/nodes.txt
         kubectl describe no > $LOG_DIR/nodes-described.txt
+
     - name: Setup cloudformation-only user for safe stack deletion
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert/cloudformation-only
@@ -151,6 +159,12 @@ jobs:
         terraform show -json terraform.plan | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee terraform.plan.json
         test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
         terraform apply -auto-approve terraform.plan
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Clean and delete stack
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert
@@ -164,6 +178,12 @@ jobs:
         name: Diagnostic Data
         path: ./
         retention-days: 14
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Delete stack w/CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./cdk
