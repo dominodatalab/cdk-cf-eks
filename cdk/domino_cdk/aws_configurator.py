@@ -24,3 +24,5 @@ class DominoAwsConfigurator:
             timeout=cdk.Duration.minutes(10),
             wait=True,
         )
+
+
