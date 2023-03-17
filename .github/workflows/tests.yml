@@ -73,9 +73,6 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     - name: Create/lint default config
       env:
-        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
         GITHUB_SHA: ${{ github.sha }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -86,16 +83,11 @@ jobs:
         ./util.py generate_config_template --name $NAME --aws-region=us-west-2 --aws-account-id=$AWS_ACCOUNT_ID --dev --platform-nodegroups 2 --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         cdk synth --context singlestack=true -q
         cdk synth -q
     - name: Upload distribution artifacts
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DOMINO_ARTIFACTS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DOMINO_ARTIFACTS_ACCESS_KEY }}
         DOMINO_CDK_VERSION: "0.0.0+${{ github.sha }}"
         DATEDIR: "date +%Y%m%d"
       run: |
@@ -109,8 +101,6 @@ jobs:
     - name: Deploy CDK
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
       run: |
@@ -118,9 +108,6 @@ jobs:
         cdk deploy --require-approval never --outputs-file outputs.json
     - name: Prepare Domino install
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
         jq -r ".[].agentconfig" outputs.json > agent_template.yaml
@@ -128,12 +115,10 @@ jobs:
     - name: Install Domino
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
         KUBECONFIG: ./kubeconfig
         LOG_DIR: k8s-cluster-state
       run: |
-        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent run -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent run -f /cdk/domino.yml
 
     - name: Authenticate with AWS
       uses: aws-actions/configure-aws-credentials@v2
@@ -143,8 +128,6 @@ jobs:
     - name: Collect diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
         KUBECONFIG: ./kubeconfig
         LOG_DIR: k8s-cluster-state
       run: |
@@ -172,11 +155,8 @@ jobs:
         retention-days: 14
     - name: Uninstall Domino
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
-        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent destroy -f /cdk/domino.yml
+        docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent destroy -f /cdk/domino.yml
 
     - name: Authenticate with AWS
       uses: aws-actions/configure-aws-credentials@v2
@@ -185,9 +165,6 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     - name: Destroy CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.DELTA_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
