@@ -146,4 +146,10 @@ class DominoStack(cdk.Stack):
                 value=r53_owner_id,
             )
 
+        cdk.CfnOutput(
+            self,
+            "agent_config",
+            value="\"agent_config\" is no longer supported, please manually create your install configuration based on the provisioning outputs",
+        )
+
         cdk.CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
