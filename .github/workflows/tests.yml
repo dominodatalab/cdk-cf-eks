@@ -73,6 +73,7 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     - name: Create/lint default config
       env:
+        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
         GITHUB_SHA: ${{ github.sha }}
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
