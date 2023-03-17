@@ -12,12 +12,20 @@ on:
 
 jobs:
   test-build-deploy:
+    permissions:
+      id-token: write
+      contents: read
+
     runs-on: ubuntu-latest
+
     env:
       DEPLOYER_IMAGE: quay.io/domino/deployer:develop.f72b81d5db7e04cc48478d310eafa4abb927ce7f
+      AWS_REGION: us-west-2
+
     defaults:
       run:
         working-directory: ./cdk
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.9
@@ -54,10 +62,15 @@ jobs:
     - name: Test with pytest
       run: |
         coverage run -m pytest tests
-
     - name: Coverage report
       run: |
         coverage report
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Create/lint default config
       env:
         AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
@@ -121,6 +134,12 @@ jobs:
         LOG_DIR: k8s-cluster-state
       run: |
         docker run --rm -v $(pwd):/cdk -v $(pwd)/agent_logs:/domino-deployer/logs -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent run -f /cdk/domino.yml
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Collect diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
@@ -158,6 +177,12 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{ secrets.DELTA_ACCESS_KEY }}
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent destroy -f /cdk/domino.yml
+
+    - name: Authenticate with AWS
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+        aws-region: ${{ env.AWS_REGION }}
     - name: Destroy CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       env:
