@@ -100,7 +100,7 @@ jobs:
         echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$filename"
         done
     - name: Deploy CDK
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3'
       env:
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
@@ -108,13 +108,13 @@ jobs:
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
         cdk deploy --require-approval never --outputs-file outputs.json
     - name: Prepare Domino install
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3'
       run: |
         $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
         jq -r ".[].agentconfig" outputs.json > agent_template.yaml
         docker run --rm -v $(pwd):/cdk $DEPLOYER_IMAGE python -m fleetcommand_agent init --full -t /cdk/agent_template.yaml -f /cdk/domino.yml
     - name: Install Domino
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3'
       env:
         KUBECONFIG: ./kubeconfig
         LOG_DIR: k8s-cluster-state
@@ -127,7 +127,7 @@ jobs:
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
     - name: Collect diagnostic data
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3')
       env:
         KUBECONFIG: ./kubeconfig
         LOG_DIR: k8s-cluster-state
@@ -148,14 +148,14 @@ jobs:
         kubectl get no -o yaml > $LOG_DIR/nodes.txt
         kubectl describe no > $LOG_DIR/nodes-described.txt
     - name: Upload diagnostic data
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3')
       uses: actions/upload-artifact@v2
       with:
         name: Diagnostic Data
         path: ./
         retention-days: 14
     - name: Uninstall Domino
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3')
       run: |
         docker run --rm -v $(pwd):/cdk -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY -e AWS_SESSION_TOKEN=$AWS_SESSION_TOKEN -e KUBECONFIG=/cdk/kubeconfig $DEPLOYER_IMAGE python -m fleetcommand_agent destroy -f /cdk/domino.yml
 
@@ -165,12 +165,12 @@ jobs:
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
     - name: Destroy CDK
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3')
       run: |
         sleep 120 # Immediate destroy after cdk deploy causes race conditions + give k8s time to deprovision after domino Uninstall
         cdk destroy --force
     - name: Fail without deploy
-      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/master') }}
+      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/release-0.3') }}
       run: |
         echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
         exit 1
