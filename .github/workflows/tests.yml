@@ -123,6 +123,7 @@ jobs:
 
     - name: Authenticate with AWS
       uses: aws-actions/configure-aws-credentials@v2
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3')
       with:
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
@@ -161,6 +162,7 @@ jobs:
 
     - name: Authenticate with AWS
       uses: aws-actions/configure-aws-credentials@v2
+      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/release-0.3')
       with:
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
