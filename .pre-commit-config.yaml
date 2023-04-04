@@ -12,13 +12,13 @@ repos:
     -   id: no-commit-to-branch
         args: [-b, master, -b, develop]
     -   id: trailing-whitespace
--   repo: https://gitlab.com/pycqa/flake8
+-   repo: https://github.com/PyCQA/flake8
     rev: 4.0.1
     hooks:
     -   id: flake8
         args: [--config, cdk/.flake8]
 -   repo: https://github.com/PyCQA/isort
-    rev: 5.10.1
+    rev: 5.12.0
     hooks:
     -   id: isort
 -   repo: https://github.com/psf/black

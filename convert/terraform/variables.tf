@@ -63,12 +63,12 @@ variable "number_of_azs" {
 }
 
 variable "default_node_groups" {
-  type        = map
+  type        = map(any)
   description = "Default node groups"
 }
 
 variable "additional_node_groups" {
-  type        = map
+  type        = map(any)
   description = "Additional EKS managed nodegroups"
   default     = {}
 }
@@ -115,7 +115,7 @@ variable "eks_master_role_names" {
 }
 
 variable "eks_custom_role_maps" {
-  type        = list(object({rolearn = string, username = string, groups = list(string)}))
+  type        = list(object({ rolearn = string, username = string, groups = list(string) }))
   description = "Custom role maps for aws auth configmap"
   default     = []
 }

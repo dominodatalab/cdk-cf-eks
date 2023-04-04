@@ -15,7 +15,9 @@ cdk.out
 cdk.context.json
 
 # terraform
-terraform/.terraform
+**/.terraform/*
+**.terraform.lock.hcl*
+**.terraform.lock.hcl
 
 .idea/
 .coverage
