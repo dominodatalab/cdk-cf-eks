@@ -30,12 +30,12 @@
       },
       "network": {
         "vpc": {
-          "id": "${var.vpc_id}"
-        },
-        "subnets": {
-          "public": "${var.public_subnet_ids}",
-          "private": "${var.private_subnet_ids}",
-          "pod": "${var.pod_subnet_ids}"
+          "id": "${var.vpc_id}",
+          "subnets": {
+            "public": "${var.public_subnet_ids}",
+            "private": "${var.private_subnet_ids}",
+            "pod": "${var.pod_subnet_ids}"
+          }
         }
       }
     }
