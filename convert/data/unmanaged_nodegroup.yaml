@@ -3,11 +3,6 @@ type: optional
 resources:
   eks_stack:
   - cf_sgr:
-      rule: _egress_tcp_443_443_
-      rule_sg: UnmanagedSG
-      sg: EKSSG
-    tf: module.eks.module.eks.aws_security_group_rule.eks_cluster["egress_nodes_443"]
-  - cf_sgr:
       rule: _ingress_tcp_443_443_
       rule_sg: UnmanagedSG
       sg: EKSSG
