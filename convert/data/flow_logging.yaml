@@ -1,0 +1,6 @@
+name: flow_logging
+type: optional
+resources:
+  vpc_stack:
+  - cf: VPCrejectFlowLogsFlowLog
+    tf: aws_flow_log.flowlog[0]
