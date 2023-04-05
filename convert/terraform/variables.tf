@@ -76,7 +76,7 @@ variable "additional_node_groups" {
 variable "route53_hosted_zone_name" {
   type        = string
   description = "Name of route53 hosted zone (optional, for internal use)"
-  default     = ""
+  default     = null
 }
 
 variable "efs_backups" {

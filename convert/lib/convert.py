@@ -399,7 +399,7 @@ class app:
         eks_k8s_version = eks_cluster_result["cluster"]["version"]
         eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
 
-        route53_hosted_zone_name = ""
+        route53_hosted_zone_name = None
         if r53_zone_ids := self.cdkconfig["route53"]["zone_ids"]:
             route53_hosted_zone_name = r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]["Name"]
 
