@@ -42,7 +42,7 @@
   },
   "output": {
     "KEY_PAIR_NAME": {
-      "value": "${module.eks.domino_key_pair.key_name}"
+      "value": "${module.eks.domino_key_pair.name}"
     },
     "S3_BUCKET_NAME": {
       "value": "${module.eks.storage.s3.buckets.blobs.bucket_name}"
@@ -65,9 +65,9 @@
     "EXECUTOR_EFS_AP_ID": {
       "value": "${module.eks.storage.efs.access_point.id}"
     },
-    "BASTION_IP": { "value": "${module.eks.bastion.public_ip}" },
-    "KMS_KEY_ID": { "value": "${module.eks.kms.key_id}" },
-    "KMS_KEY_ARN": { "value": "${module.eks.kms.key_arn}" },
+    "BASTION_IP": { "value": "${try(module.eks.bastion.public_ip, null)}" },
+    "KMS_KEY_ID": { "value": "${try(module.eks.kms.key_id, null)}" },
+    "KMS_KEY_ARN": { "value": "${try(module.eks.kms.key_arn, null)}" },
     "CONTAINER_REGISTRY": {
       "value": "${module.eks.storage.ecr.container_registry}"
     }
