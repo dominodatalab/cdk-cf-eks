@@ -38,7 +38,7 @@ setuptools.setup(
         "aws-cdk.core~=1.187.0",
         "aws-cdk.lambda-layer-awscli~=1.187.0",
         "aws-cdk.lambda-layer-kubectl~=1.187.0",
-        "boto3~=1.26.0",
+        "boto3==1.26.90",
         "field_properties~=0.1",
         "requests~=2.28.1",
         "ruamel.yaml~=0.17.21",
