@@ -65,7 +65,7 @@
     "EXECUTOR_EFS_AP_ID": {
       "value": "${module.eks.storage.efs.access_point.id}"
     },
-    "BASTION_IP": { "value": "${module.eks.bastion.public_ip)}" },
+    "BASTION_IP": { "value": "${module.eks.bastion.public_ip}" },
     "KMS_KEY_ID": { "value": "${module.eks.kms.key_id)}" },
     "KMS_KEY_ARN": { "value": "${module.eks.kms.key_arn}" },
     "CONTAINER_REGISTRY": {
