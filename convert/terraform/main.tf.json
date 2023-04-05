@@ -2,7 +2,7 @@
   "//": "This file is JSON for compatibility with Domino tooling",
   "module": {
     "eks": {
-      "source": "github.com/dominodatalab/terraform-aws-eks.git?ref=v2.0.0",
+      "source": "github.com/dominodatalab/terraform-aws-eks.git?ref=miguelhar.fix-vars",
       "deploy_id": "${var.deploy_id}",
       "region": "${var.region}",
       "tags": "${var.tags}",
