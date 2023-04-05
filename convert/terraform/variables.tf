@@ -134,7 +134,7 @@ variable "s3_force_destroy_on_deletion" {
 variable "use_kms" {
   type        = bool
   description = "If set, use either the specified KMS key or a Domino-generated one"
-  default     = true
+  default     = false
 }
 
 variable "kms_key_id" {
