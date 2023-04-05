@@ -152,7 +152,7 @@ variable "ecr_force_destroy_on_deletion" {
 variable "kubeconfig_path" {
   type        = string
   description = "fully qualified path name to write the kubeconfig file"
-  default     = null
+  default     = "kubeconfig"
 }
 
 variable "flow_log_bucket_arn" {
