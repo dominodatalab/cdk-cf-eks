@@ -63,12 +63,12 @@ variable "number_of_azs" {
 }
 
 variable "default_node_groups" {
-  type        = map
+  type        = map(any)
   description = "Default node groups"
 }
 
 variable "additional_node_groups" {
-  type        = map
+  type        = map(any)
   description = "Additional EKS managed nodegroups"
   default     = {}
 }
@@ -76,7 +76,7 @@ variable "additional_node_groups" {
 variable "route53_hosted_zone_name" {
   type        = string
   description = "Name of route53 hosted zone (optional, for internal use)"
-  default     = ""
+  default     = null
 }
 
 variable "efs_backups" {
@@ -115,7 +115,7 @@ variable "eks_master_role_names" {
 }
 
 variable "eks_custom_role_maps" {
-  type        = list(object({rolearn = string, username = string, groups = list(string)}))
+  type        = list(object({ rolearn = string, username = string, groups = list(string) }))
   description = "Custom role maps for aws auth configmap"
   default     = []
 }
@@ -152,7 +152,7 @@ variable "ecr_force_destroy_on_deletion" {
 variable "kubeconfig_path" {
   type        = string
   description = "fully qualified path name to write the kubeconfig file"
-  default     = ""
+  default     = null
 }
 
 variable "flow_log_bucket_arn" {
