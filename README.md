@@ -1,5 +1,6 @@
 # Domino CDK EKS Stack
 
+### **DEPRECATED:** This Domino CDK EKS stack automation is not compatible with Kubernetes version 1.25 and onwards. It is recommended that you migrate your automation to [Terraform](https://github.com/dominodatalab/terraform-aws-eks) using the [CDK to Terraform](./convert/) utility.
 ## Contents
 
 * cdk/ - Python CDK project for deploying an EKS cluster for use with Domino.
