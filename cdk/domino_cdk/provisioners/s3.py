@@ -8,6 +8,7 @@ from aws_cdk.aws_s3 import (
     Bucket,
     BucketAccessControl,
     BucketEncryption,
+    ObjectOwnership,
 )
 from aws_cdk.region_info import Fact, FactName
 
@@ -15,7 +16,15 @@ from domino_cdk import config
 
 
 class DominoS3Provisioner:
-    def __init__(self, parent: cdk.Construct, construct_id: str, name: str, s3: config.S3, nest: bool, **kwargs):
+    def __init__(
+        self,
+        parent: cdk.Construct,
+        construct_id: str,
+        name: str,
+        s3: config.S3,
+        nest: bool,
+        **kwargs,
+    ):
         self.parent = parent
         self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
         self.monitoring_bucket: Optional[Bucket] = None
@@ -28,6 +37,7 @@ class DominoS3Provisioner:
         attrs: config.S3.BucketList.Bucket,
         server_access_logs_bucket: Optional[Bucket] = None,
         require_encryption: bool = True,
+        object_ownership: Optional[ObjectOwnership] = None,
         **kwargs,
     ) -> Bucket:
         use_sse_kms_key = False
@@ -50,6 +60,7 @@ class DominoS3Provisioner:
             server_access_logs_prefix=f"{bucket_name}/" if server_access_logs_bucket else None,
             server_access_logs_bucket=server_access_logs_bucket,
             versioned=True,
+            object_ownership=object_ownership,
             **kwargs,
         )
 
@@ -99,11 +110,13 @@ class DominoS3Provisioner:
                 s3.buckets.monitoring,
                 access_control=BucketAccessControl.LOG_DELIVERY_WRITE,
                 require_encryption=False,
+                object_ownership=ObjectOwnership.BUCKET_OWNER_PREFERRED,
             )
 
             region = cdk.Stack.of(self.scope).region
             self.monitoring_bucket.grant_put(
-                iam.AccountPrincipal(Fact.require_fact(region, FactName.ELBV2_ACCOUNT)), "*"
+                iam.AccountPrincipal(Fact.require_fact(region, FactName.ELBV2_ACCOUNT)),
+                "*",
             )
 
             self.monitoring_bucket.add_to_resource_policy(
@@ -132,10 +145,19 @@ class DominoS3Provisioner:
                 )
             )
 
-            cdk.CfnOutput(self.parent, "monitoring-bucket-output", value=self.monitoring_bucket.bucket_name)
+            cdk.CfnOutput(
+                self.parent,
+                "monitoring-bucket-output",
+                value=self.monitoring_bucket.bucket_name,
+            )
 
         self.buckets = {
-            bucket: self._provision_bucket(stack_name, bucket, attrs, server_access_logs_bucket=self.monitoring_bucket)
+            bucket: self._provision_bucket(
+                stack_name,
+                bucket,
+                attrs,
+                server_access_logs_bucket=self.monitoring_bucket,
+            )
             for bucket, attrs in vars(s3.buckets).items()
             if attrs and bucket != "monitoring"  # skipping NoneType bucket is for tests, config prevents loading
         }
