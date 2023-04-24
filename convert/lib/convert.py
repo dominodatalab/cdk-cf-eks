@@ -443,11 +443,24 @@ class app:
             "eks_cluster_auto_sg": eks_cluster_auto_sg,
         }
 
+        sse_kms_key_ids = [v["sse_kms_key_id"] for k, v in self.cdkconfig["s3"]["buckets"].items()]
+        sse_kms_key_ids.append(self.cdkconfig["eks"]["secrets_encryption_key_arn"])
+        kms_id_note = False
+        if not all(True for key_id in sse_kms_key_ids if key_id is None):
+            if len(set(sse_kms_key_ids)) == 1:
+                tfvars["kms"] = {"enabled": True, "key_id": sse_kms_key_ids[0]}
+            else:
+                kms_id_note = True
+                tfvars["kms"] = {"enabled": True, "key_id": "__FILL_ME_IN__"}
+
         print(json.dumps(tfvars, indent=4))
 
         notes = ""
         if not self.cdkconfig["eks"]["private_api"]:
             notes += "\n* Your CDK EKS is configured for public API access.\n  Your cluster's setting will be changed to *PRIVATE*, as the terraform module does not support public EKS endpoints."
+
+        if kms_id_note:
+            notes += "\n* You had two or more distinct kms keys assigned to either s3 or eks. CDK supported indivually-configured KMS keys for each bucket and EKS itself, while terraform only supports a single configured kms key for all services. Please fill in the 'kms.key_id' with the desired kms key id."
 
         if len(r53_zone_ids) > 1:
             notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
