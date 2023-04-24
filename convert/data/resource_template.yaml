@@ -24,8 +24,6 @@ resources:
     value: '%stack_name%:kube-proxy'
   - cf: eksCreationRole
     tf: aws_iam_role.grandfathered_creation_role
-  - cf: '%cf_stack_key%kubernetessecretsenvelopekey'
-    tf: module.eks.module.eks.aws_kms_key.eks_cluster
   s3_stack:
   - cf: backups
     tf: module.eks.module.storage.aws_s3_bucket.backups
