@@ -460,7 +460,7 @@ class app:
             notes += "\n* Your CDK EKS is configured for public API access.\n  Your cluster's setting will be changed to *PRIVATE*, as the terraform module does not support public EKS endpoints."
 
         if kms_id_note:
-            notes += "\n* You had two or more distinct kms keys assigned to either s3 or eks. CDK supported indivually-configured KMS keys for each bucket and EKS itself, while terraform only supports a single configured kms key for all services. Please fill in the 'kms.key_id' with the desired kms key id."
+            notes += f"\n* You had two or more distinct kms keys assigned to either s3 or eks, or one key that was not universally applied. CDK supported indivually-configured KMS keys for each bucket and EKS itself, while terraform only supports a single configured kms key for all services. Please fill in the 'kms.key_id' with the desired kms key id. Keys found: {sse_kms_key_ids}"
 
         if len(r53_zone_ids) > 1:
             notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
