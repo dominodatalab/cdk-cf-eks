@@ -457,7 +457,7 @@ class app:
         sse_kms_key_ids = [v["sse_kms_key_id"] for k, v in self.cdkconfig["s3"]["buckets"].items()]
         sse_kms_key_ids.append(self.cdkconfig["eks"]["secrets_encryption_key_arn"])
         kms_id_note = False
-        if not all(True for key_id in sse_kms_key_ids if key_id is None):
+        if any(key_id is not None for key_id in sse_kms_key_ids):
             if len(set(sse_kms_key_ids)) == 1:
                 tfvars["kms"] = {"enabled": True, "key_id": sse_kms_key_ids[0]}
             else:
