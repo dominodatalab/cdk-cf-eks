@@ -41,6 +41,11 @@ class app:
         for r in resources:
             logical_id = r["LogicalResourceId"]
             physical_id = r["PhysicalResourceId"]
+            if r["ResourceType"] == cdk_ids.eip.value:
+                # Extracting EIP AllocationId from ec2 as its not avaiable from cf
+                response = self.ec2.describe_addresses(PublicIps=[physical_id])
+                if eip_allocation_id := response["Addresses"][0]["AllocationId"]:
+                    physical_id = eip_allocation_id
             if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
                 for mapped_logical_id, name in stack_map.items():
                     if logical_id.startswith(mapped_logical_id):
@@ -65,6 +70,7 @@ class app:
         self.cf_stack_key = re.sub(r"\W", "", self.stack_name)
 
         self.cf = boto3.client("cloudformation", self.region)
+        self.ec2 = boto3.client("ec2", self.region)
 
         if not no_stacks:
             self.sanity()
@@ -586,6 +592,42 @@ class app:
             nuke_queue, self.args.remove_security_group_references
         )
 
+    def _print_stacks_status(self, stacks_names: list):
+        for stack_name in stacks_names:
+            stack_status = self.cf.describe_stacks(StackName=stack_name)["Stacks"][0]["StackStatus"]
+            print("Stack:", stack_name, "Status:", stack_status)
+
+    def _delete_stack_wait_for_fail_state(self, stack_name: str, role_arn: str):
+        stack_details = self.cf.describe_stacks(StackName=stack_name)
+        stack_status = stack_details["Stacks"][0]["StackStatus"]
+
+        if stack_status != "DELETE_FAILED":
+            print(f"Deleting Stack: {stack_name} Status: {stack_status}")
+            self.cf.delete_stack(StackName=stack_name, RoleARN=role_arn)
+
+        while (
+            stack_status := self.cf.describe_stacks(StackName=stack_name)["Stacks"][0]["StackStatus"]
+        ) != "DELETE_FAILED":
+            print(f"Waiting for stack{stack_name} to be in `DELETE_FAILED`...Currently: {stack_status}")
+            sleep(5)
+
+        nested_stacks = self._get_nested_stacks(stack_name)
+
+        self._print_stacks_status(nested_stacks)
+
+        for nested_stack in nested_stacks:
+            self._delete_stack_wait_for_fail_state(nested_stack, role_arn)
+
+    def _get_nested_stacks(self, stack_name: str) -> list:
+        stack_resources = self.cf.list_stack_resources(StackName=stack_name)
+
+        nested_stacks = []
+        for resource in stack_resources["StackResourceSummaries"]:
+            if resource["ResourceType"] == cdk_ids.cloudformation_stack.value:
+                nested_stacks.append(resource.get("PhysicalResourceId"))
+
+        return nested_stacks
+
     def delete_stack(self):
         self.setup()
 
@@ -599,15 +641,9 @@ class app:
             exit(1)
 
         if self.args.delete:
-            self.cf.delete_stack(StackName=self.stack_name, RoleARN=cf_only_role["value"])
-
-            while True:
-                desc_output = self.cf.describe_stacks(StackName=self.stack_name)
-                status = desc_output["Stacks"][0]["StackStatus"]
-                if status == "DELETE_IN_PROGRESS":
-                    sleep(5)
-                elif status == "DELETE_FAILED":
-                    break
+            print(f"Forcing {self.stack_name} into `DELETE_FAILED`")
+            self._print_stacks_status([self.stack_name])
+            self._delete_stack_wait_for_fail_state(self.stack_name, cf_only_role["value"])
 
         root_resources = self.cf.describe_stack_resources(StackName=self.stack_name)["StackResources"]
 
@@ -617,7 +653,7 @@ class app:
             ]
         }
 
-        def get_stack_resources(s) -> dict:
+        def get_stack_resources(s):
             child_id = s["PhysicalResourceId"]
             child_name = re.search(r":stack/(.*)/", child_id).group(1)
             try:
@@ -642,6 +678,12 @@ class app:
 
         for i, (stack, resources) in enumerate(stacks.items()):
             if self.args.delete:
+                print("Deleting stack:", stack)
+                if (
+                    stack_status := self.cf.describe_stacks(StackName=stack)["Stacks"][0]["StackStatus"]
+                ) and stack_status != "DELETE_FAILED":
+                    raise Exception(f"Expected stack status to be `DELETE_FAILED` but got: `{stack_status}`.")
+
                 self.cf.delete_stack(StackName=stack, RoleARN=cf_only_role["value"], RetainResources=resources)
             else:
                 if i == 0:
