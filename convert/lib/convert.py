@@ -605,10 +605,13 @@ class app:
             print(f"Deleting Stack: {stack_name} Status: {stack_status}")
             self.cf.delete_stack(StackName=stack_name, RoleARN=role_arn)
 
-        while (
-            stack_status := self.cf.describe_stacks(StackName=stack_name)["Stacks"][0]["StackStatus"]
-        ) != "DELETE_FAILED":
-            print(f"Waiting for stack{stack_name} to be in `DELETE_FAILED`...Currently: {stack_status}")
+        while (stack_status := self.cf.describe_stacks(StackName=stack_name)["Stacks"][0]["StackStatus"]) not in [
+            "DELETE_FAILED",
+            "DELETE_COMPLETED",
+        ]:
+            print(
+                f"Waiting for stack{stack_name} to be in `DELETE_FAILED` or `DELETE_COMPLETED`...Currently: {stack_status}"
+            )
             sleep(5)
 
         nested_stacks = self._get_nested_stacks(stack_name)
