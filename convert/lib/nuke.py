@@ -104,7 +104,7 @@ class nuke:
                     tries=60,
                 )
                 def delete_asg(group: str):
-                    print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group))
+                    print(self.autoscaling.delete_auto_scaling_group(AutoScalingGroupName=group, ForceDelete=True))
 
                 for group in existing_groups:
                     delete_asg(group)

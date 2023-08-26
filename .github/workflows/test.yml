@@ -73,13 +73,20 @@ jobs:
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         ACM_CERT_ARN: ${{ secrets.DELTA_ACM_CERT_ARN }}
         BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
+        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
       run: |
         export NAME=cdk-${GITHUB_SHA:0:6}-$(date +%s)
         echo "NAME=$NAME" >> $GITHUB_ENV
         ./util.py generate_config_template --name $NAME --aws-region=$AWS_REGION --aws-account-id=$AWS_ACCOUNT_ID --dev --platform-nodegroups 2 --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs > config.yaml
         ./util.py load_config -f ./config.yaml
     - name: Test default config (single and nested stacks)
+      env:
+        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
       run: |
+        echo 'CDK acknowledge: AWS CDK v1 End-of-Support June 1, 2023'
+        cdk acknowledge 19836
+        echo 'CDK acknowledge: (eks) eks overly permissive trust policies'
+        cdk acknowledge 25674
         cdk synth --context singlestack=true -q
         cdk synth -q
     - name: Upload distribution artifacts
@@ -95,11 +102,18 @@ jobs:
         urlfile=$(python -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))' <<< "$filename")
         echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$urlfile"
         done
+    - name: Bootstrap CDK
+      env:
+        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
+        AWS_REGION: ${{ env.AWS_REGION }}
+        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
+      run: cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
     - name: Deploy CDK
       if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
       env:
         REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
         REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
       run: |
         docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
         cdk deploy --require-approval never --outputs-file outputs.json
@@ -187,15 +201,17 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
     - name: Delete stack w/CDK
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+      env:
+        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
       working-directory: ./cdk
       run: |
         cdk destroy --force
-    - name: Destroy Infrastructure
+    - name: Destroy Infrastructure tf
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert/terraform
       run: |
         terraform destroy -auto-approve
-    - name: Destroy Infrastructure
+    - name: Destroy Infrastructure cf
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert/cloudformation-only
       run: |
