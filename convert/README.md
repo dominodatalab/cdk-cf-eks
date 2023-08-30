@@ -88,7 +88,7 @@ There will be a lot of output, but near the end you should see output similar to
 
 `Plan: 58 to import, 119 to add, 39 to change, 0 to destroy.`
 
-Verify that the right number of imports are happening.
+We recommend you inspect the plan carefully for expected imports.
 
 If there is anything Terraform plans to destroy, that is *not* expected and you should carefully scrutinize the output to ensure Terraform isn't doing anything destructive.
 

@@ -634,9 +634,12 @@ class app:
     def delete_stack(self):
         self.setup()
 
-        cf_tf_output = json.loads(
-            run(["terraform", "output", "-json"], cwd="cloudformation-only", capture_output=True).stdout
-        )
+        tf_output = run(["terraform", "output", "-json"], cwd="cloudformation-only", capture_output=True).stdout
+
+        print("tf_output")
+        pprint(tf_output)
+
+        cf_tf_output = json.loads(tf_output)
         if not (cf_only_role := cf_tf_output.get("cloudformation_only_role")) or not re.match(
             "arn:.*:iam:.*role/cloudformation-only", cf_only_role["value"]
         ):
