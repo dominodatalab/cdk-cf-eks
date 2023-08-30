@@ -5,22 +5,19 @@ name: Run tests / create artifacts
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
     types: [opened, synchronize, reopened, labeled, ready_for_review]
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   test-build-deploy:
     permissions:
       id-token: write
       contents: read
-
     runs-on: ubuntu-latest
-
     env:
       AWS_REGION: us-west-2
-
     defaults:
       run:
         working-directory: ./cdk
@@ -35,6 +32,9 @@ jobs:
       uses: actions/setup-node@v2
       with:
         node-version: 18
+    - uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: 1.5.6
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
@@ -61,8 +61,9 @@ jobs:
         coverage report
 
     - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v3
       with:
+        unset-current-credentials: true
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
     - name: Create/lint default config
@@ -120,8 +121,9 @@ jobs:
         $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
 
     - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v3
       with:
+        unset-current-credentials: true
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
     - name: Collect diagnostic data
@@ -154,6 +156,13 @@ jobs:
         terraform init
         terraform plan -out=terraform.plan
         terraform apply -auto-approve terraform.plan
+    - name: Install hcledit
+      run: |
+        hcledit_version="0.2.9"
+        hcledit_artifact=hcledit_${hcledit_version}_linux_amd64.tar.gz
+        curl -fsSL -o "${hcledit_artifact}" "https://github.com/minamijoyo/hcledit/releases/download/v${hcledit_version}/${hcledit_artifact}"
+        tar xvzf "${hcledit_artifact}"
+        sudo mv hcledit /usr/local/bin/ && rm "${hcledit_artifact}" && hcledit version
     - name: Setup terraform-aws-eks conversion process
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert
@@ -161,22 +170,67 @@ jobs:
         pip install -r requirements.txt
         ssh-keygen -t rsa -f dummy.pem -N ''
         ./convert.py print-stack --stack-name $NAME --region $AWS_REGION --verbose --yaml > stack-data.yaml
-        ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem > terraform/terraform.tfvars.json
-        ./convert.py get-imports --stack-name $NAME --region $AWS_REGION > terraform/imports.sh
+        export MOD_VALIDATION_OFF=true ## Needed to be able to set the module source to a nonversioned release(i.e branch).
+        ./convert.py setup-terraform  --stack-name $NAME --region "$AWS_REGION" --mod-version "miguelhar.cdk-convert-support"
+        ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem
+        ./convert.py set-imports --stack-name $NAME --region $AWS_REGION
     - name: Run terraform
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert/terraform
+      working-directory: ./convert
       run: |
-        terraform init
-        bash imports.sh
-        terraform plan -out=terraform.plan
-        terraform show -json terraform.plan | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee terraform.plan.json
-        test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
-        terraform apply -auto-approve terraform.plan
+        export DEPLOY_ID="$NAME"
+        set -o pipefail
+        if pushd "$DEPLOY_ID"; then
+          if source meta.sh; then
+            for component in cdk_tf infra cluster nodes; do
+              echo "Running terraform for $component"
 
+              if ! ./tf.sh "$component" 'init'; then
+                echo "Initialization for $component failed. Exiting..."
+                exit 1
+              fi
+
+              if ! ./tf.sh "$component" 'plan_out'; then
+                echo "Plan for $component failed. Exiting..."
+                exit 1
+              fi
+
+              echo "Checking plan for resource deletes.."
+
+              if ! ./tf.sh "$component" 'show_plan_json' | \
+              sed -n '/^{.*}$/p' | \
+              jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
+              tee "${component}-tf-deletes.plan.json"; then
+                echo "Error processing json plan for deletes inspection. Exiting..."
+                exit 1
+              fi
+
+              if [ -s "${component}-tf-deletes.plan.json" ]; then
+                echo "Detected deletions, bailing..."
+                exit 1
+              else
+                echo "No deletes found"
+              fi
+
+              if ! ./tf.sh "$component" 'apply_plan'; then
+                echo "Apply plan for $component failed. Exiting..."
+                exit 1
+              fi
+
+            done
+          else
+            echo "Failed to source meta.sh. Exiting..."
+            exit 1
+          fi
+          popd
+        else
+          echo "Failed to change directory to $DEPLOY_ID. Exiting..."
+          exit 1
+        fi
     - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v3
       with:
+        unset-current-credentials: true
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
     - name: Clean and delete stack
@@ -194,9 +248,10 @@ jobs:
         retention-days: 14
 
     - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v2
+      uses: aws-actions/configure-aws-credentials@v3
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       with:
+        unset-current-credentials: true
         role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
         aws-region: ${{ env.AWS_REGION }}
     - name: Delete stack w/CDK
@@ -208,9 +263,15 @@ jobs:
         cdk destroy --force
     - name: Destroy Infrastructure tf
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert/terraform
+      working-directory: ./convert
       run: |
-        terraform destroy -auto-approve
+        export DEPLOY_ID="$NAME"
+        cd $DEPLOY_ID
+        for component in 'nodes' 'cluster' 'infra' 'cdk_tf'; do
+          echo "Runing terraform for $component"
+          ./tf.sh "$component" destroy
+        done
+        # terraform destroy -auto-approve
     - name: Destroy Infrastructure cf
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert/cloudformation-only

@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
+
 import argparse
 import json
 import re
+import shutil
 from copy import deepcopy
 from functools import cached_property
-from os import listdir
-from os.path import abspath, join
+from os import listdir, makedirs
+from os.path import abspath, exists, join
+from pathlib import Path
 from pprint import pprint
 from subprocess import run
+from sys import stderr
 from textwrap import dedent
 from time import sleep
+from typing import Any
 
 import boto3
 import yaml
@@ -27,10 +32,29 @@ for filename in listdir("data"):
 clean_categories = [x.name for x in cdk_ids if x.name != "cloudformation_stack"]
 
 
+def nested_az_replace(d: dict, count: int):
+    for k, v in d.items():
+        if isinstance(v, str):
+            d[k] = re.sub("%az_count%", str(count), d[k])
+            d[k] = re.sub("%az_count_plus%", str(count + 1), d[k])
+        elif isinstance(v, list):
+            for i, entry in enumerate(v):
+                if isinstance(entry, dict):
+                    v[i] = nested_az_replace(entry, count)
+                else:
+                    raise Exception(f"Unexpected resource map entry {k}: {v}")
+        elif isinstance(v, dict):
+            d[k] = nested_az_replace(v, count)
+        else:
+            raise Exception(f"Unexpected resource map entry {k}: {v}")
+    return d
+
+
 class app:
     def __init__(self):
         self.parse_args()
         self.args.command()
+        self.setup_boto_clients()
 
     def get_stacks(self, stack: str = None, full: bool = False):
         stacks = {"resources": {}}
@@ -64,13 +88,19 @@ class app:
                 stacks["resources"][parsed_logical_id] = r if full else physical_id
         return stacks
 
+    def setup_boto_clients(self):
+        self.cf = boto3.client("cloudformation", self.region)
+        self.ec2 = boto3.client("ec2", self.region)
+        self.eks = boto3.client("eks", self.region)
+        self.iam = boto3.client("iam", self.region)
+        self.r53 = boto3.client("route53", self.region)
+
     def setup(self, full: bool = False, no_stacks: bool = False):
         self.region = self.args.region
         self.stack_name = self.args.stack_name
         self.cf_stack_key = re.sub(r"\W", "", self.stack_name)
 
-        self.cf = boto3.client("cloudformation", self.region)
-        self.ec2 = boto3.client("ec2", self.region)
+        self.setup_boto_clients()
 
         if not no_stacks:
             self.sanity()
@@ -114,6 +144,14 @@ class app:
         common_parser.add_argument("--region", help="AWS Region", required=True)
         common_parser.add_argument("--stack-name", help="Name of stack", required=True)
 
+        setup_tf_mods_parser = subparsers.add_parser(
+            name="setup-terraform", help="Sets up the terraform module", parents=[common_parser]
+        )
+        setup_tf_mods_parser.add_argument(
+            "--mod-version", help="Release version for terraform-aws-eks(Must be >= v3.0.0)", required=True
+        )
+        setup_tf_mods_parser.set_defaults(command=self.setup_tf_mods)
+
         create_tfvars_parser = subparsers.add_parser(
             name="create-tfvars", help="Generate tfvars", parents=[common_parser]
         )
@@ -122,7 +160,7 @@ class app:
 
         resource_map_parser = subparsers.add_parser(
             name="resource-map",
-            help="Create resource map for customization/debugging of get-imports command (optional step)",
+            help="Create resource map for customization/debugging of set-imports command (optional step)",
         )
         resource_map_parser.add_argument("--availability-zones", help="Availability zone count", default=3, type=int)
         resource_map_parser.add_argument(
@@ -152,7 +190,7 @@ class app:
         resource_map_parser.set_defaults(command=self.resource_map)
 
         import_parser = subparsers.add_parser(
-            name="get-imports", help="Get terraform import commands", parents=[common_parser]
+            name="set-imports", help="Get terraform import commands", parents=[common_parser]
         )
         import_parser.add_argument(
             "--availability-zones",
@@ -163,7 +201,7 @@ class app:
         import_parser.add_argument(
             "--resource-map", help="Path to custom resource map file (otherwise, we autoconfigure)", default=None
         )
-        import_parser.set_defaults(command=self.get_imports)
+        import_parser.set_defaults(command=self.write_imports)
 
         clean_stack_parser = subparsers.add_parser(
             name="clean-stack", help="Clean stack something something", parents=[common_parser]
@@ -241,23 +279,6 @@ class app:
     ) -> dict:
         template = resources["resource_template"]["resources"]
 
-        def nested_az_replace(d: dict, count: int):
-            for k, v in d.items():
-                if isinstance(v, str):
-                    d[k] = re.sub("%az_count%", str(count), d[k])
-                    d[k] = re.sub("%az_count_plus%", str(count + 1), d[k])
-                elif isinstance(v, list):
-                    for i, entry in enumerate(v):
-                        if isinstance(entry, dict):
-                            v[i] = nested_az_replace(entry, count)
-                        else:
-                            raise Exception(f"Unexpected resource map entry {k}: {v}")
-                elif isinstance(v, dict):
-                    d[k] = nested_az_replace(v, count)
-                else:
-                    raise Exception(f"Unexpected resource map entry {k}: {v}")
-            return d
-
         optional_resources = []
         for count in range(availability_zones):
             az_template = nested_az_replace(deepcopy(resources["per_az"]), count)
@@ -294,7 +315,72 @@ class app:
         )
         print(yaml.safe_dump(resource_map))
 
-    def get_imports(self):
+    def t(self, val: str) -> str:
+        val = re.sub(r"%stack_name%", self.stack_name, val)
+        val = re.sub(r"%cf_stack_key%", self.cf_stack_key, val)
+        return val
+
+    def get_imports(self, resource_map: dict):
+        import_template = dedent(
+            """
+                import {{
+                    id = "{resource_id}"
+                    to = {tf_import_path}
+                  }}
+                """
+        )
+
+        imports: dict[str, list[str]] = {"cdk_tf": [], "infra": [], "cluster": [], "nodes": []}
+
+        for map_stack, items in resource_map.items():
+            resources = self.stacks[map_stack]["resources"]
+            for item in items:
+                tf_import_path = self.t(item["tf"])
+                if value := item.get("value"):
+                    resource_id = self.t(value)
+                elif cf_sgr := item.get("cf_sgr"):
+                    sg = resources[self.t(cf_sgr["sg"])]
+                    append_rule_sg = ""
+                    if rule_sg := cf_sgr.get("rule_sg"):
+                        rule_sg_r = resources
+                        if rule_sg_stack := cf_sgr.get("rule_sg_stack"):
+                            rule_sg_r = self.stacks[self.t(rule_sg_stack)]["resources"]
+                        append_rule_sg = rule_sg_r[self.t(rule_sg)]
+                    resource_id = f"{sg}{self.t(cf_sgr['rule'])}{append_rule_sg}"
+                elif cf_igw_attachment := item.get("cf_igw_attachment"):
+                    igw_id = resources[self.t(cf_igw_attachment["igw"])]
+                    vpc_id = resources[self.t(cf_igw_attachment["vpc"])]
+                    resource_id = f"{igw_id}:{vpc_id}"
+                elif assoc := item.get("cf_rtassoc"):
+                    resource_id = f"{resources[self.t(assoc['subnet'])]}/{resources[self.t(assoc['route_table'])]}"
+                elif bkpsel := item.get("cf_backupselection"):
+                    selection_id, plan_id = resources[self.t(bkpsel)].split("_")
+                    resource_id = f"{plan_id}|{selection_id}"
+                else:
+                    resource_id = resources[self.t(item["cf"])]
+
+                import_block = import_template.format(tf_import_path=tf_import_path, resource_id=resource_id)
+
+                if tf_import_path.startswith("module.infra"):
+                    imports["infra"].append(import_block)
+                elif tf_import_path.startswith("module.eks"):
+                    imports["cluster"].append(import_block)
+                elif tf_import_path.startswith("module.nodes"):
+                    imports["nodes"].append(import_block)
+                else:
+                    imports["cdk_tf"].append(import_block)
+
+        eks_cluster_result = self.eks.describe_cluster(name=self.cdkconfig["name"])
+        eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+        imports["cdk_tf"].append(
+            import_template.format(
+                tf_import_path="aws_security_group.eks_cluster_auto", resource_id=eks_cluster_auto_sg
+            )
+        )
+
+        return imports
+
+    def write_imports(self):
         self.setup()
 
         if self.args.resource_map:
@@ -311,61 +397,63 @@ class app:
                 flow_logging=self.cdkconfig["vpc"]["flow_logging"],
             )
 
-        def t(val: str) -> str:
-            val = re.sub(r"%stack_name%", self.stack_name, val)
-            val = re.sub(r"%cf_stack_key%", self.cf_stack_key, val)
-            return val
+        imports = self.get_imports(resource_map)
+        for component, import_values in imports.items():
+            self.write_blocks(component, import_values)
 
-        imports = []
+    def write_blocks(self, component: str, imports: list) -> None:
+        deploy_dir = self.stack_name
+        terraform_dir = Path(deploy_dir, "terraform")
+        imports_path = Path(terraform_dir, component, "imports.tf")
+        with open(imports_path, "w") as f:
+            f.writelines(i for i in imports)
 
-        for map_stack, items in resource_map.items():
-            resources = self.stacks[map_stack]["resources"]
-            for item in items:
-                tf_import_path = t(item["tf"])
-                if value := item.get("value"):
-                    resource_id = t(value)
-                elif cf_sgr := item.get("cf_sgr"):
-                    sg = resources[t(cf_sgr["sg"])]
-                    append_rule_sg = ""
-                    if rule_sg := cf_sgr.get("rule_sg"):
-                        rule_sg_r = resources
-                        if rule_sg_stack := cf_sgr.get("rule_sg_stack"):
-                            rule_sg_r = self.stacks[t(rule_sg_stack)]["resources"]
-                        append_rule_sg = rule_sg_r[t(rule_sg)]
-                    resource_id = f"{sg}{t(cf_sgr['rule'])}{append_rule_sg}"
-                elif cf_igw_attachment := item.get("cf_igw_attachment"):
-                    igw_id = resources[t(cf_igw_attachment["igw"])]
-                    vpc_id = resources[t(cf_igw_attachment["vpc"])]
-                    resource_id = f"{igw_id}:{vpc_id}"
-                elif assoc := item.get("cf_rtassoc"):
-                    resource_id = f"{resources[t(assoc['subnet'])]}/{resources[t(assoc['route_table'])]}"
-                elif bkpsel := item.get("cf_backupselection"):
-                    selection_id, plan_id = resources[t(bkpsel)].split("_")
-                    resource_id = f"{plan_id}|{selection_id}"
-                else:
-                    resource_id = resources[t(item["cf"])]
-                imports.append(f"tf_import '{tf_import_path}' '{resource_id}'")
+    def tf_sh(self, component: str, command: str) -> None:
+        deploy_dir = self.stack_name
+        cmd = [
+            "./tf.sh",
+            component,
+            command,
+        ]
+        print(f"Running {cmd}...")
+        tf_sh_run = run(cmd, cwd=deploy_dir, capture_output=True, text=True)
+        if tf_sh_run.returncode != 0:
+            print(f"Error Running from module {cmd} failed.", tf_sh_run.stdout, tf_sh_run.stderr)
+            exit(1)
 
-        eks = boto3.client("eks", self.region)
-        eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
-        eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
-        import_path = "aws_security_group.eks_cluster_auto"
-        imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}'")
+    def setup_tf_mods(self):
+        self.setup()
+        print("Setting up terraform modules...")
 
-        print(
-            dedent(
-                """\
-            #!/bin/bash
-            set -ex
+        deploy_dir = self.stack_name
+        mod_version = self.args.mod_version
+        example_url = f"github.com/dominodatalab/terraform-aws-eks.git//examples/deploy?ref={mod_version}"
 
-            tf_import() {
-                terraform import "$1" "$2"
-                terraform state show "$1" || (echo "$1 not in terraform state, import may have failed" && exit 1)
-            }
-        """
-            )
-        )
-        print("\n".join(imports))
+        makedirs(deploy_dir, exist_ok=True)
+        cmd = [
+            "terraform",
+            f"-chdir={deploy_dir}",
+            "init",
+            "-backend=false",
+            f"-from-module={example_url}",
+        ]
+        tf_mod_run = run(cmd, capture_output=True, text=True)
+        if tf_mod_run.returncode != 0:
+            print("Error Initializing from module command failed.", tf_mod_run.stdout, tf_mod_run.stderr)
+            exit(1)
+
+        mod_version_sh = join(self.stack_name, "set-mod-version.sh")
+
+        mod_version_run = run(["bash", mod_version_sh, mod_version], capture_output=True, text=True)
+
+        if mod_version_run.returncode != 0:
+            print("Error setting module version.", mod_version_run.stdout, mod_version_run.stderr)
+            exit(1)
+
+        shutil.copytree(Path("cdk_tf"), Path(deploy_dir, "terraform", "cdk_tf"))
+
+        for mod in ["cdk_tf", "all"]:
+            self.tf_sh(mod, "init")
 
     def create_tfvars(self):
         self.setup()
@@ -377,13 +465,8 @@ class app:
                 if re.match(f"{prefix}{self.cf_stack_key}{subnet_type}Subnet\\d+Subnet", k)
             ]
 
-        ec2 = boto3.client("ec2", self.region)
-        eks = boto3.client("eks", self.region)
-        iam = boto3.client("iam", self.region)
-        r53 = boto3.client("route53", self.region)
-
         ng_role_name = self.stacks["eks_stack"]["resources"][f"{self.cf_stack_key}NG"]
-        ng_role_arn = iam.get_role(RoleName=ng_role_name)["Role"]["Arn"]
+        ng_role_arn = self.iam.get_role(RoleName=ng_role_name)["Role"]["Arn"]
         eks_custom_role_maps = [
             {
                 "rolearn": ng_role_arn,
@@ -401,60 +484,117 @@ class app:
             b for b in self.cdkconfig["s3"]["buckets"].values() if b and not b["auto_delete_objects"]
         ]
 
-        eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
+        eks_cluster_result = self.eks.describe_cluster(name=self.cdkconfig["name"])
         eks_k8s_version = eks_cluster_result["cluster"]["version"]
         eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
 
         route53_hosted_zone_name = None
         if r53_zone_ids := self.cdkconfig["route53"]["zone_ids"]:
-            route53_hosted_zone_name = r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]["Name"]
+            route53_hosted_zone_name = self.r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]["Name"]
 
-        subnet_result = ec2.describe_subnets(SubnetIds=get_subnet_ids("Private"))
+        subnet_result = self.ec2.describe_subnets(SubnetIds=get_subnet_ids("Private"))
         az_zone_ids = [s["AvailabilityZoneId"] for s in subnet_result["Subnets"]]
 
-        tfvars = {
-            "deploy_id": self.cdkconfig["name"],
-            "region": self.cdkconfig["aws_region"],
-            "grandfathered_creation_role": self.stacks["eks_stack"]["resources"]["eksCreationRole"],
-            "tags": {**self.cdkconfig["tags"], "domino-deploy-id": self.cdkconfig["name"]},
-            "vpc_id": self.cdkconfig["vpc"]["id"]
-            if not self.cdkconfig["vpc"]["create"]
-            else self.stacks["vpc_stack"]["resources"]["VPC"],
-            "public_subnet_ids": get_subnet_ids("Public"),
-            "private_subnet_ids": get_subnet_ids("Private"),
-            "default_node_groups": {
-                "platform": {
-                    "availability_zone_ids": az_zone_ids,
-                },
-                "compute": {
-                    "availability_zone_ids": az_zone_ids,
-                },
-                "gpu": {
-                    "availability_zone_ids": az_zone_ids,
-                },
-            },
-            "pod_subnet_ids": get_subnet_ids("Pod", ""),
-            "k8s_version": eks_k8s_version,
-            "ssh_key_path": abspath(self.args.ssh_key_path),
-            "number_of_azs": self.cdkconfig["vpc"]["max_azs"],
-            "route53_hosted_zone_name": route53_hosted_zone_name,
-            "efs_backups": self.cdkconfig["efs"]["backup"]["enable"],
-            "efs_backup_schedule": self.cdkconfig["efs"]["backup"]["schedule"],
-            "efs_backup_cold_storage_after": self.cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
-            "efs_backup_delete_after": self.cdkconfig["efs"]["backup"]["delete_after"],
-            "efs_backup_force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
-            "eks_custom_role_maps": eks_custom_role_maps,
-            "s3_force_destroy_on_deletion": s3_force_destroy,
+        tfvars: dict[str, dict[str, Any]] = {"cdk_tf": {}, "infra": {}, "cluster": {}, "nodes": {}}
+
+        region = self.cdkconfig["aws_region"]
+        deploy_id = self.cdkconfig["name"]
+        tags = {**self.cdkconfig["tags"], "domino-deploy-id": self.cdkconfig["name"]}
+
+        tfvars["cdk_tf"] = {
+            "deploy_id": deploy_id,
+            "region": region,
             "flow_logging": self.cdkconfig["vpc"]["flow_logging"],
             "eks_cluster_auto_sg": eks_cluster_auto_sg,
+            "number_of_azs": self.cdkconfig["vpc"]["max_azs"],
+            "tags": tags,
         }
 
-        print(json.dumps(tfvars, indent=4))
+        eks = {
+            "k8s_version": eks_k8s_version,
+            "public_access": {
+                "enabled": eks_cluster_result["cluster"]["resourcesVpcConfig"]["endpointPublicAccess"],
+                "cidrs": eks_cluster_result["cluster"]["resourcesVpcConfig"]["publicAccessCidrs"],
+            },
+            "custom_role_maps": eks_custom_role_maps,
+        }
+
+        if eks_creation_role_name := self.stacks["eks_stack"]["resources"]["eksCreationRole"]:
+            eks["creation_role_name"] = eks_creation_role_name
+
+        default_node_groups = {
+            "platform": {
+                "availability_zone_ids": az_zone_ids,
+            },
+            "compute": {
+                "availability_zone_ids": az_zone_ids,
+            },
+            "gpu": {
+                "availability_zone_ids": az_zone_ids,
+            },
+        }
+
+        tfvars["infra"] = {
+            "deploy_id": deploy_id,
+            "region": region,
+            "ssh_pvt_key_path": abspath(self.args.ssh_key_path),
+            "network": {
+                "vpc": {
+                    "id": self.cdkconfig["vpc"]["id"]
+                    if not self.cdkconfig["vpc"]["create"]
+                    else self.stacks["vpc_stack"]["resources"]["VPC"],
+                    "subnets": {
+                        "private": get_subnet_ids("Private"),
+                        "public": get_subnet_ids("Public"),
+                        "pod": get_subnet_ids("Pod", ""),
+                    },
+                }
+            },
+            "tags": tags,
+            "storage": {
+                "s3": {"force_destroy_on_deletion": s3_force_destroy},
+                "efs": {
+                    "backup_vault": {
+                        "create": self.cdkconfig["efs"]["backup"]["enable"],
+                        "force_destroy": self.cdkconfig["efs"]["backup"]["removal_policy"] == "DESTROY",
+                        "backup": {
+                            "schedule": self.cdkconfig["efs"]["backup"]["schedule"],
+                            "cold_storage_after": self.cdkconfig["efs"]["backup"]["move_to_cold_storage_after"],
+                            "delete_after": self.cdkconfig["efs"]["backup"]["delete_after"],
+                        },
+                    }
+                },
+            },
+            "kms": {
+                "enabled": False,
+            },
+            "route53_hosted_zone_name": route53_hosted_zone_name,
+            "bastion": {
+                "enabled": eks_cluster_result["cluster"]["resourcesVpcConfig"]["endpointPrivateAccess"],
+            },
+            "eks": eks,  # Needs the k8s version.
+            "default_node_groups": default_node_groups,  # Needs the nodes' flavors to compute/verify zones.
+        }
+
+        tfvars["cluster"]["eks"] = eks
+
+        if eks_cluster_kms_key_arn := eks_cluster_result["cluster"]["encryptionConfig"][0]["provider"]["keyArn"]:
+            tfvars["cluster"]["kms_info"] = {
+                "enabled": True,
+                "key_arn": eks_cluster_kms_key_arn,
+                "key_id": eks_cluster_kms_key_arn.split(":")[-1].split("/")[1],
+            }
+
+        tfvars["nodes"] = {"default_node_groups": default_node_groups}
+
+        mods_vars_dir = Path(self.cdkconfig["name"], "terraform")
+
+        for mod, values in tfvars.items():
+            tfvars_path = Path(mods_vars_dir, f"{mod}.tfvars")
+            tfvars_path.unlink(missing_ok=True)
+            self.write_json_tfvars(values, Path(f"{tfvars_path}.json"))
 
         notes = ""
-        if not self.cdkconfig["eks"]["private_api"]:
-            notes += "\n* Your CDK EKS is configured for public API access.\n  Your cluster's setting will be changed to *PRIVATE*, as the terraform module does not support public EKS endpoints."
-
         if len(r53_zone_ids) > 1:
             notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
 
@@ -462,10 +602,12 @@ class app:
             "\n* Nodegroup settings do not carry over. Please examine tfvars if you want to make any customizations."
         )
 
-        from sys import stderr
-
         if notes:
             print(f"*** IMPORTANT ***: {notes}", file=stderr)
+
+    def write_json_tfvars(self, config: dict, filename: Path) -> None:
+        with open(filename, "w") as f:
+            f.write(json.dumps(config, indent=4))
 
     def clean_stack(self):
         self.setup(full=True, no_stacks=self.args.resource_file)
@@ -545,19 +687,14 @@ class app:
         get_nukes("vpc_stack", self.stacks["vpc_stack"]["resources"])
         get_nukes("core_stack", self.stacks["resources"])
 
-        # I don't like doing this outside of nuke or making aws calls at this stage
-        # but the eks cluster security group isn't gettable from cloudformation...
-        ec2 = boto3.client("ec2", self.region)
-        eks = boto3.client("eks", self.region)
-
         empty_sg_rules = {"egress": [], "ingress": []}
         try:
             eks_cluster_sg = {
-                eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
+                self.eks.describe_cluster(name=self.stack_name)["cluster"]["resourcesVpcConfig"][
                     "clusterSecurityGroupId"
                 ]: empty_sg_rules
             }
-        except eks.exceptions.ResourceNotFoundException:
+        except self.eks.exceptions.ResourceNotFoundException:
             eks_cluster_sg = {}
 
         unmanaged_sg = self.stacks["eks_stack"]["resources"].get("UnmanagedSG")
@@ -574,7 +711,7 @@ class app:
         for group in rule_ids_to_nuke.keys():
             rules = [
                 r
-                for r in ec2.describe_security_group_rules(Filters=[{"Name": "group-id", "Values": [group]}])[
+                for r in self.ec2.describe_security_group_rules(Filters=[{"Name": "group-id", "Values": [group]}])[
                     "SecurityGroupRules"
                 ]
                 if re.match(f"(from|to) {self.cf_stack_key}", r.get("Description", ""))
@@ -631,22 +768,46 @@ class app:
 
         return nested_stacks
 
+    def _get_stack_resources(self, stacks, s):
+        child_id = s["PhysicalResourceId"]
+        child_name = re.search(r":stack/(.*)/", child_id).group(1)
+        try:
+            if self.cf.describe_stacks(StackName=child_id)["Stacks"][0]["StackStatus"] == "DELETE_COMPLETE":
+                return
+        except self.cf.exceptions.ClientError as e:
+            if "does not exist" in e.response["Error"]["Message"]:
+                return
+            raise
+
+        child_resources = self.cf.describe_stack_resources(StackName=child_name)["StackResources"]
+        stacks[child_name] = [
+            r["LogicalResourceId"] for r in child_resources if r["ResourceStatus"] != "DELETE_COMPLETE"
+        ]
+        for r in child_resources:
+            if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
+                self._get_stack_resources(stacks, r)
+
     def delete_stack(self):
         self.setup()
 
-        cf_tf_output = json.loads(
-            run(["terraform", "output", "-json"], cwd="cloudformation-only", capture_output=True).stdout
-        )
-        if not (cf_only_role := cf_tf_output.get("cloudformation_only_role")) or not re.match(
-            "arn:.*:iam:.*role/cloudformation-only", cf_only_role["value"]
-        ):
+        cf_only_state_file = Path("cloudformation-only", "terraform.tfstate")
+
+        if not exists(cf_only_state_file):
+            print(f"Error: {cf_only_state_file} does not exist.")
+
+        with open(cf_only_state_file, "r") as f:
+            tfstate_data = json.load(f)
+
+        cf_only_role = tfstate_data.get("outputs", {}).get("cloudformation_only_role", {}).get("value", None)
+
+        if not cf_only_role or not re.match("arn:.*:iam:.*role/cloudformation-only", cf_only_role):
             print("Please run the terraform module in the 'cloudformation-only' subdirectory...")
             exit(1)
 
         if self.args.delete:
             print(f"Forcing {self.stack_name} into `DELETE_FAILED`")
             self._print_stacks_status([self.stack_name])
-            self._delete_stack_wait_for_fail_state(self.stack_name, cf_only_role["value"])
+            self._delete_stack_wait_for_fail_state(self.stack_name, cf_only_role)
 
         root_resources = self.cf.describe_stack_resources(StackName=self.stack_name)["StackResources"]
 
@@ -656,28 +817,9 @@ class app:
             ]
         }
 
-        def get_stack_resources(s):
-            child_id = s["PhysicalResourceId"]
-            child_name = re.search(r":stack/(.*)/", child_id).group(1)
-            try:
-                if self.cf.describe_stacks(StackName=child_id)["Stacks"][0]["StackStatus"] == "DELETE_COMPLETE":
-                    return
-            except self.cf.exceptions.ClientError as e:
-                if "does not exist" in e.response["Error"]["Message"]:
-                    return
-                raise
-
-            child_resources = self.cf.describe_stack_resources(StackName=child_name)["StackResources"]
-            stacks[child_name] = [
-                r["LogicalResourceId"] for r in child_resources if r["ResourceStatus"] != "DELETE_COMPLETE"
-            ]
-            for r in child_resources:
-                if r["ResourceType"] == cdk_ids.cloudformation_stack.value:
-                    get_stack_resources(r)
-
         for s in root_resources:
             if s["ResourceType"] == cdk_ids.cloudformation_stack.value:
-                get_stack_resources(s)
+                self._get_stack_resources(stacks, s)
 
         for i, (stack, resources) in enumerate(stacks.items()):
             if self.args.delete:
@@ -687,20 +829,20 @@ class app:
                 ) and stack_status != "DELETE_FAILED":
                     raise Exception(f"Expected stack status to be `DELETE_FAILED` but got: `{stack_status}`.")
 
-                self.cf.delete_stack(StackName=stack, RoleARN=cf_only_role["value"], RetainResources=resources)
+                self.cf.delete_stack(StackName=stack, RoleARN=cf_only_role, RetainResources=resources)
             else:
                 if i == 0:
                     print(
                         "Manual instructions:\nFirst run this delete-stack command using the cloudformation-only role:\n"
                     )
                     print(
-                        f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --role {cf_only_role['value']}\n"
+                        f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --role {cf_only_role}\n"
                     )
                     print(
                         "This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:\n"
                     )
                 print(
-                    f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role['value']}\n"
+                    f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role}\n"
                 )
 
         if not self.args.delete:

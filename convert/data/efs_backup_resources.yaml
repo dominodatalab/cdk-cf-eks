@@ -2,11 +2,11 @@ name: efs_backup
 type: optional
 resources:
   efs_stack:
-  - cf: efsbackup
-    tf: module.eks.module.storage.aws_backup_vault.efs[0]
-  - cf: efsbackupplan
-    tf: module.eks.module.storage.aws_backup_plan.efs[0]
-  - cf: efsbackuprole
-    tf: module.eks.module.storage.aws_iam_role.efs_backup_role[0]
-  - cf_backupselection: efsbackupselection
-    tf: module.eks.module.storage.aws_backup_selection.efs[0]
+    - cf: efsbackup
+      tf: module.infra.module.storage.aws_backup_vault.efs[0]
+    - cf: efsbackupplan
+      tf: module.infra.module.storage.aws_backup_plan.efs[0]
+    - cf: efsbackuprole
+      tf: module.infra.module.storage.aws_iam_role.efs_backup_role[0]
+    - cf_backupselection: efsbackupselection
+      tf: module.infra.module.storage.aws_backup_selection.efs[0]
