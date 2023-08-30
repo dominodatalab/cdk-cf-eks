@@ -33,15 +33,19 @@ To convert the CDK stack to terraform, we will...
 8. Delete unneeded AWS resources
 9. Delete the old CloudFormation stack
 
+### Prerequisites
+* terraform version >= 1.5.0
+* python 3.11
+
 ### convert.py usage
 
     usage: convert.py [-h] {create-tfvars,resource-map,get-imports,delete-stack,print-stack} ...
-    
+
     terraform eks module importer
-    
+
     options:
       -h, --help            show this help message and exit
-    
+
     commands:
       {create-tfvars,resource-map,get-imports,delete-stack,print-stack}
 	create-tfvars       Generate tfvars
@@ -65,18 +69,10 @@ autoscaling group nodes and bastion node will be provisioned with the new key.
 
 ### Get AWS resources to import
 
-Then, we'll use `convert.py` to generate the Terraform import commands to import our AWS resources:
+Then, we'll use `convert.py` to generate the Terraform import blocks to import our AWS resources:
 
-    ./convert.py get-imports --region us-east-1 --stack-name mystack > terraform/imports.sh
+    ./convert.py get-imports --region us-east-1 --stack-name mystack > terraform/imports.tf
 
-### Initialize and import Terraform resources
-
-Change to the `terraform/` directory, and run the following two commands:
-
-    terraform init
-    bash imports.sh
-
-`imports.sh` will run *several* `terraform import` commands in a row. This is normal.
 
 ### Review and Configure Node Groups
 
@@ -84,13 +80,15 @@ This conversion process will create a tvfars file with the default nodegroups fo
 
 ### Evaluate the Terraform plan
 
-Once everything has been imported, you can run `terraform plan` and evaluate what terraform will do:
+Run `terraform plan` and evaluate what terraform will do:
 
     terraform plan -out terraform.plan
 
 There will be a lot of output, but near the end you should see output similar to this:
 
-    Plan: 111 to add, 34 to change, 0 to destroy.
+`Plan: 58 to import, 119 to add, 39 to change, 0 to destroy.`
+
+Verify that the right number of imports are happening.
 
 If there is anything Terraform plans to destroy, that is *not* expected and you should carefully scrutinize the output to ensure Terraform isn't doing anything destructive.
 
@@ -169,16 +167,16 @@ This will provision an IAM role that *only has permission to CloudFormation and 
 Once this is provisioned, run `convert.py`'s `delete-stack` command and read its instructions:
 
     ./convert.py delete-stack --region us-east-1 --stack-name mystack
-    
+
     Manual instructions:
     First run this delete-stack command using the cloudformation-only role:
-    
+
     aws cloudformation delete-stack --region us-east-1 --stack-name mystack --role arn:aws:iam::1234567890:role/cloudformation-only
-    
+
     This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:
-    
+
     <various delete-stack commands for each stack, with the --retain-resources argument propagated>
-    
+
     To perform this process automatically, add the --delete argument
 
 Rerun the `delete-stack` command with `--delete` (or run the boto commands manually, if you prefer):

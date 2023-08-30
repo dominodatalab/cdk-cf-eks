@@ -88,10 +88,8 @@ class nuke:
                         ][0]["DesiredCapacity"]
                         != 0
                     ):
-                        print(
-                            self.autoscaling.update_auto_scaling_group(
-                                AutoScalingGroupName=group, DesiredCapacity=0, MinSize=0, MaxSize=0
-                            )
+                        self.autoscaling.update_auto_scaling_group(
+                            AutoScalingGroupName=group, DesiredCapacity=0, MinSize=0, MaxSize=0
                         )
                         print(f"Auto scaling group {group} scaled to 0, must wait for scaling to finish to delete")
 

@@ -316,6 +316,14 @@ class app:
             val = re.sub(r"%cf_stack_key%", self.cf_stack_key, val)
             return val
 
+        import_template = dedent(
+            """
+        import {{
+            id = "{resource_id}"
+            to = {tf_import_path}
+          }}
+        """
+        )
         imports = []
 
         for map_stack, items in resource_map.items():
@@ -344,28 +352,20 @@ class app:
                     resource_id = f"{plan_id}|{selection_id}"
                 else:
                     resource_id = resources[t(item["cf"])]
-                imports.append(f"tf_import '{tf_import_path}' '{resource_id}'")
+
+                import_block = import_template.format(tf_import_path=tf_import_path, resource_id=resource_id)
+                imports.append(import_block)
 
         eks = boto3.client("eks", self.region)
         eks_cluster_result = eks.describe_cluster(name=self.cdkconfig["name"])
         eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
-        import_path = "aws_security_group.eks_cluster_auto"
-        imports.append(f"tf_import '{import_path}' '{eks_cluster_auto_sg}'")
-
-        print(
-            dedent(
-                """\
-            #!/bin/bash
-            set -ex
-
-            tf_import() {
-                terraform import "$1" "$2"
-                terraform state show "$1" || (echo "$1 not in terraform state, import may have failed" && exit 1)
-            }
-        """
+        imports.append(
+            import_template.format(
+                tf_import_path="aws_security_group.eks_cluster_auto", resource_id=eks_cluster_auto_sg
             )
         )
-        print("\n".join(imports))
+
+        print("".join(imports))
 
     def create_tfvars(self):
         self.setup()

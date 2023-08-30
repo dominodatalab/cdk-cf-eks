@@ -18,6 +18,11 @@ cdk.context.json
 **/.terraform/*
 **.terraform.lock.hcl*
 **.terraform.lock.hcl
+**imports.sh
+**imports.tf
+**terraform.tfvars.json
+**domino.pem*
+**terraform.plan
 
 .idea/
 .coverage
