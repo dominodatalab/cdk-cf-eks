@@ -644,7 +644,7 @@ class app:
         with open(cf_only_state_file, "r") as f:
             tfstate_data = json.load(f)
 
-        cf_only_role = tfstate_data.get("outputs", {}).get("cloudformation_only_role", None)
+        cf_only_role = tfstate_data.get("outputs", {}).get("cloudformation_only_role", {}).get("value", None)
 
         print("cf_only_role:", cf_only_role)
 
