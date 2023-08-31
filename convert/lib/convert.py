@@ -634,9 +634,10 @@ class app:
     def delete_stack(self):
         self.setup()
 
-        tf_output = run(["terraform", "output", "-json"], cwd="cloudformation-only", capture_output=True).stdout
+        tf_output = run(["terraform", "output", "-json"], cwd="cloudformation-only", capture_output=True).stdout.decode(
+            "utf-8"
+        )
 
-        print("tf_output")
         pprint(tf_output)
 
         cf_tf_output = json.loads(tf_output)
