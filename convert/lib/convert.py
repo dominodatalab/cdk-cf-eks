@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import re
 from copy import deepcopy
 from functools import cached_property
 from os import listdir
 from os.path import abspath, join
 from pprint import pprint
-from subprocess import run
 from textwrap import dedent
 from time import sleep
 
@@ -634,23 +634,28 @@ class app:
     def delete_stack(self):
         self.setup()
 
-        tf_output = run(["terraform", "output", "-json"], cwd="cloudformation-only", capture_output=True).stdout.decode(
-            "utf-8"
-        )
+        cf_only_state_file = os.path.join(os.getcwd(), "cloudformation-only", "terraform.tfstate")
 
-        pprint(tf_output)
+        print("cf_only_state_file:", cf_only_state_file)
 
-        cf_tf_output = json.loads(tf_output)
-        if not (cf_only_role := cf_tf_output.get("cloudformation_only_role")) or not re.match(
-            "arn:.*:iam:.*role/cloudformation-only", cf_only_role["value"]
-        ):
+        if not os.path.exists(cf_only_state_file):
+            print(f"Error: {cf_only_state_file} does not exist.")
+
+        with open(cf_only_state_file, "r") as f:
+            tfstate_data = json.load(f)
+
+        cf_only_role = tfstate_data.get("outputs", {}).get("cloudformation_only_role", None)
+
+        print("cf_only_role:", cf_only_role)
+
+        if not cf_only_role or not re.match("arn:.*:iam:.*role/cloudformation-only", cf_only_role):
             print("Please run the terraform module in the 'cloudformation-only' subdirectory...")
             exit(1)
 
         if self.args.delete:
             print(f"Forcing {self.stack_name} into `DELETE_FAILED`")
             self._print_stacks_status([self.stack_name])
-            self._delete_stack_wait_for_fail_state(self.stack_name, cf_only_role["value"])
+            self._delete_stack_wait_for_fail_state(self.stack_name, cf_only_role)
 
         root_resources = self.cf.describe_stack_resources(StackName=self.stack_name)["StackResources"]
 
@@ -691,20 +696,20 @@ class app:
                 ) and stack_status != "DELETE_FAILED":
                     raise Exception(f"Expected stack status to be `DELETE_FAILED` but got: `{stack_status}`.")
 
-                self.cf.delete_stack(StackName=stack, RoleARN=cf_only_role["value"], RetainResources=resources)
+                self.cf.delete_stack(StackName=stack, RoleARN=cf_only_role, RetainResources=resources)
             else:
                 if i == 0:
                     print(
                         "Manual instructions:\nFirst run this delete-stack command using the cloudformation-only role:\n"
                     )
                     print(
-                        f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --role {cf_only_role['value']}\n"
+                        f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --role {cf_only_role}\n"
                     )
                     print(
                         "This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:\n"
                     )
                 print(
-                    f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role['value']}\n"
+                    f"aws cloudformation delete-stack --region {self.region} --stack-name {stack} --retain-resources {' '.join(resources)} --role {cf_only_role}\n"
                 )
 
         if not self.args.delete:
