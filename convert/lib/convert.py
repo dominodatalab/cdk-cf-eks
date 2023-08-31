@@ -636,8 +636,6 @@ class app:
 
         cf_only_state_file = os.path.join(os.getcwd(), "cloudformation-only", "terraform.tfstate")
 
-        print("cf_only_state_file:", cf_only_state_file)
-
         if not os.path.exists(cf_only_state_file):
             print(f"Error: {cf_only_state_file} does not exist.")
 
@@ -645,8 +643,6 @@ class app:
             tfstate_data = json.load(f)
 
         cf_only_role = tfstate_data.get("outputs", {}).get("cloudformation_only_role", {}).get("value", None)
-
-        print("cf_only_role:", cf_only_role)
 
         if not cf_only_role or not re.match("arn:.*:iam:.*role/cloudformation-only", cf_only_role):
             print("Please run the terraform module in the 'cloudformation-only' subdirectory...")
