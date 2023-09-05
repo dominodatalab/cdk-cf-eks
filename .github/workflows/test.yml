@@ -164,17 +164,24 @@ jobs:
           pip install -r requirements.txt
           ssh-keygen -t rsa -f dummy.pem -N ''
           ./convert.py print-stack --stack-name $NAME --region $AWS_REGION --verbose --yaml > stack-data.yaml
-          ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem > terraform/terraform.tfvars.json
-          ./convert.py get-imports --stack-name $NAME --region $AWS_REGION > terraform/imports.tf
+          ./convert.py setup-terraform  --stack-name $NAME --region "$AWS_REGION"
+          ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem
+          ./convert.py set-imports --stack-name --region $AWS_REGION
       - name: Run terraform
         if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-        working-directory: ./convert/terraform
+        working-directory: ./convert
         run: |
-          terraform init
-          terraform plan -out=terraform.plan
-          terraform show -json terraform.plan | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee terraform.plan.json
-          test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
-          terraform apply -auto-approve terraform.plan
+          # terraform init
+          # terraform plan -out=terraform.plan
+          # terraform show -json terraform.plan | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee terraform.plan.json
+          # test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
+
+          export DEPLOY_ID="$NAME"
+          cd $DEPLOY_ID
+          for component in 'cdk_tf' 'infra' 'cluster' 'nodes'; do
+            echo "Runing terraform for $component"
+            ./tf.sh "$component "init && ./tf.sh "$component" plan && ./tf.sh "$component" apply
+          done
 
       - name: Authenticate with AWS
         uses: aws-actions/configure-aws-credentials@v2
@@ -210,9 +217,15 @@ jobs:
           cdk destroy --force
       - name: Destroy Infrastructure tf
         if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-        working-directory: ./convert/terraform
+        working-directory: ./convert
         run: |
-          terraform destroy -auto-approve
+          export DEPLOY_ID="$NAME"
+          cd $DEPLOY_ID
+          for component in 'nodes' 'cluster' 'infra' 'cdk_tf'; do
+            echo "Runing terraform for $component"
+            ./tf.sh "$component" destroy
+          done
+          # terraform destroy -auto-approve
       - name: Destroy Infrastructure cf
         if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
         working-directory: ./convert/cloudformation-only
