@@ -184,11 +184,18 @@ jobs:
           # terraform show -json terraform.plan | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee terraform.plan.json
           # test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
 
+          source "$DEPLOY_ID/meta.sh"
+
           export DEPLOY_ID="$NAME"
           cd $DEPLOY_ID
           for component in 'cdk_tf' 'infra' 'cluster' 'nodes'; do
             echo "Runing terraform for $component"
-            ./tf.sh "$component "init && ./tf.sh "$component" plan && ./tf.sh "$component" apply
+            ./tf.sh "$component" 'init' && ./tf.sh "$component" 'plan_out'
+            terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee "${component}-tf-deletes.plan.json"
+            test -s "${component}-tf-deletes.plan.json" && echo "Detected deletions, bailing..." && exit 1
+            rm "${component}-tf-deletes.plan.json"
+            echo "No deletes found, applying plan..."
+            ./tf.sh "$component" 'apply_plan'
           done
 
       - name: Authenticate with AWS
