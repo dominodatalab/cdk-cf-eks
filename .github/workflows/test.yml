@@ -185,19 +185,51 @@ jobs:
           # test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
 
           export DEPLOY_ID="$NAME"
+          if pushd "$DEPLOY_ID"; then
+            if source meta.sh; then
+              for component in cdk_tf infra cluster nodes; do
+                echo "Running terraform for $component"
 
-          source "$DEPLOY_ID/meta.sh"
+                if ! ./tf.sh "$component" 'init'; then
+                  echo "Initialization for $component failed. Exiting..."
+                  exit 1
+                fi
 
-          cd $DEPLOY_ID
-          for component in 'cdk_tf' 'infra' 'cluster' 'nodes'; do
-            echo "Runing terraform for $component"
-            ./tf.sh "$component" 'init' && ./tf.sh "$component" 'plan_out'
-            terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee "${component}-tf-deletes.plan.json"
-            test -s "${component}-tf-deletes.plan.json" && echo "Detected deletions, bailing..." && exit 1
-            rm "${component}-tf-deletes.plan.json"
-            echo "No deletes found, applying plan..."
-            ./tf.sh "$component" 'apply_plan'
-          done
+                if ! ./tf.sh "$component" 'plan_out'; then
+                  echo "Plan for $component failed. Exiting..."
+                  exit 1
+                fi
+
+                if ! terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" | \
+                    jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
+                    tee "${component}-tf-deletes.plan.json"; then
+                  echo "Terraform show or jq command for $component failed. Exiting..."
+                  exit 1
+                fi
+
+                if [ -s "${component}-tf-deletes.plan.json" ]; then
+                  echo "Detected deletions, bailing..."
+                  exit 1
+                fi
+
+                rm "${component}-tf-deletes.plan.json"
+
+                echo "No deletes found, applying plan..."
+                if ! ./tf.sh "$component" 'apply_plan'; then
+                  echo "Apply plan for $component failed. Exiting..."
+                  exit 1
+                fi
+
+              done
+            else
+              echo "Failed to source meta.sh. Exiting..."
+              exit 1
+            fi
+            popd
+          else
+            echo "Failed to change directory to $DEPLOY_ID. Exiting..."
+            exit 1
+          fi
 
       - name: Authenticate with AWS
         uses: aws-actions/configure-aws-credentials@v2
