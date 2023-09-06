@@ -122,6 +122,9 @@ class app:
         setup_tf_mods_parser = subparsers.add_parser(
             name="setup-terraform", help="Sets up the terraform module", parents=[common_parser]
         )
+        setup_tf_mods_parser.add_argument(
+            "--mod-version", help="Release version for terraform-aws-eks(Must be >= v3.0.0)", required=True
+        )
         setup_tf_mods_parser.set_defaults(command=self.setup_tf_mods)
 
         create_tfvars_parser = subparsers.add_parser(
@@ -394,12 +397,25 @@ class app:
         with open(imports_path, "w") as f:
             f.writelines(i for i in imports)
 
+    def tf_sh(self, component: str, command: str) -> None:
+        deploy_dir = self.stack_name
+        cmd = [
+            "./tf.sh",
+            component,
+            command,
+        ]
+        print(f"Running {cmd}...")
+        tf_sh_run = run(cmd, cwd=deploy_dir, capture_output=True, text=True)
+        if tf_sh_run.returncode != 0:
+            print(f"Error Running from module {cmd} failed.", tf_sh_run.stdout, tf_sh_run.stderr)
+            exit(1)
+
     def setup_tf_mods(self):
         self.setup()
         print("Setting up terraform modules...")
 
         deploy_dir = self.stack_name
-        mod_version = "miguelhar.cdk-convert-support"
+        mod_version = self.args.mod_version
         example_url = f"github.com/dominodatalab/terraform-aws-eks.git//examples/deploy?ref={mod_version}"
 
         os.makedirs(deploy_dir, exist_ok=True)
@@ -424,6 +440,9 @@ class app:
             exit(1)
 
         shutil.copytree(Path("cdk_tf"), Path(deploy_dir, "terraform", "cdk_tf"))
+
+        for mod in ["cdk_tf", "all"]:
+            self.tf_sh(mod, "init")
 
     def create_tfvars(self):
         self.setup()
@@ -470,7 +489,7 @@ class app:
         subnet_result = ec2.describe_subnets(SubnetIds=get_subnet_ids("Private"))
         az_zone_ids = [s["AvailabilityZoneId"] for s in subnet_result["Subnets"]]
 
-        tfvars: dict[str, dict[Any]] = {"cdk_tf": {}, "infra": {}, "cluster": {}, "nodes": {}}
+        tfvars: dict[str, dict[str, Any]] = {"cdk_tf": {}, "infra": {}, "cluster": {}, "nodes": {}}
 
         region = self.cdkconfig["aws_region"]
         deploy_id = self.cdkconfig["name"]

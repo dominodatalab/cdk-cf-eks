@@ -58,11 +58,15 @@ To convert the CDK stack to terraform, we will...
 	print-stack         Print CDK stack resources
 
 ### Set environment variables
-Set `AWS_REGION` and `DEPLOY_ID` environment variables with appropriate values.
+Set `AWS_REGION`, `DEPLOY_ID` and `MOD_VERSION` environment variables with appropriate values.
+
+* `AWS_REGION`  AWS region for the CloudFormation stack.
+* `DEPLOY_ID` : Name of the main CloudFormation stack.
+* `MOD_VERSION`: Release tag for [terraform-aws-eks](https://github.com/dominodatalab/terraform-aws-eks/releases) in the form `vX.Y.Z` (using `v3.0.0` as an example).
 
 Command:
 
-    export AWS_REGION='us-east-1' DEPLOY_ID='my-main-stack-name'
+    export AWS_REGION='us-east-1' DEPLOY_ID='my-main-stack-name' MOD_VERSION='v3.0.0'
 
 ### Setup the terraform modules.
 The following command will create a directory named after variable `$DEPLOY_ID` where it will Initialize the necessary terraform configuration.
@@ -70,7 +74,7 @@ It will also copy over `cdk_tf` under the  `$DEPLOY_ID/terraform` directory to c
 
 Command:
 
-    ./convert.py setup-terraform --region "$AWS_REGION" --stack-name "$DEPLOY_ID"
+    ./convert.py setup-terraform --region "$AWS_REGION" --stack-name "$DEPLOY_ID" --mod-version "$MOD_VERSION"
 
 ### Create terraform variables
 
@@ -114,18 +118,6 @@ Command:
 This conversion process will create a tvfars file with the default nodegroups for the terraform-aws-eks module. The variables file which corresponds to the nodes configuration is located at `$DEPLOY_ID/terraform/nodes.tfvars.json`
 Please review the instructions for that module, and configure the nodegroups as desired. Your old nodegroups will remain functional after running the conversion (until the "clean-stack" step).
 
-### Initialize each of the terraform modules
-
-We need to initialize the terraform configurations, so it can download the modules and necessary plugins. As part of the modules setup we provide a helper script which helps organize the terraform configuration(variables and state) as well as running common terraform commands. Read through `$DEPLOY_ID/README.md` for detailed information.
-
-Change onto the `$DEPLOY_ID` directory and run use the `tf.sh` to initialize terraform:
-
-    cd "$DEPLOY_ID"
-    ./tf.sh cdk_tf init
-    ./tf.sh all init
-
-* :exclamation: Note that running the script with the component `all` is synonymous as `infra`, `cluster`, `nodes` but it does not include `cdk_tf` .
-
 ### Evaluate the Terraform plan
 
 Change onto the `DEPLOY_ID` directory:
@@ -161,7 +153,7 @@ The `nodes` configuration depends on the `cluster` and `infra` states, Given tha
 
     ./tf.sh cluster plan
 
-:exclamation: Inspect plan output before running apply:
+:exclamation: Inspect plan output before running apply. If there is anything Terraform plans to destroy, that is *not* expected and you should carefully scrutinize the output to ensure Terraform isn't doing anything destructive.
 
     ./tf.sh cluster apply
 
@@ -169,7 +161,7 @@ Once `cluster` has been applied successfully the last module to apply is `nodes`
 
     ./tf.sh nodes plan
 
-:exclamation: Inspect plan output before running apply:
+:exclamation: Inspect plan output before running apply. If there is anything Terraform plans to destroy, that is *not* expected and you should carefully scrutinize the output to ensure Terraform isn't doing anything destructive.
 
     ./tf.sh nodes apply
 
