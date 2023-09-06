@@ -164,6 +164,7 @@ jobs:
           pip install -r requirements.txt
           ssh-keygen -t rsa -f dummy.pem -N ''
           ./convert.py print-stack --stack-name $NAME --region $AWS_REGION --verbose --yaml > stack-data.yaml
+          export MOD_VALIDATION_OFF=true ## Needed to be able to set the module source to a nonversioned release(i.e branch).
           ./convert.py setup-terraform  --stack-name $NAME --region "$AWS_REGION"
           ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem
           ./convert.py set-imports --stack-name --region $AWS_REGION
