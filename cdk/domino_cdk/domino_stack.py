@@ -112,10 +112,19 @@ class DominoStack(cdk.Stack):
                 "iam:TagPolicy",
             ],
         )
-        # At least until we get the lambda working, this has to live in the eks stack's scope
-        # as there is some implicit token used to construct the magically auto-generated kubectl
-        # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
-        DominoAwsConfigurator(self.eks_stack.scope, self.eks_stack.cluster)
+
+        # From 1.25 and on, you must maintain calico yourself
+        if self.cfg.eks.version <= "1.24":
+            # At least until we get the lambda working, this has to live in the eks stack's scope
+            # as there is some implicit token used to construct the magically auto-generated kubectl
+            # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
+            DominoAwsConfigurator(self.eks_stack.scope, self.eks_stack.cluster)
+        else:
+            cdk.CfnOutput(
+                self,
+                "zeCalicoNotice",  # ze puts the output at the end where it'll be seen
+                value="Calico is no longer managed by CDK and has been uninstalled.. If upgrading from\n1.24 or earlier, you will have to manage Calico manually, or forgo network\npolicy enforcement.\n\nYou can reinstall Calico with the following command:\nhelm upgrade calico-tigera-operator tigera-operator \\\n--repo https://projectcalico.docs.tigera.io/charts --version v3.25.0 \\\n--namespace tigera-operator --set installation.kubernetesProvider=EKS \\\n--set installation.cni.type=AmazonVPC --set installation.registry=quay.io/ \\\n--timeout 10m --create-namespace --install\n\nIf you choose not to reinstall Calico, you should cycle all nodes.",
+            )
 
         self.generate_outputs()
 
