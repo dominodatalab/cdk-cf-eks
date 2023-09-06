@@ -184,9 +184,10 @@ jobs:
           # terraform show -json terraform.plan | jq '.resource_changes[] | select(.change.actions[]=="delete")' | tee terraform.plan.json
           # test -s terraform.plan.json && echo "Detected deletions, bailing..." && exit 1
 
+          export DEPLOY_ID="$NAME"
+
           source "$DEPLOY_ID/meta.sh"
 
-          export DEPLOY_ID="$NAME"
           cd $DEPLOY_ID
           for component in 'cdk_tf' 'infra' 'cluster' 'nodes'; do
             echo "Runing terraform for $component"
