@@ -203,14 +203,12 @@ jobs:
                 fi
 
                 echo "Checking plan for deletes.."
-
-                echo "terraform plan at: ${BASE_TF_DIR}/${component}-terraform.plan"
-                terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" > "${BASE_TF_DIR}/${component}-changes.plan.json"
-
-                # if ! terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" > "${BASE_TF_DIR}/${component}-changes.plan.json"; then
-                #   echo "Terraform show command for $component failed. Exiting..."
-                #   exit 1
-                # fi
+                export TF_LOG_PATH=terraform.log
+                export TF_LOG=INFO
+                set -x
+                terraform show "${BASE_TF_DIR}/${component}-terraform.plan"
+                terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" >"${BASE_TF_DIR}/${component}-changes.plan.json"
+                cat terraform.log
 
                 jq -c 'select(.change.actions | contains(["delete"]))' "${BASE_TF_DIR}/${component}-changes.plan.json" > "${component}-tf-deletes.plan.json"
                 cat "${component}-tf-deletes.plan.json"
