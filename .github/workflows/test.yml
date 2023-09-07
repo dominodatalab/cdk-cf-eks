@@ -200,21 +200,23 @@ jobs:
                   exit 1
                 fi
 
-                if ! terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" | \
-                    jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
-                    tee "${component}-tf-deletes.plan.json"; then
-                  echo "Terraform show or jq command for $component failed. Exiting..."
+                echo "Checking plan for deletes.."
+
+                if ! terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" > "${BASE_TF_DIR}/${component}-changes.plan.json"; then
+                  echo "Terraform show command for $component failed. Exiting..."
                   exit 1
                 fi
+
+                jq -c 'select(.change.actions | contains(["delete"]))' "${BASE_TF_DIR}/${component}-changes.plan.json" > "${component}-tf-deletes.plan.json"
+                cat "${component}-tf-deletes.plan.json"
 
                 if [ -s "${component}-tf-deletes.plan.json" ]; then
                   echo "Detected deletions, bailing..."
                   exit 1
+                else
+                  echo "No deletes found"
                 fi
 
-                rm "${component}-tf-deletes.plan.json"
-
-                echo "No deletes found, applying plan..."
                 if ! ./tf.sh "$component" 'apply_plan'; then
                   echo "Apply plan for $component failed. Exiting..."
                   exit 1
