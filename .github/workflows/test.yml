@@ -202,6 +202,8 @@ jobs:
 
                 echo "Checking plan for deletes.."
 
+                echo "terraform plan at: ${BASE_TF_DIR}/${component}-terraform.plan"
+
                 if ! terraform show -json "${BASE_TF_DIR}/${component}-terraform.plan" > "${BASE_TF_DIR}/${component}-changes.plan.json"; then
                   echo "Terraform show command for $component failed. Exiting..."
                   exit 1
