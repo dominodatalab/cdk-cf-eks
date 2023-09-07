@@ -64,8 +64,9 @@ jobs:
           coverage report
 
       - name: Authenticate with AWS
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
+          unset-current-credentials: true
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Create/lint default config
@@ -123,8 +124,9 @@ jobs:
           $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
 
       - name: Authenticate with AWS
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
+          unset-current-credentials: true
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Collect diagnostic data
@@ -237,8 +239,9 @@ jobs:
           fi
 
       - name: Authenticate with AWS
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         with:
+          unset-current-credentials: true
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Clean and delete stack
@@ -256,9 +259,10 @@ jobs:
           retention-days: 14
 
       - name: Authenticate with AWS
-        uses: aws-actions/configure-aws-credentials@v2
+        uses: aws-actions/configure-aws-credentials@v3
         if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
         with:
+          unset-current-credentials: true
           role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
       - name: Delete stack w/CDK
