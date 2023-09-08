@@ -23,7 +23,7 @@ def create_lambda(
         scope,
         f"{name}_on_event",
         function_name=f"{stack_name}-{name}",
-        runtime=lambda_.Runtime.PYTHON_3_7,
+        runtime=lambda_.Runtime.PYTHON_3_9,
         handler="index.on_event",
         code=lambda_.InlineCode(on_event_code_body),
         environment=environment,
