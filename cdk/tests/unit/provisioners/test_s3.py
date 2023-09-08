@@ -1,7 +1,7 @@
 from os import environ
 
-from aws_cdk.assertions import Template
 from aws_cdk import App, Environment, Stack
+from aws_cdk.assertions import Template
 
 from domino_cdk.config import S3
 from domino_cdk.provisioners.s3 import DominoS3Provisioner

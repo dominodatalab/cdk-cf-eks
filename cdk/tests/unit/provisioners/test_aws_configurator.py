@@ -3,8 +3,8 @@ from os import chdir
 from tempfile import TemporaryDirectory
 
 import aws_cdk.aws_eks as eks
-from aws_cdk.assertions import Template
 from aws_cdk import App, Environment, Stack
+from aws_cdk.assertions import Template
 from ruamel.yaml import YAML
 
 from domino_cdk.aws_configurator import DominoAwsConfigurator
