@@ -3,13 +3,14 @@ from typing import Any, Dict, Optional
 
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
+import aws_cdk.aws_iam as iam
 import boto3
-from aws_cdk import RemovalPolicy
+from aws_cdk import CfnOutput, RemovalPolicy
 from aws_cdk.aws_kms import Key
-from aws_cdk.region_info import Fact, FactName
 from aws_cdk.lambda_layer_kubectl_v24 import KubectlV24Layer
 from aws_cdk.lambda_layer_kubectl_v25 import KubectlV25Layer
 from aws_cdk.lambda_layer_kubectl_v26 import KubectlV26Layer
+from aws_cdk.region_info import Fact, FactName
 from constructs import Construct
 
 from ..lambda_utils import create_lambda
@@ -26,6 +27,7 @@ class DominoEksClusterProvisioner:
     def provision(
         self,
         stack_name: str,
+        grandparent: Construct,
         eks_version: eks.KubernetesVersion,
         private_api: bool,
         secrets_encryption_key_arn: str,
@@ -80,6 +82,12 @@ class DominoEksClusterProvisioner:
         else:
             kubectl_layer = KubectlV26Layer(self.scope, "kubectl_layer")
 
+        master_role = iam.Role(
+            self.scope,
+            "MastersRole",
+            assumed_by=iam.AccountRootPrincipal(),
+        )
+
         cluster = eks.Cluster(
             self.scope,
             "eks",
@@ -87,6 +95,7 @@ class DominoEksClusterProvisioner:
             vpc=vpc,
             endpoint_access=eks.EndpointAccess.PRIVATE if private_api else None,
             vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
+            masters_role=master_role,
             version=eks_version,
             kubectl_layer=kubectl_layer,
             default_capacity=0,
@@ -130,6 +139,11 @@ class DominoEksClusterProvisioner:
 
         self.setup_addons(cluster, eks_version.version)
 
+        CfnOutput(
+            grandparent,
+            "eks_kubeconfig_cmd",
+            value=f"aws eks update-kubeconfig --name {cluster.cluster_name} --region {self.scope.region} --role-arn {master_role.role_arn}",
+        )
         return cluster
 
     def setup_addons(self, cluster: eks.Cluster, eks_version: str) -> eks.CfnAddon:

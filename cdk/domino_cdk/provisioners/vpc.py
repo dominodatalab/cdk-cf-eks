@@ -6,7 +6,7 @@ import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.aws_s3 as s3
 import aws_cdk.custom_resources as cr
-from aws_cdk import NestedStack, Tags, CfnOutput, Stack, Fn
+from aws_cdk import CfnOutput, Fn, NestedStack, Stack, Tags
 from constructs import Construct
 
 from domino_cdk import config

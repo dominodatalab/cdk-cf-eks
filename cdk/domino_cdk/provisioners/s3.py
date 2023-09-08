@@ -1,7 +1,7 @@
 from typing import Optional
 
 import aws_cdk.aws_iam as iam
-from aws_cdk import NestedStack, RemovalPolicy, Stack, CfnOutput
+from aws_cdk import CfnOutput, NestedStack, RemovalPolicy, Stack
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import (
     BlockPublicAccess,

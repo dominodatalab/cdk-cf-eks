@@ -3,8 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import aws_autoscaling
-from aws_cdk import Stack, Tags, Fn
+from aws_cdk import Fn, Stack, Tags, aws_autoscaling
 from constructs import Construct
 
 from domino_cdk import config

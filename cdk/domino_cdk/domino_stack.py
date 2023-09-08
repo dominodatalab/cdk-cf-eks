@@ -1,7 +1,7 @@
 from typing import Optional
 
 import aws_cdk.aws_s3 as s3
-from aws_cdk import Stack, CfnOutput, Tags
+from aws_cdk import CfnOutput, Stack, Tags
 from constructs import Construct
 
 from domino_cdk.aws_configurator import DominoAwsConfigurator

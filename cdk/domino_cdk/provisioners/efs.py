@@ -3,7 +3,7 @@ import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
-from aws_cdk import Duration, NestedStack, RemovalPolicy, CfnOutput
+from aws_cdk import CfnOutput, Duration, NestedStack, RemovalPolicy
 from aws_cdk.region_info import Fact, FactName
 from constructs import Construct
 

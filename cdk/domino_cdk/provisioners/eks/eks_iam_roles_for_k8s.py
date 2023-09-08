@@ -2,7 +2,7 @@ from typing import Dict, List
 
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import Fn, CfnJson
+from aws_cdk import CfnJson, Fn
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk.region_info import Fact, FactName
 from constructs import Construct

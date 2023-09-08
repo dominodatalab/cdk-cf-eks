@@ -3,7 +3,7 @@ from typing import Dict, List
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import NestedStack, Stack, CfnOutput
+from aws_cdk import CfnOutput, NestedStack, Stack
 from aws_cdk.aws_s3 import Bucket
 from constructs import Construct
 
@@ -36,6 +36,7 @@ class DominoEksProvisioner:
 
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
             stack_name,
+            parent,
             eks_version,
             eks_cfg.private_api,
             eks_cfg.secrets_encryption_key_arn,
@@ -53,8 +54,3 @@ class DominoEksProvisioner:
         CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
 
         region = Stack.of(self.scope).region
-        CfnOutput(
-            parent,
-            "eks_kubeconfig_cmd",
-            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {region} --role-arn {self.cluster.kubectl_role.role_arn}",
-        )
