@@ -2,9 +2,10 @@ from typing import Dict, List
 
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
+from aws_cdk import Fn, CfnJson
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 # Permission groups
 
@@ -76,7 +77,7 @@ roles = {
 class DominoEksK8sIamRolesProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
     ) -> None:
         self.scope = scope
 
@@ -92,14 +93,14 @@ class DominoEksK8sIamRolesProvisioner:
             # logical_id belongs to type CfnElement, which is linked from below like this.
             cluster.node.find_child("OpenIdConnectProvider").node.default_child.node.default_child
         )
-        fn = cdk.Fn.select(
+        fn = Fn.select(
             1,
-            cdk.Fn.split(
+            Fn.split(
                 ":oidc-provider/",
-                cdk.Fn.ref(logical_id),
+                Fn.ref(logical_id),
             ),
         )
-        statement_json['Condition']['StringLike'] = cdk.CfnJson(
+        statement_json['Condition']['StringLike'] = CfnJson(
             self.scope, "OidcJson", value={f"{fn}:aud": "sts.amazonaws.com", f"{fn}:sub": "system:serviceaccount:*"}
         )
         managed_policies = {}

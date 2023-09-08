@@ -4,9 +4,13 @@ from typing import Any, Dict, Optional
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import boto3
-from aws_cdk import core as cdk
+from aws_cdk import RemovalPolicy
 from aws_cdk.aws_kms import Key
 from aws_cdk.region_info import Fact, FactName
+from aws_cdk.lambda_layer_kubectl_v24 import KubectlV24Layer
+from aws_cdk.lambda_layer_kubectl_v25 import KubectlV25Layer
+from aws_cdk.lambda_layer_kubectl_v26 import KubectlV26Layer
+from constructs import Construct
 
 from ..lambda_utils import create_lambda
 
@@ -14,7 +18,7 @@ from ..lambda_utils import create_lambda
 class DominoEksClusterProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
     ) -> None:
         self.scope = scope
         self._addon_cache: Optional[Dict[str, Any]] = None
@@ -46,7 +50,7 @@ class DominoEksClusterProvisioner:
                 self.scope,
                 f"{stack_name}-kubernetes-secrets-envelope-key",
                 alias=f"{stack_name}-kubernetes-secrets-envelope-key",
-                removal_policy=cdk.RemovalPolicy.DESTROY,
+                removal_policy=RemovalPolicy.DESTROY,
                 enable_key_rotation=True,
             )
 
@@ -67,14 +71,24 @@ class DominoEksClusterProvisioner:
             ],
         )
 
+        if eks_version == "1.24":
+            kubectl_layer = KubectlV24Layer(self.scope, "kubectl_layer")
+        elif eks_version == "1.25":
+            kubectl_layer = KubectlV25Layer(self.scope, "kubectl_layer")
+        elif eks_version == "1.26":
+            kubectl_layer = KubectlV26Layer(self.scope, "kubectl_layer")
+        else:
+            kubectl_layer = KubectlV26Layer(self.scope, "kubectl_layer")
+
         cluster = eks.Cluster(
             self.scope,
             "eks",
             cluster_name=stack_name,
             vpc=vpc,
             endpoint_access=eks.EndpointAccess.PRIVATE if private_api else None,
-            vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT)],
+            vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
             version=eks_version,
+            kubectl_layer=kubectl_layer,
             default_capacity=0,
             security_group=eks_sg,
             secrets_encryption_key=key,

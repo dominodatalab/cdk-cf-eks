@@ -1,7 +1,8 @@
 from typing import Optional
 
 import aws_cdk.aws_s3 as s3
-from aws_cdk import core as cdk
+from aws_cdk import Stack, CfnOutput, Tags
+from constructs import Construct
 
 from domino_cdk.aws_configurator import DominoAwsConfigurator
 from domino_cdk.config import DominoCDKConfig
@@ -19,14 +20,14 @@ from domino_cdk.provisioners.lambda_utils import create_lambda
 from domino_cdk.util import DominoCdkUtil
 
 
-class DominoStack(cdk.Stack):
+class DominoStack(Stack):
     acm_stack: Optional[DominoAcmProvisioner] = None
     efs_stack: Optional[DominoEfsProvisioner] = None
     s3_stack: Optional[DominoS3Provisioner] = None
     monitoring_bucket: Optional[s3.Bucket] = None
 
     def __init__(
-        self, scope: cdk.Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = True, **kwargs
+        self, scope: Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = True, **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -34,12 +35,12 @@ class DominoStack(cdk.Stack):
         self.cfg = cfg
         self.env = kwargs["env"]
         self.name = self.cfg.name
-        cdk.CfnOutput(self, "deploy_name", value=self.name)
+        CfnOutput(self, "deploy_name", value=self.name)
 
         self.untagged_resources = {"ec2": [], "iam": []}
 
         for k, v in self.cfg.tags.items():
-            cdk.Tags.of(self).add(str(k), str(v))
+            Tags.of(self).add(str(k), str(v))
 
         if self.cfg.s3 is not None:
             self.s3_stack = DominoS3Provisioner(self, "S3Stack", self.name, self.cfg.s3, nest)
@@ -120,7 +121,7 @@ class DominoStack(cdk.Stack):
             # lambda behind the scenes when they are in separate stacks (nested or otehrwise).
             DominoAwsConfigurator(self.eks_stack.scope, self.eks_stack.cluster)
         else:
-            cdk.CfnOutput(
+            CfnOutput(
                 self,
                 "zeCalicoNotice",  # ze puts the output at the end where it'll be seen
                 value="Calico is no longer managed by CDK and has been uninstalled.. If upgrading from\n1.24 or earlier, you will have to manage Calico manually, or forgo network\npolicy enforcement.\n\nYou can reinstall Calico with the following command:\nhelm upgrade calico-tigera-operator tigera-operator \\\n--repo https://projectcalico.docs.tigera.io/charts --version v3.25.0 \\\n--namespace tigera-operator --set installation.kubernetesProvider=EKS \\\n--set installation.cni.type=AmazonVPC --set installation.registry=quay.io/ \\\n--timeout 10m --create-namespace --install\n\nIf you choose not to reinstall Calico, you should cycle all nodes.",
@@ -130,12 +131,12 @@ class DominoStack(cdk.Stack):
 
     def generate_outputs(self):
         if self.efs_stack is not None:
-            cdk.CfnOutput(
+            CfnOutput(
                 self,
                 "EFSFilesystemId",
                 value=self.efs_stack.efs.file_system_id,
             )
-            cdk.CfnOutput(
+            CfnOutput(
                 self,
                 "EFSAccessPointId",
                 value=self.efs_stack.efs_access_point.access_point_id,
@@ -144,21 +145,21 @@ class DominoStack(cdk.Stack):
         if self.cfg.route53 is not None:
             r53_zone_ids = self.cfg.route53.zone_ids
             r53_owner_id = f"{self.name}CDK"
-            cdk.CfnOutput(
+            CfnOutput(
                 self,
                 "route53-zone-id-output",
                 value=str(r53_zone_ids),
             )
-            cdk.CfnOutput(
+            CfnOutput(
                 self,
                 "route53-txt-owner-id",
                 value=r53_owner_id,
             )
 
-        cdk.CfnOutput(
+        CfnOutput(
             self,
             "agent_config",
             value="\"agent_config\" is no longer supported, please manually create your install configuration based on the provisioning outputs",
         )
 
-        cdk.CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
+        CfnOutput(self, "cdk_config", value=DominoCdkUtil.ruamel_dump(self.cfg.render(True)))
