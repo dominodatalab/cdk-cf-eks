@@ -24,7 +24,7 @@ class TestDominoAwsConfigurator(TestCase):
         assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 21)  # 20 calico, one aws-auth
 
-        template = self.app.synth().get_stack("calico").template
+        template = self.app.synth().get_stack_by_name("calico").template
 
         crds_resource = next(res for name, res in template["Resources"].items() if name.startswith("calicocrds"))
         self.assertTrue(len(loads(crds_resource["Properties"]["Manifest"])) > 0)
@@ -46,7 +46,7 @@ class TestDominoAwsConfigurator(TestCase):
         assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("Custom::AWSCDK-EKS-KubernetesResource", 2)  # two calico, one aws-auth
 
-        template = self.app.synth().get_stack("calico").template
+        template = self.app.synth().get_stack_by_name("calico").template
 
         crds_resource = next(
             (res for name, res in template["Resources"].items() if name.startswith("calicocrds")), None
