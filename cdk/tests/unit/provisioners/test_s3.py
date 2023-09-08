@@ -72,7 +72,14 @@ class TestDominoS3Provisioner(TestCase):
                     "Effect": "Allow",
                 },
                 {
-                    "Action": ['s3:PutObject', 's3:PutObjectLegalHold', 's3:PutObjectRetention', 's3:PutObjectTagging', 's3:PutObjectVersionTagging', 's3:Abort*'],
+                    "Action": [
+                        's3:PutObject',
+                        's3:PutObjectLegalHold',
+                        's3:PutObjectRetention',
+                        's3:PutObjectTagging',
+                        's3:PutObjectVersionTagging',
+                        's3:Abort*',
+                    ],
                     "Effect": "Allow",
                 },
                 {
