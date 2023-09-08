@@ -199,7 +199,7 @@ class DominoVpcProvisioner:
         bastion_opts: Dict[Any, Any] = {}
 
         if bastion.ami_id:
-            region = cdk.Stack.of(self.scope).region
+            region = Stack.of(self.scope).region
             bastion_opts["machine_image"] = ec2.MachineImage.generic_linux(
                 {region: bastion.ami_id},
                 user_data=ec2.UserData.custom(bastion.user_data) if bastion.user_data else None,
