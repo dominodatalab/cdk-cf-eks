@@ -1,6 +1,6 @@
 import aws_cdk.aws_s3 as s3
 from aws_cdk.assertions import Template
-from aws_cdk.core import App, Environment, Stack
+from aws_cdk import App, Environment, Stack
 
 from domino_cdk.config import VPC, IngressRule
 from domino_cdk.provisioners.vpc import DominoVpcProvisioner

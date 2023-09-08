@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import aws_cdk.aws_eks as eks
 from aws_cdk.assertions import Template
-from aws_cdk.core import App, Environment, Stack
+from aws_cdk import App, Environment, Stack
 
 from domino_cdk.provisioners.eks import DominoEksClusterProvisioner
 
