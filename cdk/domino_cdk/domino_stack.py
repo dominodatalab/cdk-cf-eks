@@ -26,9 +26,7 @@ class DominoStack(Stack):
     s3_stack: Optional[DominoS3Provisioner] = None
     monitoring_bucket: Optional[s3.Bucket] = None
 
-    def __init__(
-        self, scope: Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = True, **kwargs
-    ) -> None:
+    def __init__(self, scope: Construct, construct_id: str, cfg: DominoCDKConfig, nest: bool = True, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # The code that defines your stack goes here

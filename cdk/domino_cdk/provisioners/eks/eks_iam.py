@@ -84,9 +84,7 @@ class DominoEksIamProvisioner:
                     ],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
                     resources=[
-                        Arn.format(
-                            ArnComponents(region="*", service="ecr", resource="*"), Stack.of(self.scope)
-                        )
+                        Arn.format(ArnComponents(region="*", service="ecr", resource="*"), Stack.of(self.scope))
                     ],
                 ),
             ],
@@ -210,9 +208,7 @@ class DominoEksIamProvisioner:
                     ],
                     resources=[
                         Arn.format(
-                            ArnComponents(
-                                account="", region="", service="route53", resource=f"hostedzone/{zone_id}"
-                            ),
+                            ArnComponents(account="", region="", service="route53", resource=f"hostedzone/{zone_id}"),
                             Stack.of(self.scope),
                         )
                         for zone_id in r53_zone_ids
