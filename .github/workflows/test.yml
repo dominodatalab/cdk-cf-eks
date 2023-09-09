@@ -169,18 +169,23 @@ jobs:
       run: |
         pip install -r requirements.txt
         ssh-keygen -t rsa -f dummy.pem -N ''
-        ./convert.py print-stack --stack-name $NAME --region $AWS_REGION --verbose --yaml > stack-data.yaml
+
+        ##TODO
+        export STACK_NAME="$NAME" MOD_VERSION="miguelhar.cdk-convert-support"
         export MOD_VALIDATION_OFF=true ## Needed to be able to set the module source to a nonversioned release(i.e branch).
-        ./convert.py setup-terraform  --stack-name $NAME --region "$AWS_REGION" --mod-version "miguelhar.cdk-convert-support"
-        ./convert.py create-tfvars --stack-name $NAME --region $AWS_REGION --ssh-key-path ./dummy.pem
-        ./convert.py set-imports --stack-name $NAME --region $AWS_REGION
+
+        envsubst < config.tpl | tee config.yaml
+        ./convert.py check-requirements
+        ./convert.py print-stack --verbose --yaml > stack-data.yaml
+        ./convert.py setup-tf-modules
+        ./convert.py create-tfvars --ssh-key-path ./dummy.pem
+        ./convert.py set-imports
     - name: Run terraform
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert
       run: |
-        export DEPLOY_ID="$NAME"
         set -o pipefail
-        if pushd "$DEPLOY_ID"; then
+        if pushd "$NAME"; then
           if source meta.sh; then
             for component in cdk_tf infra cluster nodes; do
               echo "Running terraform for $component"
@@ -224,7 +229,7 @@ jobs:
           fi
           popd
         else
-          echo "Failed to change directory to $DEPLOY_ID. Exiting..."
+          echo "Failed to change directory to $NAME. Exiting..."
           exit 1
         fi
     - name: Authenticate with AWS
@@ -237,8 +242,8 @@ jobs:
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert
       run: |
-        ./convert.py clean-stack --stack-name $NAME --region $AWS_REGION --remove-security-group-references --delete
-        ./convert.py delete-stack --stack-name $NAME --region $AWS_REGION --delete
+        ./convert.py clean-stack --remove-security-group-references --delete
+        ./convert.py delete-stack --delete
     - name: Upload diagnostic data
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       uses: actions/upload-artifact@v2
@@ -265,10 +270,9 @@ jobs:
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert
       run: |
-        export DEPLOY_ID="$NAME"
-        cd $DEPLOY_ID
+        cd "$NAME"
         for component in 'nodes' 'cluster' 'infra' 'cdk_tf'; do
-          echo "Runing terraform for $component"
+          echo "Running terraform for $component"
           ./tf.sh "$component" destroy
         done
         # terraform destroy -auto-approve

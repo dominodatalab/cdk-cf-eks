@@ -36,9 +36,10 @@ To convert the CDK stack to terraform, we will...
 
 ### Prerequisites
 * terraform version >= 1.5.0
-* python 3.11
+* python >=3.9
 * jq
 * [hcledit](https://github.com/minamijoyo/hcledit)
+* Bash >= 4
 
 ### convert.py usage
 
@@ -57,6 +58,12 @@ To convert the CDK stack to terraform, we will...
 	delete-stack        Get commands to delete old stack
 	print-stack         Print CDK stack resources
 
+### Validate requirements
+Validate the the requirements are installed and the expected version.
+
+    ./convert.py check-requirements
+
+
 ### Set environment variables
 Set `AWS_REGION`, `DEPLOY_ID` and `MOD_VERSION` environment variables with appropriate values.
 
@@ -68,13 +75,21 @@ Command:
 
     export AWS_REGION='us-east-1' DEPLOY_ID='my-main-stack-name' MOD_VERSION='v3.0.0'
 
+
+### Set Config values
+Write environment variables' values to config file.
+
+Command:
+
+     envsubst < config.tpl | tee config.yaml
+
 ### Setup the terraform modules.
 The following command will create a directory named after variable `$DEPLOY_ID` where it will Initialize the necessary terraform configuration.
 It will also copy over `cdk_tf` under the  `$DEPLOY_ID/terraform` directory to centralize the terraform configuration.
 
 Command:
 
-    ./convert.py setup-terraform --region "$AWS_REGION" --stack-name "$DEPLOY_ID" --mod-version "$MOD_VERSION"
+    ./convert.py setup-tf-modules
 
 ### Create terraform variables
 

@@ -3,6 +3,7 @@
 import argparse
 import json
 import re
+import shlex
 import shutil
 from copy import deepcopy
 from functools import cached_property
@@ -10,7 +11,7 @@ from os import listdir, makedirs
 from os.path import abspath, exists, join
 from pathlib import Path
 from pprint import pprint
-from subprocess import run
+from subprocess import check_output, run
 from sys import stderr
 from textwrap import dedent
 from time import sleep
@@ -18,6 +19,7 @@ from typing import Any
 
 import boto3
 import yaml
+from packaging import version
 
 from .meta import cdk_ids, cf_status, stack_map
 from .nuke import nuke
@@ -50,11 +52,69 @@ def nested_az_replace(d: dict, count: int):
     return d
 
 
+def check_binary(binary_name: str, version_args: str, version_regex=None, min_version=None):
+    try:
+        cmd = f"{binary_name} {version_args}"
+        print(f"Running: `{cmd}`")
+        out = check_output(shlex.split(cmd)).decode("utf-8")
+
+        v_re = r"\d+(\.\d+)*" if not version_regex else version_regex
+        if re_match := re.search(v_re, out):
+            installed_version = re_match.group(0)
+            print(f"{binary_name} is installed, version: {installed_version}\n")
+
+            if min_version:
+                installed_version_parsed = version.parse(installed_version)
+                minimum_version = version.parse(min_version)
+                if installed_version_parsed < minimum_version:
+                    print(
+                        f"FAIL: The installed version of {binary_name} is less than the minimum required version ({min_version})\n"
+                    )
+                    return 1
+        else:
+            print("{v_re} failed to match any versions")
+            return 1
+
+        return 0
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return 1
+
+
 class app:
     def __init__(self):
         self.parse_args()
         self.args.command()
         self.setup_boto_clients()
+
+    @cached_property
+    def config(self) -> dict[str, Any]:
+        config_file = Path("config.yaml")
+        if not exists(config_file):
+            raise Exception(f"{config_file} does not exist.")
+        with open(config_file, "r") as f:
+            return yaml.safe_load(f.read())
+
+    @cached_property
+    def requirements(self) -> dict[str, Any]:
+        r_file = Path("requirements.yaml")
+        if not exists(r_file):
+            raise Exception(f"{r_file} does not exist.")
+        with open(r_file, "r") as f:
+            return yaml.safe_load(f.read())
+
+    @property
+    def region(self) -> str:
+        return self.config["AWS_REGION"]
+
+    @property
+    def stack_name(self) -> str:
+        return self.config["STACK_NAME"]
+
+    @property
+    def mod_version(self) -> str:
+        return self.config["MOD_VERSION"]
 
     def get_stacks(self, stack: str = None, full: bool = False):
         stacks = {"resources": {}}
@@ -96,8 +156,6 @@ class app:
         self.r53 = boto3.client("route53", self.region)
 
     def setup(self, full: bool = False, no_stacks: bool = False):
-        self.region = self.args.region
-        self.stack_name = self.args.stack_name
         self.cf_stack_key = re.sub(r"\W", "", self.stack_name)
 
         self.setup_boto_clients()
@@ -141,16 +199,16 @@ class app:
         subparsers = parser.add_subparsers(title="commands")
 
         common_parser = argparse.ArgumentParser(add_help=False)
-        common_parser.add_argument("--region", help="AWS Region", required=True)
-        common_parser.add_argument("--stack-name", help="Name of stack", required=True)
 
         setup_tf_mods_parser = subparsers.add_parser(
-            name="setup-terraform", help="Sets up the terraform module", parents=[common_parser]
-        )
-        setup_tf_mods_parser.add_argument(
-            "--mod-version", help="Release version for terraform-aws-eks(Must be >= v3.0.0)", required=True
+            name="setup-tf-modules", help="Sets up the terraform module", parents=[common_parser]
         )
         setup_tf_mods_parser.set_defaults(command=self.setup_tf_mods)
+
+        check_requirements = subparsers.add_parser(
+            name="check-requirements", help="Checks if requirements are installed", parents=[common_parser]
+        )
+        check_requirements.set_defaults(command=self.check_requirements)
 
         create_tfvars_parser = subparsers.add_parser(
             name="create-tfvars", help="Generate tfvars", parents=[common_parser]
@@ -190,7 +248,9 @@ class app:
         resource_map_parser.set_defaults(command=self.resource_map)
 
         import_parser = subparsers.add_parser(
-            name="set-imports", help="Get terraform import commands", parents=[common_parser]
+            name="set-imports",
+            help="Writes import blocks to the corresponding terraform module",
+            parents=[common_parser],
         )
         import_parser.add_argument(
             "--availability-zones",
@@ -258,6 +318,22 @@ class app:
         if not getattr(self.args, "command", None):
             parser.print_help()
             exit(0)
+
+    def check_requirements(self):
+        binaries = self.requirements["binaries"]
+        return_codes = []
+        for b, args in binaries.items():
+            return_codes.append(
+                check_binary(
+                    binary_name=b,
+                    version_args=args.get("version_args"),
+                    min_version=args.get("min_version"),
+                    version_regex=args.get("version_regex"),
+                )
+            )
+
+        if any(code != 0 for code in return_codes):
+            raise Exception("One or more binaries failed the check.")
 
     def print_stack(self):
         self.setup(full=self.args.verbose)
@@ -426,7 +502,7 @@ class app:
         print("Setting up terraform modules...")
 
         deploy_dir = self.stack_name
-        mod_version = self.args.mod_version
+        mod_version = self.mod_version
         example_url = f"github.com/dominodatalab/terraform-aws-eks.git//examples/deploy?ref={mod_version}"
 
         makedirs(deploy_dir, exist_ok=True)
@@ -437,6 +513,7 @@ class app:
             "-backend=false",
             f"-from-module={example_url}",
         ]
+        print(f"Running {cmd}...")
         tf_mod_run = run(cmd, capture_output=True, text=True)
         if tf_mod_run.returncode != 0:
             print("Error Initializing from module command failed.", tf_mod_run.stdout, tf_mod_run.stderr)
