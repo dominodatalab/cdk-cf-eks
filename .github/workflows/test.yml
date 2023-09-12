@@ -170,9 +170,12 @@ jobs:
         pip install -r requirements.txt
         ssh-keygen -t rsa -f dummy.pem -N ''
 
-        ##TODO
-        export STACK_NAME="$NAME" MOD_VERSION="miguelhar.cdk-convert-support"
-        export MOD_VALIDATION_OFF=true ## Needed to be able to set the module source to a nonversioned release(i.e branch).
+        export STACK_NAME="$NAME"
+        export MOD_VERSION="v3.0.1-rc.4"
+
+        ## Needed to be able to set the module source to a nonversioned release(i.e branch) or any tag not following vX.Y.Z.
+        ## TODO unset once v3.0.1 is released.
+        export MOD_VALIDATION_OFF=true
 
         envsubst < config.tpl | tee config.yaml
         ./convert.py check-requirements
@@ -184,54 +187,53 @@ jobs:
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert
       run: |
-        set -o pipefail
-        if pushd "$NAME"; then
-          if source meta.sh; then
-            for component in cdk_tf infra cluster nodes; do
-              echo "Running terraform for $component"
+        set -euo pipefail
 
-              if ! ./tf.sh "$component" 'init'; then
-                echo "Initialization for $component failed. Exiting..."
-                exit 1
-              fi
+        pushd "$NAME" >/dev/null || { echo "Error changing into $NAME." && exit 1; }
 
-              if ! ./tf.sh "$component" 'plan_out'; then
-                echo "Plan for $component failed. Exiting..."
-                exit 1
-              fi
-
-              echo "Checking plan for resource deletes.."
-
-              if ! ./tf.sh "$component" 'show_plan_json' | \
-              sed -n '/^{.*}$/p' | \
-              jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
-              tee "${component}-tf-deletes.plan.json"; then
-                echo "Error processing json plan for deletes inspection. Exiting..."
-                exit 1
-              fi
-
-              if [ -s "${component}-tf-deletes.plan.json" ]; then
-                echo "Detected deletions, bailing..."
-                exit 1
-              else
-                echo "No deletes found"
-              fi
-
-              if ! ./tf.sh "$component" 'apply_plan'; then
-                echo "Apply plan for $component failed. Exiting..."
-                exit 1
-              fi
-
-            done
-          else
-            echo "Failed to source meta.sh. Exiting..."
-            exit 1
-          fi
-          popd
-        else
-          echo "Failed to change directory to $NAME. Exiting..."
+        if ! source "meta.sh"; then
+          echo "There was an error sourcing meta.sh"
           exit 1
         fi
+
+        for component in cdk_tf infra cluster nodes; do
+          echo "Running terraform for $component"
+
+          if ! ./tf.sh "$component" 'init'; then
+            echo "Initialization for $component failed. Exiting..."
+            exit 1
+          fi
+
+          if ! ./tf.sh "$component" 'plan_out'; then
+            echo "Plan for $component failed. Exiting..."
+            exit 1
+          fi
+
+          echo "Checking plan for resource deletes.."
+
+          if ! ./tf.sh "$component" 'show_plan_json' | \
+          sed -n '/^{.*}$/p' | \
+          jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
+          tee "${component}-tf-deletes.plan.json"; then
+            echo "Error processing json plan for deletes inspection. Exiting..."
+            exit 1
+          fi
+
+          if [ -s "${component}-tf-deletes.plan.json" ]; then
+            echo "Detected deletions, bailing..."
+            exit 1
+          else
+            echo "No deletes found"
+          fi
+
+          if ! ./tf.sh "$component" 'apply_plan'; then
+            echo "Apply plan for $component failed. Exiting..."
+            exit 1
+          fi
+        done
+
+        popd >/dev/null || exit 1
+
     - name: Authenticate with AWS
       uses: aws-actions/configure-aws-credentials@v3
       with:
@@ -275,7 +277,6 @@ jobs:
           echo "Running terraform for $component"
           ./tf.sh "$component" destroy
         done
-        # terraform destroy -auto-approve
     - name: Destroy Infrastructure cf
       if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert/cloudformation-only

@@ -54,7 +54,7 @@ To convert the CDK stack to terraform, we will...
       {create-tfvars,resource-map,set-imports,delete-stack,print-stack}
 	create-tfvars       Generate tfvars
 	resource-map        Create resource map for customization/debugging of set-imports command (optional step)
-	set-imports         Get terraform import commands
+	set-imports         Writes import blocks to the corresponding terraform module
 	delete-stack        Get commands to delete old stack
 	print-stack         Print CDK stack resources
 
@@ -95,7 +95,7 @@ Command:
 
 First, we must create the variables going into our Terraform config.
 
-* The following command will look at the current CDK stack and autopropagate the Terraform variables onto the appropriate modules. It will generate multiple files with extension `*.tfvars.json` under `$DEPLOY_ID/terraform`.
+* The following command will look at the current CDK stack and autopropagate the Terraform variables for the appropriate modules by generating multiple files with extension `*.tfvars.json` under `$DEPLOY_ID/terraform`.
 
 * `$DEPLOY_ID/terraform/cdk_tf.tfvars.json`
 * `$DEPLOY_ID/terraform/infra.tfvars.json`
@@ -105,7 +105,7 @@ First, we must create the variables going into our Terraform config.
 
 Command:
 
-    ./convert.py create-tfvars --region us-east-1 --stack-name mystack --ssh-key-path /path/to/key.pem
+    ./convert.py create-tfvars --ssh-key-path /path/to/key.pem
 
 * :exclamation: Inspect the generated tfvars.json files for correctness.
 
@@ -125,7 +125,7 @@ Then, we'll use `convert.py` to generate the Terraform import blocks to import o
 
 Command:
 
-    ./convert.py set-imports --region us-east-1 --stack-name mystack
+    ./convert.py set-imports
 
 
 ### Review and Configure Node Groups
@@ -135,7 +135,7 @@ Please review the instructions for that module, and configure the nodegroups as 
 
 ### Evaluate the Terraform plan
 
-Change onto the `DEPLOY_ID` directory:
+Change into the `DEPLOY_ID` directory:
 
     cd "$DEPLOY_ID"
 
@@ -212,7 +212,7 @@ There are various resources CDK managed, but terraform does not need, such as:
 
 There is a `clean-stack` command to help clean these up.
 
-    ./convert.py clean-stack --region us-east-1 --stack-name mystack
+    ./convert.py clean-stack
 
 You'll note that there is a comment about security groups:
 
@@ -229,7 +229,7 @@ These rules aren't cleaned up automatically by default, as they can involve edit
 
 By default, this command does *not* actually make changes. To run the clean process for real, add `--delete`:
 
-    ./convert.py clean-stack --region us-east-1 --stack-name mystack --delete [--remove-security-group-references]
+    ./convert.py clean-stack --delete [--remove-security-group-references]
 
 ### Delete the old cloudformation stack
 
@@ -247,12 +247,12 @@ This will provision an IAM role that *only has permission to CloudFormation and 
 
 Once this is provisioned, run `convert.py`'s `delete-stack` command and read its instructions:
 
-    ./convert.py delete-stack --region us-east-1 --stack-name mystack
+    ./convert.py delete-stack
 
     Manual instructions:
     First run this delete-stack command using the cloudformation-only role:
 
-    aws cloudformation delete-stack --region us-east-1 --stack-name mystack --role arn:aws:iam::1234567890:role/cloudformation-only
+    aws cloudformation delete-stack --role arn:aws:iam::1234567890:role/cloudformation-only
 
     This will *attempt* to delete the entire CDK stack, but *intentionally fail* so as to leave the stack in the delete failed state, with all resources having failed. This opens the gate to retain every resource, so the following runs can delete the stack(s) and only the stack(s). After running the first command, rerun this and then execute the following to safely delete the stacks:
 
@@ -262,7 +262,7 @@ Once this is provisioned, run `convert.py`'s `delete-stack` command and read its
 
 Rerun the `delete-stack` command with `--delete` (or run the boto commands manually, if you prefer):
 
-    ./convert.py delete-stack --region us-east-1 --stack-name mystack --delete
+    ./convert.py delete-stack --delete
 
 This may seem a bit strange, but there is no direct way to only remove a CloudFormation stack, while retaining all the resources. However, once a CloudFormation stack deletion even has failed, it is possible to re-attempt this stack deletion and specify failed resources to retain. So what this process does is use the limited permission role to cause all resource deletions to fail, and then specifies all extant resources as resources to retain on the subsequent attempt.
 
