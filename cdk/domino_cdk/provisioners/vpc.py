@@ -268,6 +268,7 @@ class DominoVpcProvisioner:
         cr.AwsCustomResource(
             self.scope,
             "RequireBastionHTTPTokens",
+            install_latest_aws_sdk=False,
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
             on_update=cr.AwsSdkCall(
