@@ -23,7 +23,7 @@ class DominoCdkUtil:
             try:
                 artifacts = json_loads(f.read())["artifacts"]
                 artifacts.pop("Tree")
-                stack_name = list(artifacts)[0]
+                stack_name = [k for k in artifacts.keys() if not k.endswith(".assets")][0]
                 env = artifacts[stack_name]["environment"]
                 aws_region = basename(urlparse(env).path)
                 metadata = artifacts[stack_name]["metadata"][f"/{stack_name}"]
