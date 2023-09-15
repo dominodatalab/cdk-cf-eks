@@ -1,6 +1,6 @@
 import aws_cdk.aws_s3 as s3
+from aws_cdk import App, Environment, Stack
 from aws_cdk.assertions import Template
-from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.config import VPC, IngressRule
 from domino_cdk.provisioners.vpc import DominoVpcProvisioner
@@ -46,7 +46,7 @@ class TestDominoVPCProvisioner(TestCase):
         assertion.resource_count_is("AWS::EC2::RouteTable", 9)
         assertion.resource_count_is("AWS::EC2::Instance", 1)
 
-        template = self.app.synth().get_stack("VPC").template
+        template = self.app.synth().get_stack_by_name("VPC").template
         instance = self.find_resource(template, "AWS::EC2::Instance")
         self.assertEqual(
             [
@@ -163,7 +163,7 @@ class TestDominoVPCProvisioner(TestCase):
         assertion = Template.from_stack(self.stack)
         assertion.resource_count_is("AWS::EC2::Instance", 1)
 
-        template = self.app.synth().get_stack("VPC").template
+        template = self.app.synth().get_stack_by_name("VPC").template
         instance = self.find_resource(template, "AWS::EC2::Instance")
         self.assertIsNone(instance["Properties"].get("BlockDeviceMappings"))
         self.assertEqual("ami-1234567890", instance["Properties"]["ImageId"])

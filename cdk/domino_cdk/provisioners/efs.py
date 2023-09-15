@@ -3,8 +3,9 @@ import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_efs as efs
 import aws_cdk.aws_events as events
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
+from aws_cdk import CfnOutput, Duration, NestedStack, RemovalPolicy
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -16,7 +17,7 @@ _DominoEfsStack = None
 class DominoEfsProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         stack_name: str,
         cfg: config.EFS,
@@ -26,7 +27,7 @@ class DominoEfsProvisioner:
         **kwargs,
     ):
         self.parent = parent
-        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
+        self.scope = NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self.provision_efs(stack_name, cfg, vpc, security_group)
         if cfg.backup.enable:
@@ -41,11 +42,11 @@ class DominoEfsProvisioner:
             file_system_name=stack_name,
             # kms_key,
             # lifecycle_policy,
-            removal_policy=cdk.RemovalPolicy.DESTROY if cfg.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
+            removal_policy=RemovalPolicy.DESTROY if cfg.removal_policy_destroy else RemovalPolicy.RETAIN,
             security_group=security_group,
             performance_mode=efs.PerformanceMode.GENERAL_PURPOSE,
             throughput_mode=efs.ThroughputMode.BURSTING,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT),
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
         )
 
         self.efs_access_point = self.efs.add_access_point(
@@ -70,10 +71,10 @@ class DominoEfsProvisioner:
             self.scope,
             "efs_backup",
             backup_vault_name=f"{stack_name}-efs",
-            removal_policy=cdk.RemovalPolicy[efs_backup.removal_policy or cdk.RemovalPolicy.RETAIN.value],
+            removal_policy=RemovalPolicy[efs_backup.removal_policy or RemovalPolicy.RETAIN.value],
         )
 
-        cdk.CfnOutput(self.parent, "backup-vault", value=vault.backup_vault_name)
+        CfnOutput(self.parent, "backup-vault", value=vault.backup_vault_name)
         plan = backup.BackupPlan(
             self.scope,
             "efs_backup_plan",
@@ -81,14 +82,14 @@ class DominoEfsProvisioner:
             backup_plan_rules=[
                 backup.BackupPlanRule(
                     backup_vault=vault,
-                    delete_after=cdk.Duration.days(d) if (d := efs_backup.delete_after) else None,
-                    move_to_cold_storage_after=cdk.Duration.days(d)
+                    delete_after=Duration.days(d) if (d := efs_backup.delete_after) else None,
+                    move_to_cold_storage_after=Duration.days(d)
                     if (d := efs_backup.move_to_cold_storage_after)
                     else None,
                     rule_name="efs-rule",
                     schedule_expression=events.Schedule.expression(f"cron({efs_backup.schedule})"),
-                    start_window=cdk.Duration.hours(1),
-                    completion_window=cdk.Duration.hours(3),
+                    start_window=Duration.hours(1),
+                    completion_window=Duration.hours(3),
                 )
             ],
         )

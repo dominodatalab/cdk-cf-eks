@@ -1,6 +1,7 @@
 import aws_cdk.aws_certificatemanager as acm
 import aws_cdk.aws_route53 as route53
-from aws_cdk import core as cdk
+from aws_cdk import NestedStack
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -8,7 +9,7 @@ from domino_cdk import config
 class DominoAcmProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         stack_name: str,
         cfg: config.ACM,
@@ -16,7 +17,7 @@ class DominoAcmProvisioner:
         **kwargs,
     ):
         self.parent = parent
-        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
+        self.scope = NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self.provision_acm(stack_name, cfg)
 

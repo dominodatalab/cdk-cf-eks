@@ -3,8 +3,9 @@ from typing import Dict, List
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
+from aws_cdk import CfnOutput, NestedStack, Stack
 from aws_cdk.aws_s3 import Bucket
+from constructs import Construct
 
 from domino_cdk import config
 from domino_cdk.provisioners.eks.eks_cluster import DominoEksClusterProvisioner
@@ -15,7 +16,7 @@ from domino_cdk.provisioners.eks.eks_nodegroup import DominoEksNodegroupProvisio
 class DominoEksProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         stack_name: str,
         eks_cfg: config.EKS,
@@ -27,7 +28,7 @@ class DominoEksProvisioner:
         buckets: Dict[str, Bucket],
         **kwargs,
     ) -> None:
-        self.scope = cdk.NestedStack(parent, construct_id, **kwargs) if nest else parent
+        self.scope = NestedStack(parent, construct_id, **kwargs) if nest else parent
 
         self.scope.untagged_resources = parent.untagged_resources
 
@@ -35,6 +36,7 @@ class DominoEksProvisioner:
 
         self.cluster = DominoEksClusterProvisioner(self.scope).provision(
             stack_name,
+            parent,
             eks_version,
             eks_cfg.private_api,
             eks_cfg.secrets_encryption_key_arn,
@@ -49,11 +51,6 @@ class DominoEksProvisioner:
             self.scope, self.cluster, ng_role, stack_name, eks_cfg, eks_version, vpc, private_subnet_name, bastion_sg
         )
 
-        cdk.CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
+        CfnOutput(parent, "eks_cluster_name", value=self.cluster.cluster_name)
 
-        region = cdk.Stack.of(self.scope).region
-        cdk.CfnOutput(
-            parent,
-            "eks_kubeconfig_cmd",
-            value=f"aws eks update-kubeconfig --name {self.cluster.cluster_name} --region {region} --role-arn {self.cluster.kubectl_role.role_arn}",
-        )
+        region = Stack.of(self.scope).region

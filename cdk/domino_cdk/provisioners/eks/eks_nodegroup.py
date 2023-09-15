@@ -3,8 +3,8 @@ from typing import Any, Dict, List, Optional, Union
 import aws_cdk.aws_ec2 as ec2
 import aws_cdk.aws_eks as eks
 import aws_cdk.aws_iam as iam
-from aws_cdk import aws_autoscaling
-from aws_cdk import core as cdk
+from aws_cdk import Fn, Stack, Tags, aws_autoscaling
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -12,7 +12,7 @@ from domino_cdk import config
 class DominoEksNodegroupProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
         cluster: eks.Cluster,
         ng_role: iam.Role,
         stack_name: str,
@@ -52,7 +52,7 @@ class DominoEksNodegroupProvisioner:
     def provision_managed_nodegroup(
         self, name: str, ng: config.eks.EKS.ManagedNodegroup, max_nodegroup_azs: int
     ) -> None:
-        region = cdk.Stack.of(self.scope).region
+        region = Stack.of(self.scope).region
         machine_image: Optional[ec2.IMachineImage] = (
             ec2.MachineImage.generic_linux({region: ng.ami_id}) if ng.ami_id else None
         )
@@ -95,7 +95,7 @@ class DominoEksNodegroupProvisioner:
     def provision_unmanaged_nodegroup(
         self, name: str, ng: config.eks.EKS.UnmanagedNodegroup, max_nodegroup_azs: int
     ) -> None:
-        region = cdk.Stack.of(self.scope).region
+        region = Stack.of(self.scope).region
         machine_image = (
             ec2.MachineImage.generic_linux({region: ng.ami_id})
             if ng.ami_id
@@ -132,7 +132,7 @@ class DominoEksNodegroupProvisioner:
                 ),
             )
 
-        scope = cdk.Construct(self.scope, f"UnmanagedNodeGroup{name}")
+        scope = Construct(self.scope, f"UnmanagedNodeGroup{name}")
         cfn_lt = None
         availability_zones = ng.availability_zones or self.vpc.availability_zones[:max_nodegroup_azs]
         for i, az in enumerate(availability_zones):
@@ -165,7 +165,7 @@ class DominoEksNodegroupProvisioner:
                     },
                 }
             ).items():
-                cdk.Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
+                Tags.of(asg).add(str(k), str(v), apply_to_launched_instances=True)
 
             mime_user_data = self._handle_user_data(name, ng.ami_id, ng.ssm_agent, [ng.user_data, asg.user_data])
 
@@ -269,7 +269,7 @@ class DominoEksNodegroupProvisioner:
                 mime_user_data.add_part(
                     ec2.MultipartBody.from_user_data(
                         ec2.UserData.custom(
-                            cdk.Fn.sub(
+                            Fn.sub(
                                 ud,
                                 {
                                     "NodegroupName": name,

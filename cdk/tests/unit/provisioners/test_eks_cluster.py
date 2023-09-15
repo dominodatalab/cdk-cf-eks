@@ -2,8 +2,8 @@ from json import loads
 from unittest.mock import patch
 
 import aws_cdk.aws_eks as eks
+from aws_cdk import App, Environment, Stack
 from aws_cdk.assertions import Template
-from aws_cdk.core import App, Environment, Stack
 
 from domino_cdk.provisioners.eks import DominoEksClusterProvisioner
 
@@ -35,7 +35,7 @@ class TestEksClusterProvisioner(TestCase):
         assertion.has_resource_properties("AWS::EKS::Addon", {"AddonName": "kube-proxy", "AddonVersion": ADDON_VERSION})
         assertion.has_resource_properties("AWS::EKS::Addon", {"AddonName": "coredns", "AddonVersion": ADDON_VERSION})
 
-        template = self.app.synth().get_stack(STACK_NAME).template
+        template = self.app.synth().get_stack_by_name(STACK_NAME).template
 
         k8s_patch = self.find_resource(template, "Custom::AWSCDK-EKS-KubernetesPatch")
         properties = k8s_patch["Properties"]

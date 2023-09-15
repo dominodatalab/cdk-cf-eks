@@ -1,15 +1,16 @@
 from typing import Dict, List
 
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
+from aws_cdk import Arn, ArnComponents, Stack
 from aws_cdk.aws_s3 import Bucket
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 
 class DominoEksIamProvisioner:
     def __init__(
         self,
-        scope: cdk.Construct,
+        scope: Construct,
     ) -> None:
         self.scope = scope
 
@@ -83,9 +84,7 @@ class DominoEksIamProvisioner:
                     ],
                     conditions={"StringNotEqualsIfExists": {"ecr:ResourceTag/domino-deploy-id": stack_name}},
                     resources=[
-                        cdk.Arn.format(
-                            cdk.ArnComponents(region="*", service="ecr", resource="*"), cdk.Stack.of(self.scope)
-                        )
+                        Arn.format(ArnComponents(region="*", service="ecr", resource="*"), Stack.of(self.scope))
                     ],
                 ),
             ],
@@ -208,11 +207,9 @@ class DominoEksIamProvisioner:
                         "route53:ListResourceRecordSets",
                     ],
                     resources=[
-                        cdk.Arn.format(
-                            cdk.ArnComponents(
-                                account="", region="", service="route53", resource=f"hostedzone/{zone_id}"
-                            ),
-                            cdk.Stack.of(self.scope),
+                        Arn.format(
+                            ArnComponents(account="", region="", service="route53", resource=f"hostedzone/{zone_id}"),
+                            Stack.of(self.scope),
                         )
                         for zone_id in r53_zone_ids
                     ],

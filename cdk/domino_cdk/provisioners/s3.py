@@ -1,7 +1,7 @@
 from typing import Optional
 
 import aws_cdk.aws_iam as iam
-from aws_cdk import core as cdk
+from aws_cdk import CfnOutput, NestedStack, RemovalPolicy, Stack
 from aws_cdk.aws_kms import Key
 from aws_cdk.aws_s3 import (
     BlockPublicAccess,
@@ -11,6 +11,7 @@ from aws_cdk.aws_s3 import (
     ObjectOwnership,
 )
 from aws_cdk.region_info import Fact, FactName
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -18,7 +19,7 @@ from domino_cdk import config
 class DominoS3Provisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         name: str,
         s3: config.S3,
@@ -26,7 +27,7 @@ class DominoS3Provisioner:
         **kwargs,
     ):
         self.parent = parent
-        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
+        self.scope = NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
         self.monitoring_bucket: Optional[Bucket] = None
         self.provision_buckets(name, s3)
 
@@ -51,7 +52,7 @@ class DominoS3Provisioner:
             bucket_id,
             bucket_name=bucket_name,
             auto_delete_objects=attrs.auto_delete_objects and attrs.removal_policy_destroy,
-            removal_policy=cdk.RemovalPolicy.DESTROY if attrs.removal_policy_destroy else cdk.RemovalPolicy.RETAIN,
+            removal_policy=RemovalPolicy.DESTROY if attrs.removal_policy_destroy else RemovalPolicy.RETAIN,
             enforce_ssl=True,
             bucket_key_enabled=use_sse_kms_key,
             encryption_key=(sse_kms_key if use_sse_kms_key else None),
@@ -113,7 +114,7 @@ class DominoS3Provisioner:
                 object_ownership=ObjectOwnership.BUCKET_OWNER_PREFERRED,
             )
 
-            region = cdk.Stack.of(self.scope).region
+            region = Stack.of(self.scope).region
             self.monitoring_bucket.grant_put(
                 iam.AccountPrincipal(Fact.require_fact(region, FactName.ELBV2_ACCOUNT)),
                 "*",
@@ -145,7 +146,7 @@ class DominoS3Provisioner:
                 )
             )
 
-            cdk.CfnOutput(
+            CfnOutput(
                 self.parent,
                 "monitoring-bucket-output",
                 value=self.monitoring_bucket.bucket_name,
@@ -163,4 +164,4 @@ class DominoS3Provisioner:
         }
 
         for bucket_id, bucket in self.buckets.items():
-            cdk.CfnOutput(self.parent, f"{bucket_id}-bucket-output", value=bucket.bucket_name)
+            CfnOutput(self.parent, f"{bucket_id}-bucket-output", value=bucket.bucket_name)

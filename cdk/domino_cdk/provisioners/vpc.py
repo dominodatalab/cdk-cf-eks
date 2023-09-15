@@ -6,7 +6,8 @@ import aws_cdk.aws_iam as iam
 import aws_cdk.aws_logs as logs
 import aws_cdk.aws_s3 as s3
 import aws_cdk.custom_resources as cr
-from aws_cdk import core as cdk
+from aws_cdk import CfnOutput, Fn, NestedStack, Stack, Tags
+from constructs import Construct
 
 from domino_cdk import config
 
@@ -14,7 +15,7 @@ from domino_cdk import config
 class DominoVpcProvisioner:
     def __init__(
         self,
-        parent: cdk.Construct,
+        parent: Construct,
         construct_id: str,
         name: str,
         vpc: config.VPC,
@@ -23,7 +24,7 @@ class DominoVpcProvisioner:
         **kwargs,
     ) -> None:
         self.parent = parent
-        self.scope = cdk.NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
+        self.scope = NestedStack(self.parent, construct_id, **kwargs) if nest else self.parent
 
         self._availability_zones = vpc.availability_zones
 
@@ -43,7 +44,7 @@ class DominoVpcProvisioner:
             self.scope,
             "VPC",
             max_azs=vpc.max_azs,
-            cidr=vpc.cidr,
+            ip_addresses=ec2.IpAddresses.cidr(vpc.cidr),
             subnet_configuration=[
                 ec2.SubnetConfiguration(
                     subnet_type=ec2.SubnetType.PUBLIC,
@@ -51,7 +52,7 @@ class DominoVpcProvisioner:
                     cidr_mask=vpc.public_cidr_mask,  # can't use token ids
                 ),
                 ec2.SubnetConfiguration(
-                    subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT,
+                    subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS,
                     name=self.private_subnet_name,
                     cidr_mask=vpc.private_cidr_mask,  # can't use token ids
                 ),
@@ -63,17 +64,18 @@ class DominoVpcProvisioner:
             else {},
             nat_gateway_provider=nat_provider,
         )
-        cdk.Tags.of(self.vpc).add("Name", stack_name)
-        cdk.CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
+        Tags.of(self.vpc).add("Name", stack_name)
+        CfnOutput(self.parent, "vpc-output", value=self.vpc.vpc_cidr_block)
 
         default_sg = ec2.SecurityGroup.from_security_group_id(
             self.scope, "default_security_group", self.vpc.vpc_default_security_group
         )
-        # TODO: Default security group isn't tagged, and using cdk.Tags.of doesn't seem to work here
+        # TODO: Default security group isn't tagged, and using Tags.of doesn't seem to work here
 
         cr.AwsCustomResource(
             self.scope,
             "RevokeDefaultSecurityGroupEgress",
+            install_latest_aws_sdk=False,
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
             on_create=cr.AwsSdkCall(
@@ -90,6 +92,7 @@ class DominoVpcProvisioner:
         cr.AwsCustomResource(
             self.scope,
             "RevokeDefaultSecurityGroupIngress",
+            install_latest_aws_sdk=False,
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
             on_create=cr.AwsSdkCall(
@@ -157,7 +160,7 @@ class DominoVpcProvisioner:
                     vpc=self.vpc,
                     security_groups=[endpoint_sg],
                     service=ec2.InterfaceVpcEndpointAwsService(endpoint, port=443),
-                    subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_NAT),
+                    subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
                 )
 
         # TODO until https://github.com/aws/aws-cdk/issues/14194
@@ -166,6 +169,7 @@ class DominoVpcProvisioner:
             cr.AwsCustomResource(
                 self.scope,
                 name,
+                install_latest_aws_sdk=False,
                 log_retention=logs.RetentionDays.ONE_DAY,
                 policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
                 on_create=cr.AwsSdkCall(
@@ -195,7 +199,7 @@ class DominoVpcProvisioner:
         bastion_opts: Dict[Any, Any] = {}
 
         if bastion.ami_id:
-            region = cdk.Stack.of(self.scope).region
+            region = Stack.of(self.scope).region
             bastion_opts["machine_image"] = ec2.MachineImage.generic_linux(
                 {region: bastion.ami_id},
                 user_data=ec2.UserData.custom(bastion.user_data) if bastion.user_data else None,
@@ -264,6 +268,7 @@ class DominoVpcProvisioner:
         cr.AwsCustomResource(
             self.scope,
             "RequireBastionHTTPTokens",
+            install_latest_aws_sdk=False,
             log_retention=logs.RetentionDays.ONE_DAY,
             policy=cr.AwsCustomResourcePolicy.from_sdk_calls(resources=cr.AwsCustomResourcePolicy.ANY_RESOURCE),
             on_update=cr.AwsSdkCall(
@@ -280,7 +285,7 @@ class DominoVpcProvisioner:
             ),
         )
 
-        cdk.CfnOutput(self.parent, "bastion_public_ip", value=bastion_instance.instance_public_ip)
+        CfnOutput(self.parent, "bastion_public_ip", value=bastion_instance.instance_public_ip)
 
         return bastion_sg
 
@@ -288,7 +293,7 @@ class DominoVpcProvisioner:
     @property
     def availability_zones(self):
         return self._availability_zones or [
-            cdk.Fn.select(0, cdk.Fn.get_azs(self.scope.region)),
-            cdk.Fn.select(1, cdk.Fn.get_azs(self.scope.region)),
-            cdk.Fn.select(2, cdk.Fn.get_azs(self.scope.region)),
+            Fn.select(0, Fn.get_azs(self.scope.region)),
+            Fn.select(1, Fn.get_azs(self.scope.region)),
+            Fn.select(2, Fn.get_azs(self.scope.region)),
         ]
