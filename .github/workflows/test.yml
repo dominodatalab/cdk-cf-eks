@@ -171,11 +171,7 @@ jobs:
           ssh-keygen -t rsa -f dummy.pem -N ''
 
           export STACK_NAME="$NAME"
-          export MOD_VERSION="releases-v3"
-
-          ## Needed to be able to set the module source to a nonversioned release(i.e branch) or any tag not following vX.Y.Z.
-          ## TODO unset once v3.0.1 is released.
-          export MOD_VALIDATION_OFF=true
+          export MOD_VERSION="v3.0.1"
 
           envsubst < config.tpl | tee config.yaml
           ./convert.py check-requirements
