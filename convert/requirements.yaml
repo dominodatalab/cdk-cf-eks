@@ -1,0 +1,18 @@
+binaries:
+  python:
+    version_args: "--version"
+    min_version: "3.9.0"
+  jq:
+    version_args: "--version"
+  hcledit:
+    version_args: "version"
+  aws:
+    version_args: "--version"
+  terraform:
+    version_args: "version"
+    min_version: "1.5.0"
+    version_regex: "(?<=Terraform v)[0-9.]+"
+
+  bash:
+    version_args: "-c 'echo ${BASH_VERSINFO[0]}'"
+    min_version: "4"

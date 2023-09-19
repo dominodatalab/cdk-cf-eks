@@ -2,5 +2,5 @@ name: monitoring_bucket
 type: optional
 resources:
   s3_stack:
-  - cf: monitoring
-    tf: module.eks.module.storage.aws_s3_bucket.monitoring
+    - cf: monitoring
+      tf: module.infra.module.storage.aws_s3_bucket.monitoring
