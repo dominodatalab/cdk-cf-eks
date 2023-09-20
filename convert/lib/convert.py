@@ -688,7 +688,7 @@ class app:
 
             with open(vars_file, "r") as f:
                 content = f.read()
-                print(f"----\nModule: {mod},TFVars file:{vars_file}, content:\n{content}")
+                print(f"----\nModule: {mod}, TFVars file:{vars_file}, content:\n{content}")
 
         notes = ""
         if len(r53_zone_ids) > 1:
