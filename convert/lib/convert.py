@@ -11,7 +11,7 @@ from os import listdir, makedirs
 from os.path import abspath, exists, join
 from pathlib import Path
 from pprint import pprint
-from subprocess import check_output, run
+from subprocess import CalledProcessError, check_output, run
 from sys import stderr
 from textwrap import dedent
 from time import sleep
@@ -52,7 +52,7 @@ def nested_az_replace(d: dict, count: int):
     return d
 
 
-def check_binary(binary_name: str, version_args: str, version_regex=None, min_version=None):
+def check_binary(binary_name: str, version_args: str, version_regex=None, min_version=None, optional=False, err_msg=""):
     try:
         cmd = f"{binary_name} {version_args}"
         print(f"Running: `{cmd}`")
@@ -79,6 +79,9 @@ def check_binary(binary_name: str, version_args: str, version_regex=None, min_ve
 
     except Exception as e:
         print(f"An error occurred: {e}")
+        if optional:
+            print(f"{binary_name} is optional. {err_msg}\n")
+            return 0
         return 1
 
 
@@ -319,6 +322,14 @@ class app:
             parser.print_help()
             exit(0)
 
+    @property
+    def deploy_dir(self) -> str:
+        return self.stack_name
+
+    @property
+    def terraform_dir(self) -> Path:
+        return Path(self.deploy_dir, "terraform")
+
     def check_requirements(self):
         binaries = self.requirements["binaries"]
         return_codes = []
@@ -329,6 +340,8 @@ class app:
                     version_args=args.get("version_args"),
                     min_version=args.get("min_version"),
                     version_regex=args.get("version_regex"),
+                    optional=args.get("optional", False),
+                    err_msg=args.get("err_msg", ""),
                 )
             )
 
@@ -478,21 +491,18 @@ class app:
             self.write_blocks(component, import_values)
 
     def write_blocks(self, component: str, imports: list) -> None:
-        deploy_dir = self.stack_name
-        terraform_dir = Path(deploy_dir, "terraform")
-        imports_path = Path(terraform_dir, component, "imports.tf")
+        imports_path = Path(self.terraform_dir, component, "imports.tf")
         with open(imports_path, "w") as f:
             f.writelines(i for i in imports)
 
     def tf_sh(self, component: str, command: str) -> None:
-        deploy_dir = self.stack_name
         cmd = [
             "./tf.sh",
             component,
             command,
         ]
         print(f"Running {cmd}...")
-        tf_sh_run = run(cmd, cwd=deploy_dir, capture_output=True, text=True)
+        tf_sh_run = run(cmd, cwd=self.deploy_dir, capture_output=True, text=True)
         if tf_sh_run.returncode != 0:
             print(f"Error Running from module {cmd} failed.", tf_sh_run.stdout, tf_sh_run.stderr)
             exit(1)
@@ -501,14 +511,13 @@ class app:
         self.setup()
         print("Setting up terraform modules...")
 
-        deploy_dir = self.stack_name
         mod_version = self.mod_version
         example_url = f"github.com/dominodatalab/terraform-aws-eks.git//examples/deploy?ref={mod_version}"
 
-        makedirs(deploy_dir, exist_ok=True)
+        makedirs(self.deploy_dir, exist_ok=True)
         cmd = [
             "terraform",
-            f"-chdir={deploy_dir}",
+            f"-chdir={self.deploy_dir}",
             "init",
             "-backend=false",
             f"-from-module={example_url}",
@@ -527,7 +536,7 @@ class app:
             print("Error setting module version.", mod_version_run.stdout, mod_version_run.stderr)
             exit(1)
 
-        shutil.copytree(Path("cdk_tf"), Path(deploy_dir, "terraform", "cdk_tf"))
+        shutil.copytree(Path("cdk_tf"), Path(self.terraform_dir, "cdk_tf"))
 
         for mod in ["cdk_tf", "all"]:
             self.tf_sh(mod, "init")
@@ -669,15 +678,23 @@ class app:
         for mod, values in tfvars.items():
             tfvars_path = Path(mods_vars_dir, f"{mod}.tfvars")
             tfvars_path.unlink(missing_ok=True)
-            self.write_json_tfvars(values, Path(f"{tfvars_path}.json"))
+            tfvars_path_json = Path(f"{tfvars_path}.json")
+            self.write_json_tfvars(values, tfvars_path_json)
+            if self.json_to_hcl_vars(Path(mods_vars_dir, mod), tfvars_path_json, tfvars_path):
+                tfvars_path_json.unlink()
+                vars_file = tfvars_path
+            else:
+                vars_file = tfvars_path_json
+
+            with open(vars_file, "r") as f:
+                content = f.read()
+                print(f"----\nModule: {mod},TFVars file:{vars_file}, content:\n{content}")
 
         notes = ""
         if len(r53_zone_ids) > 1:
             notes += f"\n* You have multiple hosted zones, only the first ({r53_zone_ids[0]} [{route53_hosted_zone_name}]) will be used."
 
-        notes += (
-            "\n* Nodegroup settings do not carry over. Please examine tfvars if you want to make any customizations."
-        )
+        notes += f"\n* Nodegroup settings do not carry over. Please examine `{mods_vars_dir}/nodes.tfvars` if you want to make any customizations."
 
         if notes:
             print(f"*** IMPORTANT ***: {notes}", file=stderr)
@@ -685,6 +702,21 @@ class app:
     def write_json_tfvars(self, config: dict, filename: Path) -> None:
         with open(filename, "w") as f:
             f.write(json.dumps(config, indent=4))
+
+    def json_to_hcl_vars(self, tf_module_path: Path, json_vars_path: Path, hcl_vars_path: Path) -> bool:
+        cmd = f"tfvar {tf_module_path} --var-file={json_vars_path}"
+        try:
+            output = check_output(shlex.split(cmd), text=True)
+            if "Error" in output:
+                return False
+            with open(hcl_vars_path, "w") as f:
+                f.write(output)
+        except CalledProcessError:
+            return False
+        except Exception:
+            return False
+
+        return True
 
     def clean_stack(self):
         self.setup(full=True, no_stacks=self.args.resource_file)

@@ -12,6 +12,10 @@ binaries:
     version_args: "version"
     min_version: "1.5.0"
     version_regex: "(?<=Terraform v)[0-9.]+"
+  tfvar:
+    version_args: "--version"
+    optional: true
+    err_msg: "tfvars will be generated in json format instead of HCL."
 
   bash:
     version_args: "-c 'echo ${BASH_VERSINFO[0]}'"
