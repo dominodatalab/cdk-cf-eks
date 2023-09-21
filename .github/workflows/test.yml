@@ -162,6 +162,13 @@ jobs:
         curl -fsSL -o "${hcledit_artifact}" "https://github.com/minamijoyo/hcledit/releases/download/v${hcledit_version}/${hcledit_artifact}"
         tar xvzf "${hcledit_artifact}"
         sudo mv hcledit /usr/local/bin/ && rm "${hcledit_artifact}" && hcledit version
+    - name: Install tfvar
+      run: |
+        tfvar_version="0.8.0"
+        tfvar_artifact="tfvar_linux_amd64.tar.gz"
+        curl -fsSL -o "${tfvar_artifact}" "https://github.com/shihanng/tfvar/releases/download/v${tfvar_version}/${tfvar_artifact}"
+        tar xvzf "${tfvar_artifact}"
+        sudo mv tfvar /usr/local/bin/ && rm "${tfvar_artifact}" && tfvar --version
     - name: Setup terraform-aws-eks conversion process
       if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
       working-directory: ./convert

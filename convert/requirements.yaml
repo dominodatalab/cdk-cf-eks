@@ -12,6 +12,8 @@ binaries:
     version_args: "version"
     min_version: "1.5.0"
     version_regex: "(?<=Terraform v)[0-9.]+"
+  tfvar:
+    version_args: "--version"
 
   bash:
     version_args: "-c 'echo ${BASH_VERSINFO[0]}'"
