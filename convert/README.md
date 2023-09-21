@@ -38,9 +38,9 @@ To convert the CDK stack to terraform, we will...
 * terraform version >= 1.5.0
 * python >=3.9
 * jq
-* [hcledit](https://github.com/minamijoyo/hcledit)
 * Bash >= 4
-* [tfvar](https://github.com/shihanng/tfvar#installation) (Optional), Used to convert tfvars.json to HCL.
+* [hcledit](https://github.com/minamijoyo/hcledit)
+* [tfvar](https://github.com/shihanng/tfvar#installation)
 
 ### convert.py usage
 
@@ -94,27 +94,18 @@ Command:
 
 ### Create terraform variables
 
-Running the command below will inspect the existing CDK stack and automatically populate the corresponding Terraform variables for each module. This will generate multiple *.tfvars.json files within the `$DEPLOY_ID/terraform` directory:
-
-* `$DEPLOY_ID/terraform/cdk_tf.tfvars.json`
-* `$DEPLOY_ID/terraform/infra.tfvars.json`
-* `$DEPLOY_ID/terraform/cluster.tfvars.json`
-* `$DEPLOY_ID/terraform/nodes.tfvars.json`
-
-If the `tfvar` binary is already installed, this process will also attempt to convert the .tfvars.json files into HashiCorp Configuration Language (HCL) format for easier editing. The resulting .tfvars files will be saved in the same directory:
+Running the command below will inspect the existing CDK stack and automatically populate the corresponding Terraform variables for each module. This will generate multiple *.tfvars files: within the `$DEPLOY_ID/terraform` directory:
 
 * `$DEPLOY_ID/terraform/cdk_tf.tfvars`
 * `$DEPLOY_ID/terraform/infra.tfvars`
 * `$DEPLOY_ID/terraform/cluster.tfvars`
 * `$DEPLOY_ID/terraform/nodes.tfvars`
 
-Note: Only one .tfvars or .tfvars.json file is expected per module (cdk_tf, infra, cluster, nodes). This ensures that each module has a single source of truth for its variables.
-
 Command:
 
     ./convert.py create-tfvars --ssh-key-path /path/to/key.pem
 
-* :exclamation: Inspect the generated tfvars/tfvars.json files for correctness.
+* :exclamation: Inspect the generated *tfvars files for correctness.
 * :warning: This phase is not the appropriate time for making major changes to the configuration, as the migration to Terraform is still in progress. However, given that the CDK non-managed nodes are not migrated and new managed nodes will be provisioned, you have the flexibility to customize values within the nodes.tfvars file with the exception of availability zones.
 * :warning: Note that the ssh key is handled different in the terraform module. With CDK,
 we used an existing keypair, while the terraform module creates a keypair for

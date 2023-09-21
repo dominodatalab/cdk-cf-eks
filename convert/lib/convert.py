@@ -52,7 +52,7 @@ def nested_az_replace(d: dict, count: int):
     return d
 
 
-def check_binary(binary_name: str, version_args: str, version_regex=None, min_version=None, optional=False, err_msg=""):
+def check_binary(binary_name: str, version_args: str, version_regex=None, min_version=None):
     try:
         cmd = f"{binary_name} {version_args}"
         print(f"Running: `{cmd}`")
@@ -79,9 +79,6 @@ def check_binary(binary_name: str, version_args: str, version_regex=None, min_ve
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        if optional:
-            print(f"{binary_name} is optional. {err_msg}\n")
-            return 0
         return 1
 
 
@@ -340,8 +337,6 @@ class app:
                     version_args=args.get("version_args"),
                     min_version=args.get("min_version"),
                     version_regex=args.get("version_regex"),
-                    optional=args.get("optional", False),
-                    err_msg=args.get("err_msg", ""),
                 )
             )
 
