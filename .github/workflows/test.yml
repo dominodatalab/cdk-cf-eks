@@ -177,7 +177,7 @@ jobs:
         ssh-keygen -t rsa -f dummy.pem -N ''
 
         export DEPLOY_ID="$NAME"
-        export MOD_VERSION="v3.0.1"
+        export MOD_VERSION="v3.0.8"
 
         envsubst < config.tpl | tee config.yaml
         ./convert.py check-requirements
