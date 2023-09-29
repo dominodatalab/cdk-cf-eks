@@ -176,7 +176,7 @@ jobs:
         pip install -r requirements.txt
         ssh-keygen -t rsa -f dummy.pem -N ''
 
-        export STACK_NAME="$NAME"
+        export DEPLOY_ID="$NAME"
         export MOD_VERSION="v3.0.1"
 
         envsubst < config.tpl | tee config.yaml
