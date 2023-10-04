@@ -161,6 +161,29 @@ If plans output is reasonable, you can run `apply`:
     ./tf.sh cdk_tf apply
     ./tf.sh infra apply
 
+### Verify `apiservice` health
+
+In order to apply cluster and nodes changes, the cluster must be healthy. In particular, to upgrade Calico `apiservice`s provided by Domino should be double checked:
+```
+$ kubectl get apiservice -ojsonpath='{range .items[?(@.spec.service.namespace == "domino-platform")]}{.metadata.name} - {.status.conditions[-1].status} ({.status.conditions[-1].reason}){"\n"}{end}'
+v1beta1.external.metrics.k8s.io - True (Passed)
+v1beta1.metrics.k8s.io - True (Passed)
+```
+
+If either are `False`, make sure the corresponding `prometheus-adapter` and `metrics-server` pods are up and running.
+If it's not possible get them running, take a backup, delete the `apiservice` objects and then proceed with the infrastructure changes. 
+
+```
+kubectl get apiservice v1beta1.external.metrics.k8s.io -oyaml > v1beta1.external.metrics.k8s.io.yml
+kubectl delete apiservice v1beta1.external.metrics.k8s.io
+```
+
+After the successful conversion, re-apply the object.
+
+```
+kubectl create -f v1beta1.external.metrics.k8s.io.yml
+```
+
 ### Plan and Apply `cluster` and `nodes`.
 
 The `nodes` configuration depends on the `cluster` and `infra` states, Given that `infra` was applied already we need to do the same for cluster.
