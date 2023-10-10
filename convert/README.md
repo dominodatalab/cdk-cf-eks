@@ -70,11 +70,11 @@ Set `AWS_REGION`, `DEPLOY_ID` and `MOD_VERSION` environment variables with appro
 
 * `AWS_REGION`  AWS region for the CloudFormation stack.
 * `DEPLOY_ID` : Name of the main CloudFormation stack.
-* `MOD_VERSION`: Release tag for [terraform-aws-eks](https://github.com/dominodatalab/terraform-aws-eks/releases) in the form `vX.Y.Z` (using `v3.0.0` as an example).
+* `MOD_VERSION`: :warning: Use version `v3.0.11` or higher. Release tag for [terraform-aws-eks](https://github.com/dominodatalab/terraform-aws-eks/releases) in the form `vX.Y.Z` (using `v3.0.11` as an example).
 
 Command:
 
-    export AWS_REGION='us-east-1' DEPLOY_ID='my-main-stack-name' MOD_VERSION='v3.0.0'
+    export AWS_REGION='us-east-1' DEPLOY_ID='my-main-stack-name' MOD_VERSION='v3.0.11'
 
 
 ### Set Config values
@@ -171,7 +171,7 @@ v1beta1.metrics.k8s.io - True (Passed)
 ```
 
 If either are `False`, make sure the corresponding `prometheus-adapter` and `metrics-server` pods are up and running.
-If it's not possible get them running, take a backup, delete the `apiservice` objects and then proceed with the infrastructure changes. 
+If it's not possible get them running, take a backup, delete the `apiservice` objects and then proceed with the infrastructure changes.
 
 ```
 kubectl get apiservice v1beta1.external.metrics.k8s.io -oyaml > v1beta1.external.metrics.k8s.io.yml

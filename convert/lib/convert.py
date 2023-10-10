@@ -568,10 +568,14 @@ class app:
         eks_cluster_result = self.eks.describe_cluster(name=self.cdkconfig["name"])
         eks_k8s_version = eks_cluster_result["cluster"]["version"]
         eks_cluster_auto_sg = eks_cluster_result["cluster"]["resourcesVpcConfig"]["clusterSecurityGroupId"]
+        k8s_service_ipv4_cidr = eks_cluster_result["cluster"]["kubernetesNetworkConfig"]["serviceIpv4Cidr"]
 
         route53_hosted_zone_name = None
+        route53_hosted_zone_private = False
         if r53_zone_ids := self.cdkconfig["route53"]["zone_ids"]:
-            route53_hosted_zone_name = self.r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]["Name"]
+            hosted_zone = self.r53.get_hosted_zone(Id=r53_zone_ids[0])["HostedZone"]
+            route53_hosted_zone_name = hosted_zone["Name"]
+            route53_hosted_zone_private = hosted_zone["Config"]["PrivateZone"]
 
         subnet_result = self.ec2.describe_subnets(SubnetIds=get_subnet_ids("Private"))
         az_zone_ids = [s["AvailabilityZoneId"] for s in subnet_result["Subnets"]]
@@ -592,6 +596,7 @@ class app:
         }
 
         eks = {
+            "service_ipv4_cidr": k8s_service_ipv4_cidr,
             "k8s_version": eks_k8s_version,
             "public_access": {
                 "enabled": eks_cluster_result["cluster"]["resourcesVpcConfig"]["endpointPublicAccess"],
@@ -650,6 +655,7 @@ class app:
                 "enabled": False,
             },
             "route53_hosted_zone_name": route53_hosted_zone_name,
+            "route53_hosted_zone_private": route53_hosted_zone_private,
             "bastion": {
                 "enabled": eks_cluster_result["cluster"]["resourcesVpcConfig"]["endpointPrivateAccess"],
             },
