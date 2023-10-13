@@ -1,3 +1,4 @@
+from ipaddress import ip_network, net
 from typing import Any, Dict, List, Optional, Union
 
 import aws_cdk.aws_ec2 as ec2
@@ -220,6 +221,14 @@ class DominoEksNodegroupProvisioner:
                 else None,
             )
 
+            if self.eks_cfg.service_ipv4_cidr:
+                # https://github.com/awslabs/amazon-eks-ami/issues/636
+                # DNS for the cluster needs to be set if we are using a custom CIDR
+                ip_network(self.eks_cfg.service_ipv4_cidr)
+                dns_cluster_ip=net[10]
+            else:
+                dns_cluster_ip=None
+
             options: dict[str, Any] = {
                 "bootstrap_enabled": ng.ami_id is None,
             }
@@ -234,7 +243,7 @@ class DominoEksNodegroupProvisioner:
                     extra_args.append(
                         "--register-with-taints={}".format(",".join(["{}={}".format(k, v) for k, v in taints.items()]))
                     )
-                options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args))
+                options["bootstrap_options"] = eks.BootstrapOptions(kubelet_extra_args=" ".join(extra_args), dns_cluster_ip=dns_cluster_ip)
 
             self.cluster.connect_auto_scaling_group_capacity(asg, **options)
 
