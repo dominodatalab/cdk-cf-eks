@@ -23,271 +23,273 @@ jobs:
         working-directory: ./cdk
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    - name: Setup nodejs
-      uses: actions/setup-node@v2
-      with:
-        node-version: 18
-    - uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_version: 1.5.6
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install awscli build
-    - name: Install aws-cdk
-      run: npm install -g aws-cdk@$(pip freeze | grep aws-cdk-lib | sed -e 's/.*==//')
-    - name: Lint with flake8/black/isort
-      run: |
-        set -x
-        export FILES=(*.py domino_cdk tests ../convert/)
-        for f in ${FILES[@]}; do
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 $f --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings.
-        flake8 $f --count --ignore=E501,W503 --exit-zero --statistics
-        black $f --check
-        isort $f --check
-        done
-    - name: Test with pytest
-      run: |
-        coverage run -m pytest tests
-    - name: Coverage report
-      run: |
-        coverage report
-    - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        unset-current-credentials: true
-        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
-        aws-region: ${{ env.AWS_REGION }}
-    - name: Create/lint default config
-      env:
-        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
-        GITHUB_SHA: ${{ github.sha }}
-        REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-        REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        ACM_CERT_ARN: ${{ secrets.DELTA_ACM_CERT_ARN }}
-        BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
-        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
-      run: |
-        export NAME=cdk-${GITHUB_SHA:0:6}-$(date +%s)
-        echo "NAME=$NAME" >> $GITHUB_ENV
-        ./util.py generate_config_template --name $NAME --aws-region=$AWS_REGION --aws-account-id=$AWS_ACCOUNT_ID --dev --platform-nodegroups 2 --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs | tee config.yaml
-        ./util.py load_config -f ./config.yaml
-    - name: Test default config (single and nested stacks)
-      env:
-        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
-      run: |
-        echo 'CDK acknowledge: AWS CDK v1 End-of-Support June 1, 2023'
-        cdk acknowledge 19836
-        echo 'CDK acknowledge: (eks) eks overly permissive trust policies'
-        cdk acknowledge 25674
-        cdk synth --context singlestack=true -q
-        cdk synth -q
-    - name: Upload distribution artifacts
-      env:
-        DOMINO_CDK_VERSION: "0.0.0+${{ github.sha }}"
-        DATEDIR: "date +%Y%m%d"
-      run: |
-        cd ..
-        make clean && make dist
-        for suffix in "" "-terraform"; do
-        filename="domino-cdk$suffix-$DOMINO_CDK_VERSION.tar.gz"
-        aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
-        urlfile=$(python -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))' <<< "$filename")
-        echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$urlfile"
-        done
-    - name: Bootstrap CDK
-      env:
-        AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
-        AWS_REGION: ${{ env.AWS_REGION }}
-        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
-      run: cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
-    - name: Deploy CDK
-      if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
-      env:
-        REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-        REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
-      run: |
-        docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
-        cdk deploy --require-approval never --outputs-file outputs.json
-        $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Setup nodejs
+        uses: actions/setup-node@v2
+        with:
+          node-version: 18
+      - uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.6
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install awscli build
+      - name: Install aws-cdk
+        run: npm install -g aws-cdk@$(pip freeze | grep aws-cdk-lib | sed -e 's/.*==//')
+      - name: Lint with flake8/black/isort
+        run: |
+          set -x
+          export FILES=(*.py domino_cdk tests ../convert/)
+          for f in ${FILES[@]}; do
+          # stop the build if there are Python syntax errors or undefined names
+          flake8 $f --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings.
+          flake8 $f --count --ignore=E501,W503 --exit-zero --statistics
+          black $f --check
+          isort $f --check
+          done
+      - name: Test with pytest
+        run: |
+          coverage run -m pytest tests
+      - name: Coverage report
+        run: |
+          coverage report
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          unset-current-credentials: true
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Create/lint default config
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
+          GITHUB_SHA: ${{ github.sha }}
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          ACM_CERT_ARN: ${{ secrets.DELTA_ACM_CERT_ARN }}
+          BASE_DOMAIN: ${{ secrets.DELTA_BASE_DOMAIN }}
+          JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
+        run: |
+          export NAME=cdk-${GITHUB_SHA:0:6}-$(date +%s)
+          echo "NAME=$NAME" >> $GITHUB_ENV
+          ./util.py generate_config_template --name $NAME --aws-region=$AWS_REGION --aws-account-id=$AWS_ACCOUNT_ID --dev --platform-nodegroups 2 --registry-username $REGISTRY_USERNAME --registry-password $REGISTRY_PASSWORD --hostname $NAME.$BASE_DOMAIN --acm-cert-arn $ACM_CERT_ARN --disable-flow-logs | tee config.yaml
+          ./util.py load_config -f ./config.yaml
+      - name: Test default config (single and nested stacks)
+        env:
+          JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
+        run: |
+          echo 'CDK acknowledge: AWS CDK v1 End-of-Support June 1, 2023'
+          cdk acknowledge 19836
+          echo 'CDK acknowledge: (eks) eks overly permissive trust policies'
+          cdk acknowledge 25674
+          cdk synth --context singlestack=true -q
+          cdk synth -q
+      - name: Upload distribution artifacts
+        env:
+          DOMINO_CDK_VERSION: "0.0.0+${{ github.sha }}"
+          DATEDIR: "date +%Y%m%d"
+        run: |
+          cd ..
+          make clean && make dist
+          for suffix in "" "-terraform"; do
+          filename="domino-cdk$suffix-$DOMINO_CDK_VERSION.tar.gz"
+          aws s3 cp --acl=public-read ./dist/$filename s3://domino-artifacts/cdk/$($DATEDIR)/$filename
+          urlfile=$(python -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip()))' <<< "$filename")
+          echo "Artifact url: https://domino-artifacts.s3.amazonaws.com/cdk/$($DATEDIR)/$urlfile"
+          done
+      - name: Bootstrap CDK
+        env:
+          AWS_ACCOUNT_ID: ${{ secrets.DELTA_ACCOUNT_ID }}
+          AWS_REGION: ${{ env.AWS_REGION }}
+          JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
+        run: cdk bootstrap "aws://$AWS_ACCOUNT_ID/$AWS_REGION"
+      - name: Deploy CDK
+        if: contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master'
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+          JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
+        run: |
+          docker login -u $REGISTRY_USERNAME -p $REGISTRY_PASSWORD quay.io
+          cdk deploy --require-approval never --outputs-file outputs.json
+          $(jq -r ".[].ekskubeconfigcmd" outputs.json) --kubeconfig ./kubeconfig
 
-    - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        unset-current-credentials: true
-        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
-        aws-region: ${{ env.AWS_REGION }}
-    - name: Collect diagnostic data
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      env:
-        KUBECONFIG: ./kubeconfig
-        LOG_DIR: /tmp/k8s-cluster-state/cdk
-      run: |
-        set +e
-        curl -Lo /usr/local/bin/kubectl  "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl"
-        for ns in domino-platform domino-compute domino-system kube-system; do
-          mkdir -p $LOG_DIR/$ns
-          kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
-          kubectl -n $ns get po -o yaml > $LOG_DIR/$ns/pods.txt
-          kubectl -n $ns describe po > $LOG_DIR/$ns/pods-described.txt
-          kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns/pvcs.txt
-          kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns/svcs.txt
-          kubectl -n $ns describe svc > $LOG_DIR/$ns/svcs-described.txt
-          kubectl -n $ns get events > $LOG_DIR/$ns/events.txt
-        done
-        kubectl get pv -o yaml > $LOG_DIR/pvs.txt
-        kubectl get no -o yaml > $LOG_DIR/nodes.txt
-        kubectl describe no > $LOG_DIR/nodes-described.txt
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          unset-current-credentials: true
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Collect diagnostic data
+        if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        env:
+          KUBECONFIG: ./kubeconfig
+          LOG_DIR: /tmp/k8s-cluster-state/cdk
+        run: |
+          set +e
+          curl -Lo /usr/local/bin/kubectl  "https://dl.k8s.io/release/v1.23.6/bin/linux/amd64/kubectl"
+          for ns in domino-platform domino-compute domino-system kube-system; do
+            mkdir -p $LOG_DIR/$ns
+            kubectl -n $ns get ing -o yaml > $LOG_DIR/$ns/ingress.txt
+            kubectl -n $ns get po -o yaml > $LOG_DIR/$ns/pods.txt
+            kubectl -n $ns describe po > $LOG_DIR/$ns/pods-described.txt
+            kubectl -n $ns get pvc -o yaml > $LOG_DIR/$ns/pvcs.txt
+            kubectl -n $ns get svc -o yaml > $LOG_DIR/$ns/svcs.txt
+            kubectl -n $ns describe svc > $LOG_DIR/$ns/svcs-described.txt
+            kubectl -n $ns get events > $LOG_DIR/$ns/events.txt
+          done
+          kubectl get pv -o yaml > $LOG_DIR/pvs.txt
+          kubectl get no -o yaml > $LOG_DIR/nodes.txt
+          kubectl describe no > $LOG_DIR/nodes-described.txt
 
-    - name: Setup cloudformation-only user for safe stack deletion
-      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert/cloudformation-only
-      run: |
-        echo "{\"region\":\"us-west-2\",\"tags\":{},\"suffix\":\"$NAME\"}" | tee terraform.tfvars.json
-        terraform init
-        terraform plan -out=terraform.plan
-        terraform apply -auto-approve terraform.plan
-    - name: Install hcledit
-      run: |
-        hcledit_version="0.2.9"
-        hcledit_artifact=hcledit_${hcledit_version}_linux_amd64.tar.gz
-        curl -fsSL -o "${hcledit_artifact}" "https://github.com/minamijoyo/hcledit/releases/download/v${hcledit_version}/${hcledit_artifact}"
-        tar xvzf "${hcledit_artifact}"
-        sudo mv hcledit /usr/local/bin/ && rm "${hcledit_artifact}" && hcledit version
-    - name: Install tfvar
-      run: |
-        tfvar_version="0.8.0"
-        tfvar_artifact="tfvar_linux_amd64.tar.gz"
-        curl -fsSL -o "${tfvar_artifact}" "https://github.com/shihanng/tfvar/releases/download/v${tfvar_version}/${tfvar_artifact}"
-        tar xvzf "${tfvar_artifact}"
-        sudo mv tfvar /usr/local/bin/ && rm "${tfvar_artifact}" && tfvar --version
-    - name: Setup terraform-aws-eks conversion process
-      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert
-      run: |
-        pip install -r requirements.txt
-        ssh-keygen -t rsa -f dummy.pem -N ''
+      - name: Setup cloudformation-only user for safe stack deletion
+        if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        working-directory: ./convert/cloudformation-only
+        run: |
+          echo "{\"region\":\"us-west-2\",\"tags\":{},\"suffix\":\"$NAME\"}" | tee terraform.tfvars.json
+          terraform init
+          terraform plan -out=terraform.plan
+          terraform apply -auto-approve terraform.plan
+      - name: Install hcledit
+        run: |
+          hcledit_version="0.2.9"
+          hcledit_artifact=hcledit_${hcledit_version}_linux_amd64.tar.gz
+          curl -fsSL -o "${hcledit_artifact}" "https://github.com/minamijoyo/hcledit/releases/download/v${hcledit_version}/${hcledit_artifact}"
+          tar xvzf "${hcledit_artifact}"
+          sudo mv hcledit /usr/local/bin/ && rm "${hcledit_artifact}" && hcledit version
+      - name: Install tfvar
+        run: |
+          tfvar_version="0.8.0"
+          tfvar_artifact="tfvar_linux_amd64.tar.gz"
+          curl -fsSL -o "${tfvar_artifact}" "https://github.com/shihanng/tfvar/releases/download/v${tfvar_version}/${tfvar_artifact}"
+          tar xvzf "${tfvar_artifact}"
+          sudo mv tfvar /usr/local/bin/ && rm "${tfvar_artifact}" && tfvar --version
+      - name: Setup terraform-aws-eks conversion process
+        if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        working-directory: ./convert
+        run: |
+          pip install -r requirements.txt
+          ssh-keygen -t rsa -f dummy.pem -N ''
 
-        export DEPLOY_ID="$NAME"
-        export MOD_VERSION="v3.0.11"
+          export DEPLOY_ID="$NAME"
+
+          export MOD_VALIDATION_OFF="ON"
+          export MOD_VERSION="miguelhar.DOM-52551-gov-cloud"
 
 
-        envsubst < config.tpl | tee config.yaml
-        ./convert.py check-requirements
-        ./convert.py print-stack --verbose --yaml >stack-data.yaml
-        ./convert.py setup-tf-modules
-        ./convert.py create-tfvars --ssh-key-path ./dummy.pem
-        ./convert.py set-imports
-    - name: Run terraform
-      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert
-      run: |
-        set -euo pipefail
+          envsubst < config.tpl | tee config.yaml
+          ./convert.py check-requirements
+          ./convert.py print-stack --verbose --yaml >stack-data.yaml
+          ./convert.py setup-tf-modules
+          ./convert.py create-tfvars --ssh-key-path ./dummy.pem
+          ./convert.py set-imports
+      - name: Run terraform
+        if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        working-directory: ./convert
+        run: |
+          set -euo pipefail
 
-        pushd "$NAME" >/dev/null || { echo "Error changing into $NAME." && exit 1; }
+          pushd "$NAME" >/dev/null || { echo "Error changing into $NAME." && exit 1; }
 
-        if ! source "meta.sh"; then
-          echo "There was an error sourcing meta.sh"
+          if ! source "meta.sh"; then
+            echo "There was an error sourcing meta.sh"
+            exit 1
+          fi
+
+          for component in cdk_tf infra cluster nodes; do
+            echo "Running terraform for $component"
+
+            if ! ./tf.sh "$component" 'init'; then
+              echo "Initialization for $component failed. Exiting..."
+              exit 1
+            fi
+
+            if ! ./tf.sh "$component" 'plan_out'; then
+              echo "Plan for $component failed. Exiting..."
+              exit 1
+            fi
+
+            echo "Checking plan for resource deletes.."
+
+            if ! ./tf.sh "$component" 'show_plan_json' | \
+            sed -n '/^{.*}$/p' | \
+            jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
+            tee "${component}-tf-deletes.plan.json"; then
+              echo "Error processing json plan for deletes inspection. Exiting..."
+              exit 1
+            fi
+
+            if [ -s "${component}-tf-deletes.plan.json" ]; then
+              echo "Detected deletions, bailing..."
+              exit 1
+            else
+              echo "No deletes found"
+            fi
+
+            if ! ./tf.sh "$component" 'apply_plan'; then
+              echo "Apply plan for $component failed. Exiting..."
+              exit 1
+            fi
+          done
+
+          popd >/dev/null || exit 1
+
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          unset-current-credentials: true
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Clean and delete stack
+        if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        working-directory: ./convert
+        run: |
+          ./convert.py clean-stack --remove-security-group-references --delete
+          ./convert.py delete-stack --delete
+      - name: Upload diagnostic data
+        if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        uses: actions/upload-artifact@v2
+        with:
+          name: Diagnostic Data
+          path: ./
+          retention-days: 14
+
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@v3
+        if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        with:
+          role-duration-seconds: 7200
+          unset-current-credentials: true
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Delete stack w/CDK
+        if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        env:
+          JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
+        working-directory: ./cdk
+        run: |
+          cdk destroy --force
+      - name: Destroy Infrastructure tf
+        if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        working-directory: ./convert
+        run: |
+          cd "$NAME"
+          for component in 'nodes' 'cluster' 'infra' 'cdk_tf'; do
+            echo "Running terraform for $component"
+            ./tf.sh "$component" destroy
+          done
+      - name: Destroy Infrastructure cf
+        if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
+        working-directory: ./convert/cloudformation-only
+        run: |
+          terraform destroy -auto-approve
+      - name: Fail without deploy
+        if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/master') }}
+        run: |
+          echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
           exit 1
-        fi
-
-        for component in cdk_tf infra cluster nodes; do
-          echo "Running terraform for $component"
-
-          if ! ./tf.sh "$component" 'init'; then
-            echo "Initialization for $component failed. Exiting..."
-            exit 1
-          fi
-
-          if ! ./tf.sh "$component" 'plan_out'; then
-            echo "Plan for $component failed. Exiting..."
-            exit 1
-          fi
-
-          echo "Checking plan for resource deletes.."
-
-          if ! ./tf.sh "$component" 'show_plan_json' | \
-          sed -n '/^{.*}$/p' | \
-          jq '.resource_changes[] | select(.change.actions | contains(["delete"]))' | \
-          tee "${component}-tf-deletes.plan.json"; then
-            echo "Error processing json plan for deletes inspection. Exiting..."
-            exit 1
-          fi
-
-          if [ -s "${component}-tf-deletes.plan.json" ]; then
-            echo "Detected deletions, bailing..."
-            exit 1
-          else
-            echo "No deletes found"
-          fi
-
-          if ! ./tf.sh "$component" 'apply_plan'; then
-            echo "Apply plan for $component failed. Exiting..."
-            exit 1
-          fi
-        done
-
-        popd >/dev/null || exit 1
-
-    - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        unset-current-credentials: true
-        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
-        aws-region: ${{ env.AWS_REGION }}
-    - name: Clean and delete stack
-      if: (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert
-      run: |
-        ./convert.py clean-stack --remove-security-group-references --delete
-        ./convert.py delete-stack --delete
-    - name: Upload diagnostic data
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      uses: actions/upload-artifact@v2
-      with:
-        name: Diagnostic Data
-        path: ./
-        retention-days: 14
-
-    - name: Authenticate with AWS
-      uses: aws-actions/configure-aws-credentials@v3
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      with:
-        role-duration-seconds: 7200
-        unset-current-credentials: true
-        role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
-        aws-region: ${{ env.AWS_REGION }}
-    - name: Delete stack w/CDK
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      env:
-        JSII_SILENCE_WARNING_DEPRECATED_NODE_VERSION: 1
-      working-directory: ./cdk
-      run: |
-        cdk destroy --force
-    - name: Destroy Infrastructure tf
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert
-      run: |
-        cd "$NAME"
-        for component in 'nodes' 'cluster' 'infra' 'cdk_tf'; do
-          echo "Running terraform for $component"
-          ./tf.sh "$component" destroy
-        done
-    - name: Destroy Infrastructure cf
-      if: always() && (contains(github.event.pull_request.labels.*.name, 'deploy-test') || github.ref == 'refs/heads/master')
-      working-directory: ./convert/cloudformation-only
-      run: |
-        terraform destroy -auto-approve
-    - name: Fail without deploy
-      if: ${{ github.event.pull_request.draft == false && ! (contains(github.event.pull_request.labels.*.name, 'deploy-test') || contains(github.event.pull_request.labels.*.name, 'no-deploy-needed') || github.ref == 'refs/heads/master') }}
-      run: |
-        echo "Deploy tests required on non-draft PRs. Please add 'deploy-test' label".
-        exit 1
