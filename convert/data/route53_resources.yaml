@@ -1,6 +1,0 @@
-name: route53
-type: optional
-resources:
-  eks_stack:
-    - cf: route53
-      tf: module.infra.aws_iam_policy.route53[0]
