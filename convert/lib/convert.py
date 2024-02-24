@@ -626,9 +626,11 @@ class app:
             "ssh_pvt_key_path": abspath(self.args.ssh_key_path),
             "network": {
                 "vpc": {
-                    "id": self.cdkconfig["vpc"]["id"]
-                    if not self.cdkconfig["vpc"]["create"]
-                    else self.stacks["vpc_stack"]["resources"]["VPC"],
+                    "id": (
+                        self.cdkconfig["vpc"]["id"]
+                        if not self.cdkconfig["vpc"]["create"]
+                        else self.stacks["vpc_stack"]["resources"]["VPC"]
+                    ),
                     "subnets": {
                         "private": get_subnet_ids("Private"),
                         "public": get_subnet_ids("Public"),
@@ -654,8 +656,6 @@ class app:
             "kms": {
                 "enabled": False,
             },
-            "route53_hosted_zone_name": route53_hosted_zone_name,
-            "route53_hosted_zone_private": route53_hosted_zone_private,
             "bastion": {
                 "enabled": eks_cluster_result["cluster"]["resourcesVpcConfig"]["endpointPrivateAccess"],
             },
@@ -664,6 +664,18 @@ class app:
         }
 
         tfvars["cluster"]["eks"] = eks
+
+        if route53_hosted_zone_name:
+            tfvars["cluster"]["irsa_external_dns"] = {
+                "enabled": True,
+                "hosted_zone_name": route53_hosted_zone_name,
+                "hosted_zone_private": route53_hosted_zone_private,
+                "rm_role_policy": {
+                    "remove": True,
+                    "detach_from_role": True,
+                    "policy_name": f"${deploy_id}-route53",
+                },
+            }
 
         if eks_cluster_kms_key_arn := eks_cluster_result["cluster"]["encryptionConfig"][0]["provider"]["keyArn"]:
             tfvars["cluster"]["kms_info"] = {

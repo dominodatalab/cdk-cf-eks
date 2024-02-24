@@ -16,11 +16,11 @@ resources:
       value: /aws/eks/%stack_name%/cluster
     - cf: S3
       tf: module.infra.module.storage.aws_iam_policy.s3
-    - tf: module.nodes.aws_eks_addon.this["coredns"]
+    - tf: module.nodes.aws_eks_addon.post_compute["coredns"]
       value: "%stack_name%:coredns"
-    - tf: module.eks.aws_eks_addon.vpc_cni
+    - tf: module.nodes.aws_eks_addon.pre_compute["vpc-cni"]
       value: "%stack_name%:vpc-cni"
-    - tf: module.nodes.aws_eks_addon.this["kube-proxy"]
+    - tf: module.nodes.aws_eks_addon.pre_compute["kube-proxy"]
       value: "%stack_name%:kube-proxy"
     - cf: eksCreationRole
       tf: module.infra.aws_iam_role.create_eks_role
